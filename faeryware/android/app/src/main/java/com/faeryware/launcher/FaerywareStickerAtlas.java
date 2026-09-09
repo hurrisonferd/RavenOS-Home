@@ -5,19 +5,25 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 
 final class FaerywareStickerAtlas {
-    private static Bitmap atlas;
-    private static final int CELLS = 6;
+    private static final Bitmap[] CACHE = new Bitmap[6];
+    private static final int[] RES = {
+        R.drawable.fae_kyu_224,
+        R.drawable.fae_paimon_224,
+        R.drawable.fae_luma_224,
+        R.drawable.fae_sylph_224,
+        R.drawable.fae_qira_224,
+        R.drawable.fae_nyx_224
+    };
+
     private FaerywareStickerAtlas() {}
 
     static synchronized Bitmap sticker(Context context, int faeIndex, int stateIndex) {
-        if (atlas == null || atlas.isRecycled()) {
-            atlas = BitmapFactory.decodeResource(context.getResources(), R.drawable.faeryware_v5_sticker_atlas);
+        int i = Math.floorMod(faeIndex, RES.length);
+        Bitmap b = CACHE[i];
+        if (b == null || b.isRecycled()) {
+            b = BitmapFactory.decodeResource(context.getResources(), RES[i]);
+            CACHE[i] = b;
         }
-        if (atlas == null) return null;
-        int row = Math.floorMod(faeIndex, CELLS);
-        int col = Math.floorMod(stateIndex, CELLS);
-        int cw = atlas.getWidth() / CELLS;
-        int ch = atlas.getHeight() / CELLS;
-        return Bitmap.createBitmap(atlas, col * cw, row * ch, cw, ch);
+        return b;
     }
 }
