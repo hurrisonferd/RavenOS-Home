@@ -1,0 +1,1 @@
+Do not add more giant atlas chunks. V5.1 uses a compact direct Android binary resource and builds without runtime base64 materialization.
