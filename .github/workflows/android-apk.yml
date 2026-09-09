@@ -1,0 +1,51 @@
+name: Build RavenOS Home APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'site/**'
+      - '.github/workflows/android-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build debug APK
+        working-directory: android
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Stage APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk RavenOS-Home-debug.apk
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RavenOS-Home-debug-apk
+          path: RavenOS-Home-debug.apk
+      - name: Publish latest mobile release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mobile-${{ github.run_number }}
+          name: RavenOS Home Mobile ${{ github.run_number }}
+          make_latest: true
+          generate_release_notes: false
+          files: RavenOS-Home-debug.apk
+          body: |
+            RavenOS Home debug APK built from ${{ github.sha }}.
+
+            This is the public-safe mobile shell. It bundles the same `site/` cockpit used by GitHub Pages and contains no private RavenOS tokens or private repository data.
