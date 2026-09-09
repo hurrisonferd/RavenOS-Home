@@ -9,8 +9,8 @@
     "windows": [{
       "label": "main",
       "title": "Faeryware Resident",
-      "width": 300,
-      "height": 330,
+      "width": 350,
+      "height": 390,
       "transparent": true,
       "decorations": false,
       "alwaysOnTop": true,
