@@ -10,7 +10,7 @@
 <main class="shell">
   <div class="eyebrow">RAVENOS // FAERYWARE // OFFICEOS</div>
   <div class="title">DIGI FAE OFFICE FLOOR</div>
-  <div class="sub">Visible colony work state plus Fae Eyes territory control. Observation does not become owner execution by presentation.</div>
+  <div class="sub">Window territory control plus explicit Fae Eyes pixel vision. Structural awareness stays on; screen pixels stay off until Raven turns vision on.</div>
 
   <section class="grid">
     <div class="card">
@@ -25,10 +25,7 @@
     </div>
     <div class="card">
       <div class="k">OFFICE LAW</div>
-      <div class="law">
-        <strong>SEE → SUGGEST → REVERSIBLE ACTION</strong><br>
-        The Fae can map visible desktop windows and perform bounded local window controls. No document text or keystrokes are read by default. Window-title vision is explicit.
-      </div>
+      <div class="law"><strong>SEE → SUGGEST → REVERSIBLE ACTION</strong><br>Fae Eyes vision is explicit and local-first. Pixel capture is in-memory and the built-in vision bridge only calls Ollama at 127.0.0.1. Ollama <code>:cloud</code> models are blocked.</div>
     </div>
   </section>
 
@@ -44,6 +41,23 @@
     <button id="hide">HIDE OFFICE</button>
   </div>
 
+  <section class="card" id="visionCard">
+    <div class="sectionHead">
+      <div><div class="k">FAE EYES // PIXEL VISION</div><div class="hint">Explicit capture only. WINDOW watches the last selected/foreground external window. DESKTOP sees the full virtual desktop.</div></div>
+      <div class="portalStatus" id="visionStatus">VISION // CHECKING</div>
+    </div>
+    <div class="controls">
+      <button id="visionScope">PIXEL VISION: OFF</button>
+      <button id="lookNow">LOOK NOW</button>
+      <button id="autoVision">AUTO LOOK: OFF</button>
+      <input id="visionModel" list="visionModels" value="gemma3" aria-label="local Ollama vision model" style="min-width:180px;padding:8px;border-radius:10px;background:#100d18;color:white;border:1px solid rgba(255,255,255,.18)">
+      <datalist id="visionModels"></datalist>
+    </div>
+    <div id="visionTarget" class="hint">TARGET // none selected</div>
+    <img id="visionPreview" alt="Fae Eyes capture preview" style="display:none;width:100%;max-height:320px;object-fit:contain;margin-top:10px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:#020204">
+    <div id="visionSummary" class="law" style="margin-top:10px">Fae Eyes are structurally awake. Pixel vision is currently off.</div>
+  </section>
+
   <section class="card">
     <div class="k">FAE FLOOR</div>
     <div id="floor"></div>
@@ -51,10 +65,7 @@
 
   <section class="card territoryCard">
     <div class="sectionHead">
-      <div>
-        <div class="k">FAE EYES // WINDOWS TERRITORY MAP</div>
-        <div class="hint">Visible top-level windows only. Controls are reversible local window actions.</div>
-      </div>
+      <div><div class="k">FAE EYES // WINDOWS TERRITORY MAP</div><div class="hint">Visible top-level windows only. LOOK explicitly selects a pixel-vision target; other controls are reversible local window actions.</div></div>
       <div class="portalStatus" id="portalStatus">PHONE PORTAL // CHECKING</div>
     </div>
     <div id="windows"></div>
@@ -66,12 +77,7 @@
   </section>
 </main>
 
-<script src="assets/kyu.js"></script>
-<script src="assets/paimon.js"></script>
-<script src="assets/luma.js"></script>
-<script src="assets/nyx.js"></script>
-<script src="assets/sylph.js"></script>
-<script src="assets/qira.js"></script>
+<script src="assets/kyu.js"></script><script src="assets/paimon.js"></script><script src="assets/luma.js"></script><script src="assets/nyx.js"></script><script src="assets/sylph.js"></script><script src="assets/qira.js"></script>
 <script src="office.js"></script>
 </body>
 </html>

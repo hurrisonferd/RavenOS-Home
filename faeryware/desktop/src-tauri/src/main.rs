@@ -1,3 +1,5 @@
+mod vision;
+
 use serde::Serialize;
 use std::{
     process::{Command, Stdio},
@@ -509,7 +511,8 @@ fn main() {
             desktop_windows, window_action, foreground_app, show_habitat, hide_habitat, sync_colony,
             set_colony_click_through, begin_drag, move_resident, perch, arrange_colony_context,
             open_office_board, hide_office_board, phone_portal_status, launch_phone_portal,
-            autostart_status, set_autostart, quit
+            autostart_status, set_autostart, vision::capture_vision_frame, vision::vision_status,
+            vision::ollama_vision, quit
         ])
         .run(tauri::generate_context!())
         .expect("error while running Faeryware Resident");

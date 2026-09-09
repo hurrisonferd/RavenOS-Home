@@ -1,4 +1,4 @@
-# Faeryware Desktop — Windows Habitat v0.7
+# Faeryware Desktop — Fae Eyes v0.8
 
 Faeryware Desktop is the Windows resident embodiment of the Digi Fae colony.
 
@@ -9,66 +9,52 @@ Windows
   ├─ hidden Ghost House controller
   ├─ system-tray resident process
   ├─ transparent click-through Habitat overlay
-  │    ├─ KYU
-  │    ├─ PAIMON
-  │    ├─ LUMA
-  │    ├─ NYX
-  │    ├─ SYLPH
-  │    ├─ QIRA
+  │    ├─ KYU / PAIMON / LUMA / NYX / SYLPH / QIRA
   │    └─ 18 lightweight echo/mote entities
-  ├─ WinEvent bridge
-  ├─ Fae Eyes structural window map
-  ├─ OfficeOS work floor
+  ├─ WinEvent structural awareness
+  ├─ Fae Eyes pixel vision (explicit opt-in)
+  │    ├─ selected visible window snapshot
+  │    ├─ full virtual-desktop snapshot
+  │    ├─ in-memory downscaled JPEG
+  │    └─ local Ollama vision at 127.0.0.1:11434
+  ├─ OfficeOS territory + reversible window controls
   └─ optional scrcpy Phone Portal
 ```
 
-## Windows Habitat
+## Fae Eyes tiers
 
-The Habitat is a fullscreen transparent, always-on-top, click-through Tauri window. It is presentation-only: normal mouse input continues to the applications beneath it.
+`STRUCTURAL` is always available while context awareness is active: process identity, top-level window bounds, visibility and minimize state. It does not read pixels.
 
-The six primary Fae use the anchored Digi Fae assets already shipped with the desktop package. FERAL adds eighteen cheap visual echoes; those echoes are not independent AI workers or Windows processes.
+`PIXEL VISION: WINDOW` is explicit. Raven chooses a window with the `LOOK` control (or arms window mode and allows a foreground target). The habitat is briefly hidden before capture so the Fae do not recursively photograph themselves.
 
-## Event-driven awareness
+`PIXEL VISION: DESKTOP` is explicit. It captures the Windows virtual desktop across monitors, downsizes the frame in memory, and may send that frame only to the local Ollama endpoint when `LOOK NOW` or explicitly enabled `AUTO LOOK` runs.
 
-Windows `SetWinEventHook` sends foreground, show/hide, minimize and location-change events into the local Tauri event bus.
+`AUTO LOOK` is OFF by default. When enabled, significant foreground changes may trigger analysis, rate-limited to one request per 15 seconds.
 
-Default observation contains:
+## Local vision boundary
 
-- process identity;
-- role classification;
-- top-level window rectangle;
-- minimized/visible state.
+The native bridge only contacts `http://127.0.0.1:11434/api/chat`. Models whose name contains `:cloud` are rejected by Faeryware v0.8. Screen frames are not written to disk by the capture path.
 
-It does **not** read document text, keystrokes, clipboard contents, passwords or screen pixels.
+Ollama-compatible vision models can consume images as base64 through the local chat API. The model is selected in OfficeOS; `gemma3` is only the default field value and must actually be installed locally to work.
 
-OfficeOS exposes an explicit `TITLE VISION` switch if Raven wants top-level window titles included in the structural map.
+Pixel vision is observation, not action authority. A model response is displayed as a Fae observation and cannot directly inject arbitrary keyboard/mouse commands.
 
 ## Reversible desktop control
 
-The OfficeOS Fae Eyes map can perform bounded local window actions:
+OfficeOS continues to expose bounded local window actions:
 
-- focus;
-- minimize;
-- restore;
-- maximize;
-- snap left;
-- snap right.
+- focus
+- minimize
+- restore
+- maximize
+- snap left
+- snap right
 
-The v0.7 window-control surface intentionally does not expose arbitrary command execution or a destructive `close window` primitive.
+No destructive close primitive or arbitrary shell command is exposed through Fae Eyes.
 
 ## Phone Portal
 
-If `scrcpy.exe` is available on `PATH`, `PHONE PORTAL` launches a normal scrcpy mirror titled `Faeryware Phone Portal`. The Windows habitat recognizes `scrcpy.exe` as a phone territory so Sylph and the colony can react around the mirror.
-
-No wireless pairing, ADB authorization or phone-control consent is bypassed by Faeryware.
-
-## Autostart
-
-Autostart is OFF until explicitly enabled from Ghost House or OfficeOS. The toggle writes/removes the current executable under the current user's normal Windows `Run` key.
-
-## OfficeOS boundary
-
-OfficeOS context and Fae reactions are contribution/observation state. They do not upgrade themselves into proof that a separate owner executed machine effects.
+If `scrcpy.exe` is available on PATH, `PHONE PORTAL` launches the normal scrcpy mirror titled `Faeryware Phone Portal`; Windows Habitat recognizes it as phone territory.
 
 ## Build
 
@@ -77,4 +63,4 @@ npm install
 npm run build
 ```
 
-GitHub Actions builds the Windows executable and an NSIS installer and runs a source canary before compilation.
+GitHub Actions runs the habitat/Fae Eyes source canary before building the Windows executable and NSIS installer.
