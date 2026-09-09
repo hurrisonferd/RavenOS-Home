@@ -1,0 +1,1 @@
+Faeryware V5 build assets are base64-encoded WebP resources derived from Raven-supplied Digi Fae sticker sheets. CI decodes them into Android drawable resources before Gradle assembly. They are visual assets only and carry no command authority.
