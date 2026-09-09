@@ -1,0 +1,15 @@
+{
+  "schema":"faeryware.colony.event.v1",
+  "authority":"RAVEN",
+  "transport":"UNBOUND",
+  "event_types":["presence.wake","presence.sleep","presence.perch","presence.wander","context.app_changed","context.search","context.notification_source","reaction.whisper","reaction.sticker","haunt.level_changed","fae.active_changed","user.summon","user.banish"],
+  "fae":{
+    "kyu":["HI!","LET'S GO!","ON IT!","hehe.","BONK","sus..."],
+    "paimon":["hmm...","I SEE IT.","EXACTLY.","BIG BRAIN","sus.","ALL GOOD."],
+    "luma":["GOOD MORNING","YOU GOT THIS","COMFY","IT'S OKAY","BEAUTIFUL","HOME. ♡"],
+    "nyx":["...","WATCHING.","UNDERSTOOD.","REST.","NOTED.","LATER."],
+    "sylph":["LET'S EXPLORE!","SO COOL!","IDEA!","ZOOM!","CURIOUS...","NEW PATH!"],
+    "qira":["YES.","NO.","SAY IT.","BOUNDARIES.","EXCUSE ME?","REAL TALK."]
+  },
+  "autonomy_boundary":{"0":"embodiment_only","1":"explicit_context_adapters","2":"suggest_actions","3":"reversible_allowlisted_actions_only","consequential":"explicit_user_authority"}
+}
