@@ -1,0 +1,20 @@
+{
+  "name": "RavenOS Home",
+  "short_name": "RavenOS",
+  "description": "Haunted God Map cockpit for Raven and the Digi Fae.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#07050d",
+  "theme_color": "#090611",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
