@@ -47,11 +47,22 @@ fn perch(app: tauri::AppHandle, label: Option<String>, edge: String, y: i32) -> 
     w.set_position(PhysicalPosition::new(x, y.clamp(0, (mh - size.height as i32).max(0)))).map_err(|e| e.to_string())
 }
 
+fn station_for_fae(fae: usize, mw: i32, mh: i32) -> (i32, i32) {
+    match fae % 6 {
+        0 => ((mw - 270).max(0), (mh - 315).max(0)),
+        1 => ((mw - 270).max(0), 45),
+        2 => (8, (mh - 315).max(0)),
+        3 => (((mw - 250) / 2).max(0), (mh - 300).max(0)),
+        4 => (8, 42),
+        _ => ((mw - 270).max(0), ((mh - 280) / 2).max(0)),
+    }
+}
+
 #[tauri::command]
 fn sync_colony(app: tauri::AppHandle, haunt: String, active_fae: usize) -> Result<usize, String> {
     let desired = match haunt.to_ascii_uppercase().as_str() {
         "FERAL" => 5,
-        "HAUNTED" => 1,
+        "HAUNTED" => 2,
         _ => 0,
     };
     let (mw, mh) = if let Some(main) = app.get_webview_window("main") {
@@ -61,10 +72,10 @@ fn sync_colony(app: tauri::AppHandle, haunt: String, active_fae: usize) -> Resul
     for slot in 1..=5 {
         let label = format!("fae-companion-{slot}");
         if slot <= desired {
+            let fae = (active_fae + slot) % 6;
             if app.get_webview_window(&label).is_none() {
-                let fae = (active_fae + slot) % 6;
                 let url = format!("index.html?companion=1&fae={fae}&label={label}");
-                let w = WebviewWindowBuilder::new(&app, label.clone(), WebviewUrl::App(url.into()))
+                WebviewWindowBuilder::new(&app, label.clone(), WebviewUrl::App(url.into()))
                     .title("Faeryware Goblin")
                     .inner_size(250.0, 280.0)
                     .transparent(true)
@@ -74,9 +85,11 @@ fn sync_colony(app: tauri::AppHandle, haunt: String, active_fae: usize) -> Resul
                     .resizable(false)
                     .build()
                     .map_err(|e| e.to_string())?;
-                let x = if slot % 2 == 0 { (mw - 235 - slot as i32 * 18).max(0) } else { 12 + slot as i32 * 22 };
-                let y = (70 + slot as i32 * 112).clamp(0, (mh - 280).max(0));
+            }
+            if let Some(w) = app.get_webview_window(&label) {
+                let (x, y) = station_for_fae(fae, mw, mh);
                 let _ = w.set_position(PhysicalPosition::new(x, y));
+                let _ = w.show();
             }
         } else if let Some(w) = app.get_webview_window(&label) {
             let _ = w.close();
@@ -89,6 +102,10 @@ fn sync_colony(app: tauri::AppHandle, haunt: String, active_fae: usize) -> Resul
 struct ForegroundApp {
     process: String,
     kind: String,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
 }
 
 fn classify_process(process: &str) -> String {
@@ -96,7 +113,11 @@ fn classify_process(process: &str) -> String {
     if p.contains("faeryware") { "self" }
     else if ["chrome", "msedge", "firefox", "brave", "opera"].iter().any(|x| p.contains(x)) { "browser" }
     else if ["code.exe", "devenv", "idea64", "pycharm", "windowsterminal", "wt.exe", "powershell"].iter().any(|x| p.contains(x)) { "code" }
-    else if ["discord", "slack", "teams", "telegram", "whatsapp", "outlook"].iter().any(|x| p.contains(x)) { "communication" }
+    else if ["winword", "notepad", "obsidian", "notepad++", "typora"].iter().any(|x| p.contains(x)) { "document" }
+    else if p.contains("excel") { "spreadsheet" }
+    else if ["powerpnt", "keynote"].iter().any(|x| p.contains(x)) { "presentation" }
+    else if ["teams", "zoom", "webex"].iter().any(|x| p.contains(x)) { "meeting" }
+    else if ["discord", "slack", "telegram", "whatsapp", "outlook"].iter().any(|x| p.contains(x)) { "communication" }
     else if ["spotify", "vlc", "musicbee", "foobar", "tidal"].iter().any(|x| p.contains(x)) { "media" }
     else if p.contains("explorer.exe") { "home" }
     else if ["steam", "epicgameslauncher", "battle.net"].iter().any(|x| p.contains(x)) { "game" }
@@ -104,14 +125,15 @@ fn classify_process(process: &str) -> String {
 }
 
 #[cfg(windows)]
-#[tauri::command]
-fn foreground_app() -> Result<ForegroundApp, String> {
-    use windows_sys::Win32::Foundation::CloseHandle;
+fn foreground_details() -> Result<ForegroundApp, String> {
+    use windows_sys::Win32::Foundation::{CloseHandle, RECT};
     use windows_sys::Win32::System::Threading::{OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION};
-    use windows_sys::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowRect, GetWindowThreadProcessId};
     unsafe {
         let hwnd = GetForegroundWindow();
         if hwnd.is_null() { return Err("no foreground window".into()); }
+        let mut rect = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+        if GetWindowRect(hwnd, &mut rect) == 0 { return Err("foreground bounds unavailable".into()); }
         let mut pid = 0u32;
         GetWindowThreadProcessId(hwnd, &mut pid);
         if pid == 0 { return Err("foreground pid unavailable".into()); }
@@ -125,14 +147,86 @@ fn foreground_app() -> Result<ForegroundApp, String> {
         let path = String::from_utf16_lossy(&buf[..len as usize]);
         let process = path.rsplit(['\\', '/']).next().unwrap_or(&path).to_string();
         let kind = classify_process(&process);
-        Ok(ForegroundApp { process, kind })
+        Ok(ForegroundApp {
+            process,
+            kind,
+            x: rect.left,
+            y: rect.top,
+            width: (rect.right - rect.left).max(0),
+            height: (rect.bottom - rect.top).max(0),
+        })
     }
 }
+
+#[cfg(windows)]
+#[tauri::command]
+fn foreground_app() -> Result<ForegroundApp, String> { foreground_details() }
 
 #[cfg(not(windows))]
 #[tauri::command]
 fn foreground_app() -> Result<ForegroundApp, String> {
-    Ok(ForegroundApp { process: "unknown".into(), kind: "other".into() })
+    Ok(ForegroundApp { process: "unknown".into(), kind: "other".into(), x: 0, y: 0, width: 0, height: 0 })
+}
+
+#[cfg(windows)]
+#[tauri::command]
+fn arrange_colony_context(app: tauri::AppHandle) -> Result<usize, String> {
+    let fg = foreground_details()?;
+    if fg.kind == "self" { return Ok(0); }
+    let labels: Vec<String> = std::iter::once("main".to_string()).chain((1..=5).map(|i| format!("fae-companion-{i}"))).collect();
+    let mut moved = 0usize;
+    for (i, label) in labels.iter().enumerate() {
+        let Some(w) = app.get_webview_window(label) else { continue };
+        let size = w.outer_size().map_err(|e| e.to_string())?;
+        let ww = size.width as i32;
+        let wh = size.height as i32;
+        let pad = 14;
+        let (mut x, mut y) = match i {
+            0 => (fg.x + fg.width - ww / 2, fg.y + fg.height - wh / 2),
+            1 => (fg.x - ww + pad, fg.y + pad),
+            2 => (fg.x + fg.width - pad, fg.y + pad),
+            3 => (fg.x + pad, fg.y + fg.height - wh + pad),
+            4 => (fg.x + fg.width / 2 - ww / 2, fg.y - wh / 2),
+            _ => (fg.x + fg.width / 2 - ww / 2, fg.y + fg.height - wh / 2),
+        };
+        if let Ok(Some(mon)) = w.current_monitor() {
+            let s = mon.size();
+            x = x.clamp(-80, (s.width as i32 - ww + 80).max(-80));
+            y = y.clamp(0, (s.height as i32 - wh).max(0));
+        }
+        let _ = w.set_position(PhysicalPosition::new(x, y));
+        moved += 1;
+    }
+    Ok(moved)
+}
+
+#[cfg(not(windows))]
+#[tauri::command]
+fn arrange_colony_context(_app: tauri::AppHandle) -> Result<usize, String> { Ok(0) }
+
+#[tauri::command]
+fn open_office_board(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(w) = app.get_webview_window("office") {
+        let _ = w.show();
+        let _ = w.set_focus();
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(&app, "office", WebviewUrl::App("office.html".into()))
+        .title("Faeryware // OfficeOS Floor")
+        .inner_size(720.0, 760.0)
+        .decorations(true)
+        .always_on_top(false)
+        .skip_taskbar(false)
+        .resizable(true)
+        .build()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn hide_office_board(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(w) = app.get_webview_window("office") { w.hide().map_err(|e| e.to_string())?; }
+    Ok(())
 }
 
 #[tauri::command]
@@ -140,7 +234,7 @@ fn quit(app: tauri::AppHandle) { app.exit(0); }
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![set_click_through, set_colony_click_through, begin_drag, move_resident, perch, sync_colony, foreground_app, quit])
+        .invoke_handler(tauri::generate_handler![set_click_through, set_colony_click_through, begin_drag, move_resident, perch, sync_colony, foreground_app, arrange_colony_context, open_office_board, hide_office_board, quit])
         .run(tauri::generate_context!())
         .expect("error while running Faeryware Resident");
 }
