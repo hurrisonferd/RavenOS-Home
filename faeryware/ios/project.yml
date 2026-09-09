@@ -1,0 +1,60 @@
+name: FaerywareIOS
+options:
+  bundleIdPrefix: com.ravenos
+  deploymentTarget:
+    iOS: "18.0"
+settings:
+  base:
+    SWIFT_VERSION: 5.0
+    IPHONEOS_DEPLOYMENT_TARGET: 18.0
+    TARGETED_DEVICE_FAMILY: "1,2"
+
+targets:
+  Faeryware:
+    type: application
+    platform: iOS
+    sources:
+      - path: Shared
+      - path: App
+    info:
+      path: App/Info.plist
+    entitlements:
+      path: App/Faeryware.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ravenos.faeryware
+        INFOPLIST_FILE: App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: App/Faeryware.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+    dependencies:
+      - target: FaerywareWidgets
+        embed: true
+
+  FaerywareWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Shared
+      - path: Widgets
+    info:
+      path: Widgets/Info.plist
+    entitlements:
+      path: Widgets/FaerywareWidgets.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ravenos.faeryware.widgets
+        INFOPLIST_FILE: Widgets/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Widgets/FaerywareWidgets.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+
+schemes:
+  Faeryware:
+    build:
+      targets:
+        Faeryware: all
+        FaerywareWidgets: all
+    run:
+      config: Debug
+    archive:
+      config: Release
