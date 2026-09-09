@@ -3,6 +3,8 @@
 
     <application
         android:allowBackup="true"
+        android:icon="@drawable/ic_ravenos"
+        android:roundIcon="@drawable/ic_ravenos"
         android:label="RavenOS Home"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar"
