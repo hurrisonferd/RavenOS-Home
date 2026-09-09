@@ -1,0 +1,1 @@
+Checkpoint: compact direct-resource recovery remains the only unfinished blocker before Gradle can test the V5 overlay colony. Do not regenerate art; use existing compact Fae resources.
