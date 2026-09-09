@@ -47,6 +47,16 @@ jobs:
           body: |
             Faeryware haunted Android HOME launcher debug APK built from ${{ github.sha }}.
 
-            Includes one-swipe Haunt Feed, local scratchpad, app/web search, Ghost House, Fae widget, live wallpaper, Quick Settings haunt tile, and the opt-in draggable resident goblin overlay.
+            Resident Haunt v4 includes image-first HOME, Haunt Feed, local scratchpad, app/web search,
+            live chibi wallpaper, context-aware widget, Quick Settings haunt tile, draggable resident
+            chibi Fae, MINI/BUBBLE/CARD forms, bounded edge companions, Haunt Console, optional
+            foreground-app awareness, optional notification-source awareness, and local-only context memory.
 
-            Safety boundary: no root, no accessibility scraping, no notification listener, no device admin, no silent HOME takeover. Overlay and HOME role require explicit Android user consent.
+            Privacy/safety boundary:
+            - no root or device admin
+            - no silent HOME takeover
+            - no hidden fullscreen intercept
+            - Accessibility awareness records foreground package/app label only and cannot retrieve view content
+            - Notification awareness records source app + time only, not message bodies
+            - no keystrokes, passwords, or other-app touch interception
+            - all special access is explicit Android user consent and can be revoked in Settings

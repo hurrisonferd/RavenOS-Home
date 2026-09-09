@@ -1,11 +1,13 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:padding="12dp"
     android:background="#CC090914">
-    <TextView android:id="@+id/widget_title" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="💗 KYU" android:textColor="#FFFFFFFF" android:textStyle="bold" android:textSize="18sp" />
-    <TextView android:id="@+id/widget_line" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="still here." android:textColor="#FFDADAF0" android:textSize="12sp" android:layout_marginTop="6dp" />
-</LinearLayout>
+    <ImageView android:id="@+id/widget_portrait" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="centerCrop" android:alpha="0.82" android:contentDescription="@string/faeryware_awareness_description" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="bottom" android:orientation="vertical" android:padding="12dp" android:background="#B9090914">
+        <TextView android:id="@+id/widget_title" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="💗 KYU" android:textColor="#FFFFFFFF" android:textStyle="bold" android:textSize="18sp" />
+        <TextView android:id="@+id/widget_line" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="still here." android:textColor="#FFDADAF0" android:textSize="12sp" android:layout_marginTop="4dp" />
+        <TextView android:id="@+id/widget_context" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="with the phone" android:textColor="#FFB7B7D0" android:textSize="9sp" android:layout_marginTop="3dp" />
+    </LinearLayout>
+</FrameLayout>

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="faeryware_awareness_description">Lets user-enabled Faeryware residents know which app is in the foreground. It does not retrieve view content, typed text, passwords, or message bodies.</string>
+</resources>

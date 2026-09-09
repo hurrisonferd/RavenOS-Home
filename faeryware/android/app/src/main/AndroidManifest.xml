@@ -1,9 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <uses-feature android:name="android.software.live_wallpaper" android:required="false" />
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="true"
@@ -14,7 +25,8 @@
         <activity
             android:name=".FaerywareLauncherActivity"
             android:exported="true"
-            android:launchMode="singleTask">
+            android:launchMode="singleTask"
+            android:stateNotNeeded="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
@@ -26,23 +38,55 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".FaerywareHauntConsoleActivity"
+            android:exported="false"
+            android:label="Haunt Console" />
+
         <service
             android:name=".FaerywareGoblinOverlayService"
             android:exported="false"
-            android:foregroundServiceType="specialUse">
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="User-started draggable Faeryware resident goblin overlay" />
+                android:value="User-started visible draggable Faeryware resident sprites; no other-app input interception." />
+        </service>
+
+        <service
+            android:name=".FaerywareAwarenessService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true"
+            android:label="Faeryware App Awareness">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/faeryware_accessibility_service" />
+        </service>
+
+        <service
+            android:name=".FaerywareNotificationAwarenessService"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true"
+            android:label="Faeryware Notification Awareness">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
         </service>
 
         <service
             android:name=".FaerywareWallpaperService"
             android:exported="true"
+            android:label="Faeryware Haunt"
             android:permission="android.permission.BIND_WALLPAPER">
             <intent-filter>
                 <action android:name="android.service.wallpaper.WallpaperService" />
             </intent-filter>
-            <meta-data android:name="android.service.wallpaper" android:resource="@xml/faeryware_wallpaper" />
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/faeryware_wallpaper" />
         </service>
 
         <service
@@ -56,11 +100,24 @@
             </intent-filter>
         </service>
 
-        <receiver android:name=".FaerywareWidgetProvider" android:exported="false">
+        <receiver
+            android:name=".FaerywareWidgetProvider"
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/faeryware_widget_info" />
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/faeryware_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".FaerywareBootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
         </receiver>
     </application>
 </manifest>
