@@ -1,0 +1,1 @@
+Execution correction: stop adding staging text and switch to one compact binary resource, then one cleanup/build commit.
