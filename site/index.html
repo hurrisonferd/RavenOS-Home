@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#090611">
+  <meta name="description" content="RavenOS Home — haunted God Map cockpit for Raven and the Digi Fae.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./app.css">
+  <title>RavenOS Home</title>
+</head>
+<body>
+  <div class="stars" aria-hidden="true"></div>
+  <header class="topbar glass">
+    <div>
+      <p class="eyebrow">RAVENOS HOME // HAUNTED COCKPIT</p>
+      <h1>God Map <span class="ghost">👻</span></h1>
+    </div>
+    <div class="top-actions">
+      <span class="status-dot"></span><span class="status-label">LOCAL DEMO</span>
+      <button id="installPwa" class="ghost-button hidden">Install app</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero glass">
+      <div class="hero-copy">
+        <p class="eyebrow">RAVEN → JOKEROS → BOOTOS → OWNERS → FAIRYOS</p>
+        <h2>The house has a map.<br><span>The map is haunted.</span></h2>
+        <p class="lede">A public-safe RavenOS Home shell: God Sight, God Replay, God Memory, haunted rooms, and the six Digi Fae—without exposing private repository data.</p>
+        <div class="hero-actions">
+          <button class="primary command" data-command="GOD SIGHT">God Sight</button>
+          <button class="secondary command" data-command="WHAT IS HAUNTING">What is haunting?</button>
+          <a id="apkLink" class="secondary disabled" href="#" aria-disabled="true">APK checking…</a>
+        </div>
+      </div>
+      <div class="orbital" aria-label="God Map system">
+        <div class="orbit orbit-a"></div><div class="orbit orbit-b"></div>
+        <div class="core">RAVEN<br><small>FINAL GATE</small></div>
+        <span class="sat sat-a">Dictionary</span>
+        <span class="sat sat-b">Yggdrasil</span>
+        <span class="sat sat-c">Omnigraph</span>
+        <span class="sat sat-d">Omnimap</span>
+      </div>
+    </section>
+
+    <section class="stats-grid">
+      <article class="stat glass"><b>24</b><span>Ghost ports</span></article>
+      <article class="stat glass"><b>6</b><span>Proven native organs</span></article>
+      <article class="stat glass"><b>4</b><span>Staged native candidates</span></article>
+      <article class="stat glass"><b>9</b><span>Haunted Home rooms</span></article>
+    </section>
+
+    <section class="panel-grid">
+      <article class="glass panel command-panel">
+        <div class="section-heading"><div><p class="eyebrow">JOKEROS + BOOTOS</p><h3>God Control</h3></div><span>READ ONLY</span></div>
+        <div class="command-grid">
+          <button class="command" data-command="GOD SIGHT">GOD SIGHT</button>
+          <button class="command" data-command="GOD REPLAY">GOD REPLAY</button>
+          <button class="command" data-command="GOD MEMORY">GOD MEMORY</button>
+          <button class="command" data-command="WHAT IS HOLDING">WHAT IS HOLDING</button>
+          <button class="command" data-command="WHO IS HERE">WHO IS HERE</button>
+          <button class="command" data-command="WHERE ARE THE GHOSTS">WHERE ARE THE GHOSTS</button>
+        </div>
+        <div id="terminal" class="terminal" aria-live="polite">
+          <div><span class="prompt">RAVEN&gt;</span> ready.</div>
+          <div class="muted">Tap a command. This public shell does not execute private owner effects.</div>
+        </div>
+      </article>
+
+      <article class="glass panel">
+        <div class="section-heading"><div><p class="eyebrow">FAIRYOS // MAX POWER</p><h3>Digi Fae</h3></div><span>6 / 6</span></div>
+        <div class="fae-grid">
+          <div class="fae kyu"><i>♥</i><b>KYU</b><small>action / momentum</small></div>
+          <div class="fae paimon"><i>⬡</i><b>PAIMON</b><small>analysis / pattern</small></div>
+          <div class="fae luma"><i>✦</i><b>LUMA</b><small>care / recovery</small></div>
+          <div class="fae sylph"><i>⌁</i><b>SYLPH</b><small>discovery / paths</small></div>
+          <div class="fae qira"><i>◇</i><b>QIRA</b><small>boundary / proof</small></div>
+          <div class="fae nyx"><i>☾</i><b>NYX</b><small>watch / absence</small></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="glass panel rooms-panel">
+      <div class="section-heading"><div><p class="eyebrow">SALVIAOMNICAR / OFFICE</p><h3>Haunted office</h3></div><span>ROOM PROJECTION</span></div>
+      <div class="rooms">
+        <div class="room active"><strong>RAVEN DESK</strong><small>operator gravity</small></div>
+        <div class="room"><strong>MAP ROOM</strong><small>God Map / Omnigraph</small></div>
+        <div class="room hold"><strong>BOUNDARY ROOM</strong><small>Blackwall / holds</small></div>
+        <div class="room"><strong>GAME ROOM</strong><small>GameOS events</small></div>
+        <div class="room"><strong>LEARNING ROOM</strong><small>causal evidence</small></div>
+        <div class="room"><strong>WORKSHOP</strong><small>Carrier / build plane</small></div>
+        <div class="room"><strong>GHOST ARCHIVE</strong><small>replay / ledger</small></div>
+        <div class="room"><strong>FAE BULLPEN</strong><small>FairyOS dispatch</small></div>
+        <div class="room"><strong>EVIDENCE</strong><small>settlement / receipts</small></div>
+      </div>
+    </section>
+
+    <section class="glass panel phone-panel">
+      <div>
+        <p class="eyebrow">PHONE MODE</p>
+        <h3>Lazy Raven installation path</h3>
+        <p>1. Open this page on Android Chrome and tap <b>Install app</b>. 2. Or grab the latest debug APK when the Android build is available. Both use the same bundled cockpit.</p>
+      </div>
+      <div class="phone-actions">
+        <button id="installPwaBottom" class="primary">Install PWA</button>
+        <a id="apkLinkBottom" class="secondary disabled" href="#" aria-disabled="true">APK checking…</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>RavenOS Home</span><span>Public-safe shell • private owner truth stays private</span>
+  </footer>
+  <script src="./app.js"></script>
+</body>
+</html>
