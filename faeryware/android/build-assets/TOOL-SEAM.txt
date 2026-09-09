@@ -1,0 +1,1 @@
+The prior chat repeatedly used text-file writes when a binary blob was needed. This marker is temporary recovery evidence and should be removed in the cleanup commit.
