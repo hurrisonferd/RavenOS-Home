@@ -19,18 +19,16 @@ use windows_sys::Win32::{
         OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION,
     },
     UI::{
-        Accessibility::{
-            SetWinEventHook, UnhookWinEvent, EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE,
-            EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_SHOW, EVENT_SYSTEM_FOREGROUND,
-            EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART, WINEVENT_OUTOFCONTEXT,
-            WINEVENT_SKIPOWNPROCESS,
-        },
+        Accessibility::{SetWinEventHook, UnhookWinEvent},
         WindowsAndMessaging::{
             DispatchMessageW, EnumWindows, GetForegroundWindow, GetMessageW, GetSystemMetrics,
             GetWindowRect, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
             IsIconic, IsWindow, IsWindowVisible, SetForegroundWindow, SetWindowPos, ShowWindow,
             TranslateMessage, MSG, SM_CXSCREEN, SM_CYSCREEN, SW_MAXIMIZE, SW_MINIMIZE, SW_RESTORE,
-            SWP_NOZORDER, SWP_SHOWWINDOW,
+            SWP_NOZORDER, SWP_SHOWWINDOW, EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE,
+            EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_SHOW, EVENT_SYSTEM_FOREGROUND,
+            EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZESTART, WINEVENT_OUTOFCONTEXT,
+            WINEVENT_SKIPOWNPROCESS,
         },
     },
 };
