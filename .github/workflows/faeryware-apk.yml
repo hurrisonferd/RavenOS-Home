@@ -26,7 +26,12 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build haunted launcher
+      - name: Materialize Digi Fae sticker atlas
+        working-directory: faeryware/android
+        run: |
+          base64 -d app/src/main/res/drawable/faeryware_v5_sticker_atlas.txt > app/src/main/res/drawable/faeryware_v5_sticker_atlas.webp
+          rm app/src/main/res/drawable/faeryware_v5_sticker_atlas.txt
+      - name: Build haunted overlay colony
         working-directory: faeryware/android
         run: gradle :app:assembleDebug --stacktrace
       - name: Stage APK
@@ -40,23 +45,23 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: faeryware-${{ github.run_number }}
-          name: Faeryware Haunted Launcher ${{ github.run_number }}
+          name: Faeryware Overlay Colony ${{ github.run_number }}
           make_latest: false
           generate_release_notes: false
           files: Faeryware-debug.apk
           body: |
-            Faeryware haunted Android HOME launcher debug APK built from ${{ github.sha }}.
+            Faeryware V5 Overlay Colony debug APK built from ${{ github.sha }}.
 
-            Resident Haunt v4 includes image-first HOME, Haunt Feed, local scratchpad, app/web search,
-            live chibi wallpaper, context-aware widget, Quick Settings haunt tile, draggable resident
-            chibi Fae, MINI/BUBBLE/CARD forms, bounded edge companions, Haunt Console, optional
-            foreground-app awareness, optional notification-source awareness, and local-only context memory.
+            One UI remains the Home launcher. Faeryware lives above it as small explicit overlay windows using Raven-supplied Digi Fae sticker art.
+
+            V5 includes 36 deterministic sticker states, draggable/perchable main resident, bounded companion residents, Home-only or Follow-me scope, CALM/HAUNTED/FERAL/APOCALYPSE levels, Ghost House edge handle, optional context awareness, notification-source awareness, local memory, Quick Settings control, widget, and optional live wallpaper.
 
             Privacy/safety boundary:
             - no root or device admin
-            - no silent HOME takeover
-            - no hidden fullscreen intercept
-            - Accessibility awareness records foreground package/app label only and cannot retrieve view content
+            - does not claim the HOME role
+            - no invisible fullscreen overlay
+            - residents only consume touch inside their own small windows
+            - Accessibility awareness records foreground package/app label only
             - Notification awareness records source app + time only, not message bodies
             - no keystrokes, passwords, or other-app touch interception
-            - all special access is explicit Android user consent and can be revoked in Settings
+            - special access is explicit Android user consent and revocable in Settings
