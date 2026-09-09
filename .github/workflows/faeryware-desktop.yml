@@ -19,13 +19,60 @@ jobs:
         working-directory: faeryware/desktop
     steps:
       - uses: actions/checkout@v4
+
+      - name: Habitat source canary
+        shell: pwsh
+        run: |
+          $rust = Get-Content src-tauri/src/main.rs -Raw
+          $habitat = Get-Content src/habitat.js -Raw
+          $office = Get-Content src/office.js -Raw
+          @(
+            'SetWinEventHook',
+            'desktop_windows',
+            'window_action',
+            'launch_phone_portal',
+            'autostart_status',
+            'ensure_habitat'
+          ) | ForEach-Object {
+            if (-not $rust.Contains($_)) { throw "missing Rust haunt token: $_" }
+          }
+          @(
+            'faery://window-event',
+            'PHONE PORTAL!',
+            '18',
+            'targetFor'
+          ) | ForEach-Object {
+            if (-not $habitat.Contains($_)) { throw "missing habitat token: $_" }
+          }
+          @(
+            'FAE EYES',
+            'window_action',
+            'TITLE VISION'
+          ) | ForEach-Object {
+            if (-not ((Get-Content src/office.html -Raw) + $office).Contains($_)) { throw "missing OfficeOS token: $_" }
+          }
+          Write-Host "FAERYWARE_WINDOWS_HABITAT_CANARY=PASS"
+
       - uses: dtolnay/rust-toolchain@stable
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+
       - run: npm install
       - run: npm run build
+
+      - name: Stage release payload
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item src-tauri/target/release/faeryware-desktop.exe dist/Faeryware-Resident-v0.7.exe
+          $nsis = Get-ChildItem src-tauri/target/release/bundle/nsis/*.exe | Select-Object -First 1
+          if (-not $nsis) { throw "NSIS installer missing" }
+          Copy-Item $nsis.FullName dist/Faeryware-Windows-v0.7-Setup.exe
+          Get-FileHash dist/* -Algorithm SHA256 | Format-Table
+
       - uses: actions/upload-artifact@v4
         with:
-          name: Faeryware-Desktop-Windows
-          path: faeryware/desktop/src-tauri/target/release/faeryware-desktop.exe
+          name: Faeryware-Windows-v0.7
+          path: faeryware/desktop/dist/*

@@ -1,51 +1,33 @@
 const invoke=window.__TAURI__.core.invoke;
-const params=new URLSearchParams(location.search);
-const companion=params.get('companion')==='1';
-const fixedFae=(Number(params.get('fae')||0)||0)%6;
-const windowLabel=params.get('label')||'main';
+const listen=window.__TAURI__.event.listen;
 const fae=[
-{id:'kyu',name:'KYU',color:'#ff4e9d',sigil:'♡',row:0,lines:['HI!','LET\'S GO!','ON IT!','hehe.','BONK','sus...'],pace:1.25,perch:.14},
-{id:'paimon',name:'PAIMON',color:'#5ef27e',sigil:'✣',row:1,lines:['hmm...','I SEE IT.','EXACTLY.','BIG BRAIN','sus.','ALL GOOD.'],pace:.8,perch:.2},
-{id:'luma',name:'LUMA',color:'#ffc85c',sigil:'✿',row:2,lines:['GOOD MORNING','YOU GOT THIS','COMFY','IT\'S OKAY','BEAUTIFUL','HOME. ♡'],pace:.55,perch:.34},
-{id:'nyx',name:'NYX',color:'#5e8cff',sigil:'☾',row:3,lines:['...','WATCHING.','UNDERSTOOD.','REST.','NOTED.','LATER.'],pace:.65,perch:.42},
-{id:'sylph',name:'SYLPH',color:'#55dcff',sigil:'🦋',row:4,lines:['LET\'S EXPLORE!','SO COOL!','IDEA!','ZOOM!','CURIOUS...','NEW PATH!'],pace:1.45,perch:.09},
-{id:'qira',name:'QIRA',color:'#f04cff',sigil:'◇',row:5,lines:['YES.','NO.','SAY IT.','BOUNDARIES.','EXCUSE ME?','REAL TALK.'],pace:.9,perch:.26}
+{id:'kyu',name:'KYU',color:'#ff4e9d',sigil:'♡',row:0,lines:['HI!','LET’S GO!','ON IT!','hehe.','BONK','sus...']},
+{id:'paimon',name:'PAIMON',color:'#5ef27e',sigil:'✣',row:1,lines:['hmm...','I SEE IT.','EXACTLY.','BIG BRAIN','sus.','ALL GOOD.']},
+{id:'luma',name:'LUMA',color:'#ffc85c',sigil:'✿',row:2,lines:['GOOD MORNING','YOU GOT THIS','COMFY','IT’S OKAY','BEAUTIFUL','HOME. ♡']},
+{id:'nyx',name:'NYX',color:'#5e8cff',sigil:'☾',row:3,lines:['...','WATCHING.','UNDERSTOOD.','REST.','NOTED.','LATER.']},
+{id:'sylph',name:'SYLPH',color:'#55dcff',sigil:'🦋',row:4,lines:['LET’S EXPLORE!','SO COOL!','IDEA!','ZOOM!','CURIOUS...','NEW PATH!']},
+{id:'qira',name:'QIRA',color:'#f04cff',sigil:'◇',row:5,lines:['YES.','NO.','SAY IT.','BOUNDARIES.','EXCUSE ME?','REAL TALK.']}
 ];
-const resident=document.querySelector('#resident'),bodyImg=document.querySelector('#bodyImg'),speech=document.querySelector('#speech'),sticker=document.querySelector('#sticker'),sigil=document.querySelector('#sigil'),house=document.querySelector('#house'),faeRow=document.querySelector('#faeRow');
-let state=JSON.parse(localStorage.getItem('faeryware.desktop.state')||'{"fae":0,"haunt":"HAUNTED","clickThrough":false,"edge":"right","mochi":true,"context":true}');
-if(state.context===undefined)state.context=true;
-let dragStart=null,poseTimer=null,lastForeground='';
+const body=document.querySelector('#bodyImg'),speech=document.querySelector('#speech'),sticker=document.querySelector('#sticker'),sigil=document.querySelector('#sigil'),faeRow=document.querySelector('#faeRow'),contextLine=document.querySelector('#contextLine');
+let state={fae:0,haunt:'FERAL',clickThrough:true,edge:'right'};
+try{state={...state,...JSON.parse(localStorage.getItem('faeryware.desktop.state')||'{}')}}catch{}
 const save=()=>localStorage.setItem('faeryware.desktop.state',JSON.stringify(state));
-const active=()=>fae[companion?fixedFae:state.fae%fae.length];
-function setPose(p,ms=1100){resident.dataset.pose=p;clearTimeout(poseTimer);poseTimer=setTimeout(()=>resident.dataset.pose='idle',ms)}
-function syncArmy(){if(!companion)invoke('sync_colony',{haunt:state.haunt,activeFae:state.fae}).catch(()=>{})}
-function render(){const f=active();document.documentElement.style.setProperty('--accent',f.color);bodyImg.src=window.FAERY_ASSETS[f.id];bodyImg.alt=f.name+' desktop resident';sigil.textContent=f.sigil;document.body.classList.toggle('feral',state.haunt==='FERAL');document.body.classList.toggle('haunted',state.haunt==='HAUNTED');document.body.classList.toggle('clickthrough',!!state.clickThrough);document.body.classList.toggle('mochi',!!state.mochi);document.body.classList.toggle('companion',companion);const mochi=document.querySelector('#mochi'),context=document.querySelector('#context');if(mochi)mochi.textContent=state.mochi?'MOCHI ON':'MOCHI OFF';if(context)context.textContent=state.context?'CONTEXT ON':'CONTEXT OFF';if(companion)house.hidden=true;syncArmy()}
-function popSticker(i){const f=active();sticker.style.backgroundImage=`url(${window.FAERY_ASSETS.stickerAtlas})`;sticker.style.backgroundPosition=`${i*20}% ${f.row*20}%`;sticker.classList.remove('pop');void sticker.offsetWidth;sticker.classList.add('pop');setTimeout(()=>sticker.classList.remove('pop'),1800)}
-function react(force,index){const f=active(),i=index??Math.floor(Math.random()*6);speech.textContent=force??f.lines[i];popSticker(i)}
-function cycle(){if(companion){react();return}state.fae=(state.fae+1)%fae.length;save();render();react()}
-if(!companion)fae.forEach((f,i)=>{const b=document.createElement('button');b.textContent=f.name;b.onclick=()=>{state.fae=i;save();render();react()};faeRow.appendChild(b)});
-bodyImg.onclick=()=>{setPose('pounce',600);react()};
-bodyImg.ondblclick=e=>{e.preventDefault();cycle()};
-bodyImg.onpointerdown=e=>{if(e.button===0)dragStart={x:e.clientX,y:e.clientY}};
-bodyImg.onpointermove=async e=>{const r=bodyImg.getBoundingClientRect();document.documentElement.style.setProperty('--look-x',((e.clientX-r.left)/r.width-.5).toFixed(2));if(dragStart&&Math.hypot(e.clientX-dragStart.x,e.clientY-dragStart.y)>8){dragStart=null;try{await invoke('begin_drag',{label:windowLabel})}catch{}}};
-window.onpointerup=()=>dragStart=null;
-resident.oncontextmenu=e=>{e.preventDefault();if(!companion)house.hidden=!house.hidden};
-if(!companion){
- document.querySelectorAll('[data-haunt]').forEach(b=>b.onclick=()=>{state.haunt=b.dataset.haunt;save();render();react(state.haunt==='FERAL'?'hehe. army deployed.':state.haunt==='HAUNTED'?'three goblins on floor.':'quiet resident.')});
- document.querySelector('#mochi').onclick=()=>{state.mochi=!state.mochi;save();render();react(state.mochi?'desktop pet mode.':'staying put.',state.mochi?3:2)};
- document.querySelector('#context').onclick=()=>{state.context=!state.context;save();render();react(state.context?'office senses on.':'context quiet.',state.context?1:3)};
- document.querySelector('#army').onclick=()=>{syncArmy();react(state.haunt==='FERAL'?'GOBLIN ARMY.':'colony synced.',2)};
- document.querySelector('#office').onclick=()=>invoke('open_office_board');
- document.querySelector('#pass').onclick=async()=>{state.clickThrough=!state.clickThrough;save();render();await invoke('set_colony_click_through',{enabled:state.clickThrough})};
- document.querySelector('#perch').onclick=async()=>{state.edge=state.edge==='right'?'left':'right';save();setPose('perch',1600);await invoke('perch',{label:windowLabel,edge:state.edge,y:120+Math.floor(Math.random()*420)})};
- document.querySelector('#quit').onclick=()=>invoke('quit');
-}
-async function petTick(){if(!state.mochi)return;const f=active();if(state.haunt==='CALM'){if(Math.random()<.12){setPose('doze',1800);react(f.lines[3],3)}return}const feral=state.haunt==='FERAL',roll=Math.random();if(roll<f.perch*(feral?1.25:1)){state.edge=Math.random()<.5?'left':'right';if(!companion)save();setPose('perch',1800);try{await invoke('perch',{label:windowLabel,edge:state.edge,y:80+Math.floor(Math.random()*500)})}catch{}if(Math.random()<.45)react();return}const step=(feral?44:18)*f.pace;setPose(roll>.78?'pounce':'walk',900);try{await invoke('move_resident',{label:windowLabel,dx:Math.round((Math.random()-.5)*step),dy:Math.round((Math.random()-.5)*step*.55)})}catch{}if(Math.random()<(feral?.48:.22))react()}
-const contextFae={browser:4,code:1,document:5,spreadsheet:1,presentation:4,meeting:0,communication:5,media:3,home:2,game:0};
-const contextLine={browser:'NEW PATH!',code:'I SEE IT.',document:'SAY IT.',spreadsheet:'BIG BRAIN',presentation:'IDEA!',meeting:'ON IT!',communication:'BOUNDARIES.',media:'WATCHING.',home:'HOME. ♡',game:"LET'S GO!"};
-const officeLane={browser:'DISCOVERY',code:'BUILD',document:'WRITE',spreadsheet:'ANALYZE',presentation:'PRESENT',meeting:'COORDINATE',communication:'COMMUNICATE',media:'LISTEN',home:'HOME',game:'PLAY',other:'OBSERVE'};
-function writeOfficeState(info,leadIndex){const record={ts:Date.now(),process:info.process,kind:info.kind,lane:officeLane[info.kind]||'OBSERVE',lead:fae[leadIndex]?.name||active().name,leadIndex:returnIndex(leadIndex),returnClass:'CONTRIBUTION',effectAuthority:'NONE',proof:'FOREGROUND_PROCESS_AND_BOUNDS_ONLY',bounds:{x:info.x,y:info.y,width:info.width,height:info.height}};localStorage.setItem('faeryware.office.state',JSON.stringify(record));let hist=[];try{hist=JSON.parse(localStorage.getItem('faeryware.office.history')||'[]')}catch{}hist.push(record);localStorage.setItem('faeryware.office.history',JSON.stringify(hist.slice(-18)))}
-function returnIndex(i){return Number.isInteger(i)?i:state.fae%fae.length}
-async function contextTick(){if(companion||!state.context)return;try{const info=await invoke('foreground_app');if(!info||info.kind==='self'||!info.process||info.process===lastForeground)return;lastForeground=info.process;const idx=contextFae[info.kind]??state.fae;writeOfficeState(info,idx);try{await invoke('arrange_colony_context')}catch{}if(contextFae[info.kind]!==undefined){state.fae=idx;save();render();react(contextLine[info.kind]||active().lines[1],1)}}catch{}}
-window.addEventListener('storage',e=>{if(e.key==='faeryware.desktop.state'&&e.newValue){try{state=JSON.parse(e.newValue);render()}catch{}}if(e.key==='faeryware.desktop.haunt.request'&&e.newValue&&!companion){try{const req=JSON.parse(e.newValue);state.haunt=req.haunt||state.haunt;save();render()}catch{}}});
-render();react();setInterval(petTick,1450);if(!companion)setInterval(contextTick,2400);setInterval(()=>{if(Math.random()<.55)react()},30000);
+function active(){return fae[state.fae%fae.length]}
+function render(){const f=active();document.documentElement.style.setProperty('--accent',f.color);body.src=window.FAERY_ASSETS[f.id];body.alt=f.name;sigil.textContent=f.sigil}
+function react(line,index){const f=active(),i=Number.isInteger(index)?index:Math.floor(Math.random()*6);speech.textContent=line||f.lines[i];sticker.style.backgroundImage=`url(${window.FAERY_ASSETS.stickerAtlas})`;sticker.style.backgroundPosition=`${i*20}% ${f.row*20}%`;sticker.classList.remove('pop');void sticker.offsetWidth;sticker.classList.add('pop')}
+fae.forEach((f,i)=>{const b=document.createElement('button');b.textContent=f.name;b.onclick=()=>{state.fae=i;save();render();react()};faeRow.appendChild(b)});
+document.querySelectorAll('[data-haunt]').forEach(b=>b.onclick=async()=>{state.haunt=b.dataset.haunt;save();await invoke('sync_colony',{haunt:state.haunt,activeFae:state.fae});react(state.haunt==='FERAL'?'GOBLIN ARMY.':state.haunt)});
+document.querySelector('#habitat').onclick=async()=>{await invoke('show_habitat');react('THE HOUSE IS LOOSE.',2)};
+document.querySelector('#office').onclick=()=>invoke('open_office_board');
+document.querySelector('#phone').onclick=async()=>{try{await invoke('launch_phone_portal');state.fae=4;save();render();react('PHONE PORTAL!',2)}catch(e){react(String(e),4)}};
+document.querySelector('#autostart').onclick=async()=>{const on=await invoke('autostart_status');await invoke('set_autostart',{enabled:!on});await refreshAutostart();react(!on?'I LIVE HERE NOW.':'manual summon.',2)};
+document.querySelector('#pass').onclick=async()=>{state.clickThrough=!state.clickThrough;save();await invoke('set_colony_click_through',{enabled:state.clickThrough});react(state.clickThrough?'ghost mode.':'touchable overlay.',3)};
+document.querySelector('#perch').onclick=async()=>{state.edge=state.edge==='right'?'left':'right';save();await invoke('perch',{label:'main',edge:state.edge,y:100+Math.floor(Math.random()*320)});react('perched.',3)};
+document.querySelector('#hideVisuals').onclick=async()=>{await invoke('hide_habitat');react('visuals banished.',5)};
+async function refreshAutostart(){try{const on=await invoke('autostart_status');document.querySelector('#autostart').textContent=`AUTOSTART: ${on?'ON':'OFF'}`}catch{}}
+const route={browser:[4,'NEW PATH!'],phone:[4,'PHONE PORTAL!'],code:[1,'I SEE IT.'],document:[5,'SAY IT.'],spreadsheet:[1,'BIG BRAIN'],presentation:[4,'IDEA!'],meeting:[0,'ON IT!'],communication:[5,'BOUNDARIES.'],media:[3,'WATCHING.'],home:[2,'HOME. ♡'],game:[0,'LET’S GO!']};
+listen('faery://window-event',e=>{const p=e.payload||{};if(!p.window||p.window.kind==='self')return;contextLine.textContent=`${p.event_name} // ${p.window.kind.toUpperCase()} // ${p.window.process}`;if(p.event_name==='FOREGROUND'){const r=route[p.window.kind];if(r){state.fae=r[0];save();render();react(r[1],1)}}});
+listen('faery://haunt',e=>{state.haunt=String(e.payload||'HAUNTED').toUpperCase();save();react(state.haunt==='FERAL'?'FERAL HOUSE.':state.haunt)});
+body.onclick=()=>react();
+body.ondblclick=()=>{state.fae=(state.fae+1)%fae.length;save();render();react()};
+render();react();refreshAutostart();

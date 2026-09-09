@@ -1,0 +1,35 @@
+:root{
+  font-family:Inter,Segoe UI,sans-serif;
+  --pink:#ff4e9d;
+  --green:#5ef27e;
+  --gold:#ffc85c;
+  --blue:#5e8cff;
+  --cyan:#55dcff;
+  --magenta:#f04cff;
+}
+*{box-sizing:border-box}
+html,body,#habitat{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
+body{pointer-events:none;user-select:none}
+#habitat{position:relative;isolation:isolate}
+#territories,#motes,#faeLayer{position:absolute;inset:0}
+#territories{z-index:1;opacity:0;transition:opacity .25s ease}
+#habitat.debug #territories{opacity:.9}
+.territory{position:absolute;border:1px dashed color-mix(in srgb,var(--c) 55%,transparent);border-radius:10px;box-shadow:inset 0 0 18px color-mix(in srgb,var(--c) 9%,transparent)}
+.territory span{position:absolute;left:4px;top:-18px;color:var(--c);font-weight:900;font-size:9px;letter-spacing:.08em;text-shadow:0 0 7px #000}
+#faeLayer{z-index:4}
+.fae{--accent:#fff;position:absolute;width:190px;height:220px;left:0;top:0;transform:translate3d(var(--x,40px),var(--y,40px),0) scale(var(--scale,1));transform-origin:50% 90%;transition:transform 900ms cubic-bezier(.22,.8,.2,1),opacity .35s ease,filter .35s ease;filter:drop-shadow(0 0 14px color-mix(in srgb,var(--accent) 72%,transparent));opacity:.98;will-change:transform}
+.fae.hidden{opacity:0;transform:translate3d(var(--x),var(--y),0) scale(.6)}
+.fae img.body{width:100%;height:100%;object-fit:contain;object-position:center bottom;animation:float 5s ease-in-out infinite}
+.fae[data-id="kyu"] img.body{animation-duration:2.8s}.fae[data-id="sylph"] img.body{animation-duration:2.2s}.fae[data-id="luma"] img.body{animation-duration:6.8s}.fae[data-id="nyx"] img.body{animation-duration:8s}
+.fae .name{position:absolute;left:50%;bottom:4px;translate:-50% 0;min-width:72px;padding:4px 8px;border-radius:999px;border:1px solid color-mix(in srgb,var(--accent) 80%,white 20%);background:rgba(3,4,10,.62);backdrop-filter:blur(8px);color:white;font-size:9px;font-weight:1000;letter-spacing:.1em;text-align:center;box-shadow:0 0 14px color-mix(in srgb,var(--accent) 30%,transparent)}
+.fae .speech{position:absolute;right:-18px;top:6px;max-width:145px;padding:7px 10px;border:1px solid color-mix(in srgb,var(--accent) 80%,white 20%);border-radius:14px 14px 4px 14px;background:rgba(3,4,10,.76);backdrop-filter:blur(12px);color:#fff;font-size:10px;font-weight:900;box-shadow:0 0 18px color-mix(in srgb,var(--accent) 28%,transparent);opacity:0;transform:translateY(7px) scale(.92)}
+.fae .speech.pop{animation:speech 2.8s ease both}
+.fae .stamp{position:absolute;left:-20px;top:0;width:72px;height:72px;border-radius:16px;background-repeat:no-repeat;background-size:600% 600%;filter:drop-shadow(0 0 8px var(--accent));opacity:0;transform:scale(.55) rotate(-8deg)}
+.fae .stamp.pop{animation:stamp 2.3s ease both}
+.fae.perch img.body{animation:perch 2.5s ease-in-out infinite}.fae.pounce img.body{animation:pounce .7s cubic-bezier(.2,.9,.2,1)}.fae.sleep img.body{animation:sleep 5s ease-in-out infinite;filter:saturate(.72) brightness(.82)}.fae.fly img.body{animation:fly .8s ease-in-out}.fae.bonk img.body{animation:bonk .55s cubic-bezier(.25,.8,.25,1)}
+.mote{--accent:#fff;position:absolute;z-index:2;width:12px;height:12px;border-radius:50%;background:radial-gradient(circle,#fff 0 18%,var(--accent) 22% 45%,transparent 68%);box-shadow:0 0 11px var(--accent);opacity:.7;animation:mote var(--dur,8s) ease-in-out infinite alternate}
+.mote:after{content:var(--glyph,"✦");position:absolute;left:50%;top:50%;translate:-50% -50%;color:var(--accent);font-size:13px;font-weight:900}
+#signal{position:absolute;z-index:10;left:50%;top:10px;translate:-50% 0;display:flex;gap:10px;align-items:center;padding:5px 10px;border:1px solid rgba(120,220,255,.22);border-radius:999px;background:rgba(2,5,12,.28);backdrop-filter:blur(10px);color:rgba(255,255,255,.58);font-size:8px;font-weight:900;letter-spacing:.12em;opacity:.28;transition:opacity .3s ease}
+#habitat[data-haunt="FERAL"] #signal{opacity:.48}#signalTitle{color:#7fe6ff}
+#habitat[data-haunt="CALM"] .mote:nth-child(n+4){display:none}#habitat[data-haunt="HAUNTED"] .mote:nth-child(n+10){display:none}#habitat[data-haunt="CALM"] .fae:not(.lead){opacity:0}#habitat[data-haunt="HAUNTED"] .fae{filter:drop-shadow(0 0 10px color-mix(in srgb,var(--accent) 55%,transparent))}#habitat[data-haunt="FERAL"] .fae{filter:drop-shadow(0 0 17px color-mix(in srgb,var(--accent) 82%,transparent))}
+@keyframes float{0%,100%{translate:0 0;rotate:-1deg}50%{translate:0 -8px;rotate:1.5deg}}@keyframes perch{0%,100%{translate:0 0;rotate:0}50%{translate:0 -4px;rotate:1deg}}@keyframes pounce{0%,100%{scale:1;translate:0 0}45%{scale:1.08;translate:0 -17px}}@keyframes sleep{0%,100%{translate:0 4px;rotate:-2deg}50%{translate:0 8px;rotate:2deg}}@keyframes fly{0%,100%{rotate:0}35%{rotate:-6deg;translate:0 -12px}70%{rotate:5deg;translate:0 3px}}@keyframes bonk{0%,100%{rotate:0;scale:1}40%{rotate:-10deg;scale:1.08}70%{rotate:8deg;scale:.98}}@keyframes speech{0%,100%{opacity:0;transform:translateY(7px) scale(.92)}12%,76%{opacity:1;transform:translateY(0) scale(1)}}@keyframes stamp{0%,100%{opacity:0;transform:scale(.55) rotate(-8deg)}15%,72%{opacity:1;transform:scale(1) rotate(2deg)}}@keyframes mote{0%{translate:0 0;scale:.7;opacity:.35}40%{translate:var(--mx,22px) var(--my,-38px);scale:1.1;opacity:.9}100%{translate:calc(var(--mx,22px)*-.65) calc(var(--my,-38px)*.4);scale:.8;opacity:.45}}
