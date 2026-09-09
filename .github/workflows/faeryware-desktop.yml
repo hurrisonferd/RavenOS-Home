@@ -1,0 +1,31 @@
+name: Build Faeryware Desktop
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "faeryware/desktop/**"
+      - "faeryware/shared/**"
+      - ".github/workflows/faeryware-desktop.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: faeryware/desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Faeryware-Desktop-Windows
+          path: faeryware/desktop/src-tauri/target/release/faeryware-desktop.exe
