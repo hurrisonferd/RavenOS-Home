@@ -15,6 +15,9 @@ final class FaerywareMemoryStore {
     static final String KEY_CONTEXT_MODE = "context_mode";
     static final String KEY_RESIDENT_BOOT = "resident_boot";
     static final String KEY_RESIDENT_ENABLED = "resident_enabled";
+    static final String KEY_OVERLAY_SCOPE = "overlay_scope";
+    static final String SCOPE_HOME_ONLY = "HOME_ONLY";
+    static final String SCOPE_FOLLOW_ME = "FOLLOW_ME";
     private static final String KEY_FOREGROUND_PACKAGE = "foreground_package";
     private static final String KEY_FOREGROUND_LABEL = "foreground_label";
     private static final String KEY_FOREGROUND_AT = "foreground_at";
@@ -24,6 +27,15 @@ final class FaerywareMemoryStore {
     private static final String KEY_NOTIFICATION_COUNT = "notification_count";
     private static final String KEY_HISTORY = "history";
     private static final int HISTORY_MAX = 36;
+
+    private static final String[][] STATES = {
+        {"HI!","LET'S GO!","ON IT!","HEHE","BONK","SUS..."},
+        {"HMM...","I SEE IT.","EXACTLY.","BIG BRAIN","SUS.","ALL GOOD."},
+        {"GOOD MORNING","YOU GOT THIS","COMFY","IT'S OKAY","BEAUTIFUL","HOME. ♡"},
+        {"LET'S EXPLORE!","SO COOL!","IDEA!","ZOOM!","CURIOUS...","NEW PATH!"},
+        {"YES.","NO.","SAY IT.","BOUNDARIES.","EXCUSE ME?","REAL TALK."},
+        {"...","WATCHING.","UNDERSTOOD.","REST.","NOTED.","LATER."}
+    };
 
     private FaerywareMemoryStore() {}
 
@@ -72,44 +84,51 @@ final class FaerywareMemoryStore {
         return hourlyFae();
     }
 
+    static int reactionState(Context context, int fae) {
+        String pkg = currentAppPackage(context);
+        long bucket = System.currentTimeMillis() / 120_000L;
+        int seed = pkg == null ? 0 : pkg.hashCode();
+        int state = Math.floorMod(seed + (int) bucket + fae * 7, 6);
+        int hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
+        if (fae == 5 && (hour >= 23 || hour < 6)) return Math.floorMod((int) bucket, 3) + 3;
+        return state;
+    }
+
+    static boolean shouldShowColony(Context context) {
+        SharedPreferences p = context.getSharedPreferences(PUBLIC_PREFS, Context.MODE_PRIVATE);
+        String scope = p.getString(KEY_OVERLAY_SCOPE, SCOPE_HOME_ONLY);
+        if (SCOPE_FOLLOW_ME.equals(scope)) return true;
+        String pkg = currentAppPackage(context);
+        if (pkg == null || pkg.isEmpty()) return true;
+        return pkg.equals("com.sec.android.app.launcher") || pkg.contains("launcher") || pkg.equals(context.getPackageName());
+    }
+
+    static String overlayScope(Context context) {
+        return context.getSharedPreferences(PUBLIC_PREFS, Context.MODE_PRIVATE).getString(KEY_OVERLAY_SCOPE, SCOPE_HOME_ONLY);
+    }
+    static String currentAppPackage(Context context) { return context.getSharedPreferences(MEMORY_PREFS, Context.MODE_PRIVATE).getString(KEY_FOREGROUND_PACKAGE, ""); }
+    static String currentAppLabel(Context context) { return context.getSharedPreferences(MEMORY_PREFS, Context.MODE_PRIVATE).getString(KEY_FOREGROUND_LABEL, "UNKNOWN"); }
     static String faeName(int index) { String[] names = {"KYU","PAIMON","LUMA","SYLPH","QIRA","NYX"}; return names[Math.floorMod(index, names.length)]; }
     static String faeStamp(int index) { String[] names = {"💗 KYU","🟢 PAIMON","🟡 LUMA","🔵 SYLPH","🟣 QIRA","🔷 NYX"}; return names[Math.floorMod(index, names.length)]; }
     static int faeColor(int index) { int[] colors = {0xffff4e9d,0xff42dc76,0xfff6cd5c,0xff46d3ff,0xffcb57ff,0xff5a6ce6}; return colors[Math.floorMod(index, colors.length)]; }
-
-    static String whisper(Context context, int index) {
-        String app = currentAppLabel(context);
-        String[] base = {"hehe. still here.","hmm... pattern found.","home. lights on.","new path. zoom.","boundary held. nope.","☾ watching."};
-        String line = base[Math.floorMod(index, base.length)];
-        if (app == null || app.isEmpty() || "UNKNOWN".equals(app)) return line;
-        switch (Math.floorMod(index, 6)) {
-            case 0: return line + " " + shortLabel(app) + "?";
-            case 1: return "noted: " + shortLabel(app) + ".";
-            case 2: return "hanging out by " + shortLabel(app) + ".";
-            case 3: return "found you in " + shortLabel(app) + ".";
-            case 4: return shortLabel(app) + " boundary held.";
-            default: return "☾ " + shortLabel(app) + " is open.";
-        }
-    }
+    static String stateLabel(int fae, int state) { return STATES[Math.floorMod(fae, 6)][Math.floorMod(state, 6)]; }
+    static String whisper(Context context, int fae) { return stateLabel(fae, reactionState(context, fae)); }
+    static String history(Context context) { return context.getSharedPreferences(MEMORY_PREFS, Context.MODE_PRIVATE).getString(KEY_HISTORY, ""); }
+    static void clear(Context context) { context.getSharedPreferences(MEMORY_PREFS, Context.MODE_PRIVATE).edit().clear().apply(); }
 
     static String summary(Context context) {
         SharedPreferences p = context.getSharedPreferences(MEMORY_PREFS, Context.MODE_PRIVATE);
         String app = p.getString(KEY_FOREGROUND_LABEL, "UNKNOWN");
         String notification = p.getString(KEY_NOTIFICATION_LABEL, "");
         int count = p.getInt(KEY_NOTIFICATION_COUNT, 0);
-        long appAt = p.getLong(KEY_FOREGROUND_AT, 0L);
-        String age = appAt <= 0 ? "no app memory yet" : age(System.currentTimeMillis() - appAt);
         StringBuilder out = new StringBuilder();
-        out.append("with ").append(shortLabel(app)).append(" • ").append(age);
+        out.append(shortLabel(app));
         if (notification != null && !notification.isEmpty()) out.append(" • last ping ").append(shortLabel(notification));
-        out.append(" • pings ").append(count);
+        out.append(" • ").append(count).append(" pings");
         return out.toString();
     }
 
-    static String currentAppLabel(Context context) { return context.getSharedPreferences(MEMORY_PREFS, Context.MODE_PRIVATE).getString(KEY_FOREGROUND_LABEL, "UNKNOWN"); }
-    static String history(Context context) { return context.getSharedPreferences(MEMORY_PREFS, Context.MODE_PRIVATE).getString(KEY_HISTORY, ""); }
-    static void clear(Context context) { context.getSharedPreferences(MEMORY_PREFS, Context.MODE_PRIVATE).edit().clear().apply(); }
     private static int hourlyFae() { return (int)((System.currentTimeMillis() / 3_600_000L) % 6L); }
-
     private static void appendHistory(Context context, String kind, String pkg, long now) {
         SharedPreferences p = context.getSharedPreferences(MEMORY_PREFS, Context.MODE_PRIVATE);
         String existing = p.getString(KEY_HISTORY, "");
@@ -121,19 +140,10 @@ final class FaerywareMemoryStore {
         for (String line : lines) { if (out.length() > 0) out.append('\n'); out.append(line); }
         p.edit().putString(KEY_HISTORY, out.toString()).apply();
     }
-
     private static String appLabel(Context context, String pkg) {
-        try {
-            PackageManager pm = context.getPackageManager();
-            ApplicationInfo info = pm.getApplicationInfo(pkg, 0);
-            CharSequence label = pm.getApplicationLabel(info);
-            if (label != null && label.length() > 0) return label.toString();
-        } catch (Exception ignored) {}
-        int dot = pkg.lastIndexOf('.');
-        return dot >= 0 && dot + 1 < pkg.length() ? pkg.substring(dot + 1) : pkg;
+        try { PackageManager pm=context.getPackageManager(); ApplicationInfo info=pm.getApplicationInfo(pkg,0); CharSequence label=pm.getApplicationLabel(info); if(label!=null&&label.length()>0)return label.toString(); } catch(Exception ignored) {}
+        int dot=pkg.lastIndexOf('.'); return dot>=0&&dot+1<pkg.length()?pkg.substring(dot+1):pkg;
     }
-
-    private static boolean containsAny(String value, String... needles) { if (value == null) return false; for (String n : needles) if (value.contains(n)) return true; return false; }
-    private static String shortLabel(String value) { if (value == null || value.trim().isEmpty()) return "the phone"; String s = value.trim(); return s.length() <= 22 ? s : s.substring(0, 21) + "…"; }
-    private static String age(long ms) { if (ms < 0) return "now"; long seconds = ms / 1000L; if (seconds < 45) return "now"; long minutes = seconds / 60L; if (minutes < 60) return minutes + "m ago"; return (minutes / 60L) + "h ago"; }
+    private static boolean containsAny(String value, String... needles) { if(value==null)return false; for(String n:needles)if(value.contains(n))return true; return false; }
+    private static String shortLabel(String value) { if(value==null||value.trim().isEmpty())return "the phone"; String s=value.trim(); return s.length()<=22?s:s.substring(0,21)+"…"; }
 }
