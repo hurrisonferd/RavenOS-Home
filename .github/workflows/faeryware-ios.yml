@@ -1,0 +1,42 @@
+name: Faeryware iOS
+
+on:
+  pull_request:
+    paths:
+      - "faeryware/ios/**"
+      - ".github/workflows/faeryware-ios.yml"
+  push:
+    branches: [main]
+    paths:
+      - "faeryware/ios/**"
+      - ".github/workflows/faeryware-ios.yml"
+
+jobs:
+  simulator-build:
+    runs-on: macos-15
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        working-directory: faeryware/ios
+        run: xcodegen generate
+
+      - name: Build for iOS Simulator
+        working-directory: faeryware/ios
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project FaerywareIOS.xcodeproj \
+            -scheme Faeryware \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
