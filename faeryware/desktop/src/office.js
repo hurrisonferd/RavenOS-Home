@@ -1,0 +1,14 @@
+const invoke=window.__TAURI__.core.invoke;
+const fae=[
+{id:'kyu',name:'KYU',color:'#ff4e9d'},{id:'paimon',name:'PAIMON',color:'#5ef27e'},{id:'luma',name:'LUMA',color:'#ffc85c'},{id:'nyx',name:'NYX',color:'#5e8cff'},{id:'sylph',name:'SYLPH',color:'#55dcff'},{id:'qira',name:'QIRA',color:'#f04cff'}
+];
+const lane=document.querySelector('#lane'),processEl=document.querySelector('#process'),lead=document.querySelector('#lead'),returnClass=document.querySelector('#returnClass'),authority=document.querySelector('#authority'),floor=document.querySelector('#floor'),historyEl=document.querySelector('#history');
+const defaultState={ts:null,process:'waiting',kind:'quiet',lane:'QUIET FLOOR',lead:'KYU',leadIndex:0,returnClass:'CONTRIBUTION',effectAuthority:'NONE',proof:'NO MATERIAL CONTEXT YET'};
+function readState(){try{return {...defaultState,...JSON.parse(localStorage.getItem('faeryware.office.state')||'{}')}}catch{return defaultState}}
+function readHistory(){try{return JSON.parse(localStorage.getItem('faeryware.office.history')||'[]')}catch{return []}}
+function render(){const s=readState();lane.textContent=s.lane;processEl.textContent=s.process;lead.textContent=s.lead;returnClass.textContent=s.returnClass;authority.textContent=s.effectAuthority;floor.innerHTML='';fae.forEach((f,i)=>{const card=document.createElement('div');card.className='fae'+(i===s.leadIndex?' lead':'');card.style.setProperty('--fae',f.color);const img=document.createElement('img');img.src=window.FAERY_ASSETS[f.id];img.alt=f.name;const name=document.createElement('strong');name.textContent=f.name;const status=document.createElement('span');status.textContent=i===s.leadIndex?'ACTIVE CONTRIBUTOR':'AVAILABLE';card.append(img,name,status);floor.appendChild(card)});historyEl.innerHTML='';const hist=readHistory();if(!hist.length){historyEl.textContent='No observed work context yet.';return}hist.slice().reverse().forEach(e=>{const row=document.createElement('div');row.className='event';const t=e.ts?new Date(e.ts).toLocaleTimeString():'';row.innerHTML=`<b>${e.lead}</b> · ${e.lane} · ${e.process} <span style="opacity:.45">${t}</span>`;historyEl.appendChild(row)})}
+document.querySelectorAll('[data-haunt]').forEach(b=>b.onclick=async()=>{const h=b.dataset.haunt;const s=readState();await invoke('sync_colony',{haunt:h,activeFae:s.leadIndex||0});localStorage.setItem('faeryware.desktop.haunt.request',JSON.stringify({haunt:h,ts:Date.now()}));render()});
+document.querySelector('#sync').onclick=async()=>{const s=readState();const h=JSON.parse(localStorage.getItem('faeryware.desktop.state')||'{"haunt":"HAUNTED"}').haunt||'HAUNTED';await invoke('sync_colony',{haunt:h,activeFae:s.leadIndex||0});};
+document.querySelector('#hide').onclick=()=>invoke('hide_office_board');
+window.addEventListener('storage',e=>{if(e.key==='faeryware.office.state'||e.key==='faeryware.office.history')render()});
+render();setInterval(render,1800);
