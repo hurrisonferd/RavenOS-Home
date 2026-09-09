@@ -1,166 +1,42 @@
 package com.faeryware.launcher;
 
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
-import android.app.Service;
-import android.content.Intent;
-import android.content.SharedPreferences;
-import android.graphics.Color;
-import android.graphics.PixelFormat;
-import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.Icon;
-import android.os.Handler;
-import android.os.IBinder;
-import android.os.Looper;
+import android.app.*;
+import android.content.*;
+import android.graphics.*;
+import android.graphics.drawable.*;
+import android.os.*;
 import android.provider.Settings;
-import android.view.GestureDetector;
-import android.view.Gravity;
-import android.view.MotionEvent;
-import android.view.View;
-import android.view.WindowManager;
-import android.widget.LinearLayout;
-import android.widget.TextView;
+import android.view.*;
+import android.widget.*;
 
 public final class FaerywareGoblinOverlayService extends Service {
-    static final String ACTION_SUMMON = "com.faeryware.launcher.SUMMON";
-    static final String ACTION_BANISH = "com.faeryware.launcher.BANISH";
-    static final String ACTION_MORE_HAUNTED = "com.faeryware.launcher.MORE_HAUNTED";
-    private static final String CHANNEL = "faeryware_resident_goblin";
-    private static final int ID = 6606;
-    private static final String[] FAE = {"💗 KYU","🟢 PAIMON","🟡 LUMA","🔵 SYLPH","🟣 QIRA","🔷 NYX"};
-    private static final int[] COLORS = {0xffff4e9d,0xff42dc76,0xfff6cd5c,0xff46d3ff,0xffcb57ff,0xff5a6ce6};
+  static final String ACTION_SUMMON="com.faeryware.launcher.SUMMON", ACTION_BANISH="com.faeryware.launcher.BANISH", ACTION_MORE_HAUNTED="com.faeryware.launcher.MORE_HAUNTED", ACTION_REFRESH="com.faeryware.launcher.REFRESH_GOBLINS", ACTION_CYCLE="com.faeryware.launcher.CYCLE_GOBLIN", ACTION_FOLLOW_CONTEXT="com.faeryware.launcher.FOLLOW_CONTEXT";
+  private static final String CH="faeryware_resident_goblin", POS="goblin_position"; private static final int ID=6606;
+  private final Handler h=new Handler(Looper.getMainLooper()); private WindowManager wm; private WindowManager.LayoutParams lp,aLp,bLp; private LinearLayout main; private ImageView img,a,b; private TextView name,line,ctx; private GestureDetector gd; private long dragHold; private int drawn=-1,aDrawn=-1,bDrawn=-1;
+  private final Runnable tick=new Runnable(){public void run(){if(main==null)return; refresh(); h.postDelayed(this,delay());}};
 
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private WindowManager wm;
-    private WindowManager.LayoutParams params;
-    private LinearLayout bubble;
-    private TextView face;
-    private TextView whisper;
-    private GestureDetector gestures;
-    private int fae = 0;
-    private long dragHoldUntil = 0L;
+  public void onCreate(){super.onCreate(); wm=getSystemService(WindowManager.class); NotificationManager n=getSystemService(NotificationManager.class); if(n!=null){NotificationChannel c=new NotificationChannel(CH,"Resident fae",NotificationManager.IMPORTANCE_LOW);c.setDescription("Visible controls for user-enabled Faeryware residents.");n.createNotificationChannel(c);}}
+  public int onStartCommand(Intent in,int f,int id){String ac=in==null?ACTION_SUMMON:in.getAction(); if(ACTION_BANISH.equals(ac)){prefs().edit().putBoolean(FaerywareMemoryStore.KEY_RESIDENT_ENABLED,false).apply();clear();stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return START_NOT_STICKY;} if(!Settings.canDrawOverlays(this)){stopSelf();return START_NOT_STICKY;} prefs().edit().putBoolean(FaerywareMemoryStore.KEY_RESIDENT_ENABLED,true).apply(); if(ACTION_MORE_HAUNTED.equals(ac))cycleHaunt(); else if(ACTION_CYCLE.equals(ac))cycleFae(); else if(ACTION_FOLLOW_CONTEXT.equals(ac))pos().edit().remove("fae").apply(); startForeground(ID,note()); if(main==null)show(); refresh(); return START_NOT_STICKY;}
+  public void onDestroy(){clear();h.removeCallbacksAndMessages(null);super.onDestroy();} public IBinder onBind(Intent i){return null;}
+  private android.content.SharedPreferences prefs(){return getSharedPreferences(FaerywareMemoryStore.PUBLIC_PREFS,MODE_PRIVATE);} private android.content.SharedPreferences pos(){return getSharedPreferences(POS,MODE_PRIVATE);}
 
-    private final Runnable haunt = new Runnable() {
-        @Override public void run() {
-            if (bubble == null) return;
-            if (System.currentTimeMillis() >= dragHoldUntil) {
-                String level = getSharedPreferences("faeryware_public", MODE_PRIVATE).getString("haunt", "HAUNTED");
-                float amp = "FERAL".equals(level) ? dp(14) : ("CALM".equals(level) ? 0 : dp(5));
-                double p = System.currentTimeMillis() / 900.0 + fae;
-                bubble.setTranslationY((float)Math.sin(p) * amp);
-                bubble.setAlpha("FERAL".equals(level) ? 0.88f + 0.12f * (float)((Math.sin(p*0.7)+1)/2) : 1f);
-                whisper.setText(line());
-            }
-            handler.postDelayed(this, 900L);
-        }
-    };
+  private void show(){main=new LinearLayout(this);main.setOrientation(LinearLayout.VERTICAL);main.setGravity(Gravity.CENTER);main.setPadding(dp(6),dp(6),dp(6),dp(6));main.setElevation(dp(12)); img=new ImageView(this);img.setScaleType(ImageView.ScaleType.CENTER_CROP);main.addView(img); name=t(13,true);line=t(10,false);ctx=t(8,false);main.addView(name);main.addView(line);main.addView(ctx); lp=overlay(-dp(12),pos().getInt("y",dp(180)),WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,false);lp.x=pos().getInt("x",-dp(12)); touch();mode();wm.addView(main,lp);companions();h.post(tick);}
+  private TextView t(float sp,boolean bold){TextView v=new TextView(this);v.setTextSize(sp);v.setTextColor(Color.WHITE);v.setGravity(Gravity.CENTER);if(bold)v.setTypeface(v.getTypeface(),1);return v;}
+  private WindowManager.LayoutParams overlay(int x,int y,int w,int he,boolean passive){int flags=WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;if(passive)flags|=WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;WindowManager.LayoutParams p=new WindowManager.LayoutParams(w,he,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,flags,PixelFormat.TRANSLUCENT);p.gravity=Gravity.TOP|Gravity.START;p.x=x;p.y=y;return p;}
 
-    @Override public void onCreate() {
-        super.onCreate();
-        wm = getSystemService(WindowManager.class);
-        NotificationManager nm = getSystemService(NotificationManager.class);
-        if (nm != null) {
-            NotificationChannel c = new NotificationChannel(CHANNEL, "Resident goblin", NotificationManager.IMPORTANCE_LOW);
-            c.setDescription("Visible control for the Faeryware floating Fae.");
-            nm.createNotificationChannel(c);
-        }
-    }
+  private void touch(){gd=new GestureDetector(this,new GestureDetector.SimpleOnGestureListener(){public boolean onDown(MotionEvent e){return true;}public boolean onSingleTapConfirmed(MotionEvent e){startActivity(new Intent(FaerywareGoblinOverlayService.this,FaerywareLauncherActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP));return true;}public boolean onDoubleTap(MotionEvent e){cycleFae();refresh();return true;}public void onLongPress(MotionEvent e){cycleMode();refresh();}});main.setOnTouchListener(new View.OnTouchListener(){float sx,sy;int ox,oy;boolean moved;public boolean onTouch(View v,MotionEvent e){gd.onTouchEvent(e);switch(e.getActionMasked()){case MotionEvent.ACTION_DOWN:sx=e.getRawX();sy=e.getRawY();ox=lp.x;oy=lp.y;moved=false;main.animate().cancel();main.setTranslationX(0);main.setTranslationY(0);return true;case MotionEvent.ACTION_MOVE:float dx=e.getRawX()-sx,dy=e.getRawY()-sy;if(Math.abs(dx)>dp(5)||Math.abs(dy)>dp(5))moved=true;lp.x=ox+Math.round(dx);lp.y=Math.max(0,oy+Math.round(dy));try{wm.updateViewLayout(main,lp);}catch(Exception ignored){}return true;case MotionEvent.ACTION_UP:case MotionEvent.ACTION_CANCEL:dragHold=System.currentTimeMillis()+12000;if(moved)snap();return true;}return true;}});}
+  private void mode(){String m=pos().getString("mode","BUBBLE");int s="MINI".equals(m)?58:("CARD".equals(m)?106:78);img.setLayoutParams(new LinearLayout.LayoutParams(dp(s),dp(s)));name.setVisibility("MINI".equals(m)?View.GONE:View.VISIBLE);line.setVisibility("MINI".equals(m)?View.GONE:View.VISIBLE);ctx.setVisibility("CARD".equals(m)?View.VISIBLE:View.GONE);}
+  private void cycleMode(){String m=pos().getString("mode","BUBBLE");String n="MINI".equals(m)?"BUBBLE":("BUBBLE".equals(m)?"CARD":"MINI");pos().edit().putString("mode",n).apply();mode();}
+  private int fae(){int o=pos().getInt("fae",-1);return o>=0&&o<6?o:FaerywareMemoryStore.activeFaeIndex(this);} private void cycleFae(){pos().edit().putInt("fae",(fae()+1)%6).apply();drawn=-1;}
+  private void snap(){int sw=getResources().getDisplayMetrics().widthPixels,bw=main.getWidth()>0?main.getWidth():dp(90);boolean left=lp.x+bw/2<sw/2;lp.x=left?-dp(16):Math.max(0,sw-bw+dp(16));pos().edit().putInt("x",lp.x).putInt("y",lp.y).putString("dock",left?"L":"R").apply();try{wm.updateViewLayout(main,lp);}catch(Exception ignored){}}
 
-    @Override public int onStartCommand(Intent intent, int flags, int startId) {
-        String action = intent == null ? ACTION_SUMMON : intent.getAction();
-        if (ACTION_BANISH.equals(action)) {
-            remove(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); return START_NOT_STICKY;
-        }
-        if (!Settings.canDrawOverlays(this)) { stopSelf(); return START_NOT_STICKY; }
-        if (ACTION_MORE_HAUNTED.equals(action)) cycleFae();
-        startForeground(ID, notification());
-        if (bubble == null) show(); else refresh();
-        return START_NOT_STICKY;
-    }
-
-    @Override public void onDestroy() { remove(); handler.removeCallbacksAndMessages(null); super.onDestroy(); }
-    @Override public IBinder onBind(Intent i) { return null; }
-
-    private void show() {
-        bubble = new LinearLayout(this);
-        bubble.setOrientation(LinearLayout.VERTICAL);
-        bubble.setGravity(Gravity.CENTER);
-        bubble.setPadding(dp(8),dp(8),dp(8),dp(8));
-        bubble.setElevation(dp(10));
-        face = new TextView(this); face.setTextSize(18f); face.setTextColor(Color.WHITE); face.setGravity(Gravity.CENTER);
-        whisper = new TextView(this); whisper.setTextSize(10f); whisper.setTextColor(Color.WHITE); whisper.setGravity(Gravity.CENTER);
-        bubble.addView(face); bubble.addView(whisper);
-        params = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                PixelFormat.TRANSLUCENT);
-        params.gravity = Gravity.TOP | Gravity.START;
-        SharedPreferences p = getSharedPreferences("goblin_position", MODE_PRIVATE);
-        params.x = p.getInt("x", -dp(8)); params.y = p.getInt("y", dp(180));
-        installTouch(); refresh(); wm.addView(bubble, params); handler.post(haunt);
-    }
-
-    private void installTouch() {
-        gestures = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
-            @Override public boolean onDown(MotionEvent e) { return true; }
-            @Override public boolean onSingleTapConfirmed(MotionEvent e) {
-                startActivity(new Intent(FaerywareGoblinOverlayService.this, FaerywareLauncherActivity.class)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP)); return true;
-            }
-            @Override public boolean onDoubleTap(MotionEvent e) { cycleFae(); return true; }
-            @Override public void onLongPress(MotionEvent e) {
-                int pad = bubble.getPaddingLeft() <= dp(6) ? dp(14) : dp(4);
-                bubble.setPadding(pad,pad,pad,pad);
-            }
-        });
-        bubble.setOnTouchListener(new View.OnTouchListener() {
-            float sx, sy; int ox, oy; boolean moved;
-            @Override public boolean onTouch(View v, MotionEvent e) {
-                gestures.onTouchEvent(e);
-                switch (e.getActionMasked()) {
-                    case MotionEvent.ACTION_DOWN:
-                        sx=e.getRawX(); sy=e.getRawY(); ox=params.x; oy=params.y; moved=false; bubble.setTranslationY(0); return true;
-                    case MotionEvent.ACTION_MOVE:
-                        float dx=e.getRawX()-sx, dy=e.getRawY()-sy; if (Math.abs(dx)>dp(5)||Math.abs(dy)>dp(5)) moved=true;
-                        params.x=ox+Math.round(dx); params.y=Math.max(0,oy+Math.round(dy)); wm.updateViewLayout(bubble,params); return true;
-                    case MotionEvent.ACTION_UP:
-                    case MotionEvent.ACTION_CANCEL:
-                        dragHoldUntil=System.currentTimeMillis()+12000L; if(moved) snap(); return true;
-                    default:return true;
-                }
-            }
-        });
-    }
-
-    private void snap() {
-        int sw=getResources().getDisplayMetrics().widthPixels; int bw=bubble.getWidth()>0?bubble.getWidth():dp(90);
-        boolean left=params.x+bw/2<sw/2; params.x=left?-dp(14):Math.max(0,sw-bw+dp(14));
-        getSharedPreferences("goblin_position",MODE_PRIVATE).edit().putInt("x",params.x).putInt("y",params.y).apply();
-        try { wm.updateViewLayout(bubble,params); } catch(Exception ignored){}
-    }
-
-    private void cycleFae() { fae=(fae+1)%FAE.length; refresh(); }
-    private void refresh() {
-        if (bubble==null) return;
-        face.setText(FAE[fae]); whisper.setText(line());
-        GradientDrawable bg=new GradientDrawable(); bg.setColor(COLORS[fae]); bg.setCornerRadius(dp(24)); bg.setStroke(dp(1),Color.WHITE); bubble.setBackground(bg);
-    }
-    private String line() {
-        String[] w={"hehe. still here.","hmm... pattern found.","home. lights on.","new path. zoom.","boundary held. nope.","☾ watching."};
-        return w[fae];
-    }
-    private Notification notification() {
-        PendingIntent open=PendingIntent.getActivity(this,1,new Intent(this,FaerywareLauncherActivity.class),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
-        PendingIntent banish=PendingIntent.getService(this,2,new Intent(this,FaerywareGoblinOverlayService.class).setAction(ACTION_BANISH),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
-        PendingIntent more=PendingIntent.getService(this,3,new Intent(this,FaerywareGoblinOverlayService.class).setAction(ACTION_MORE_HAUNTED),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
-        return new Notification.Builder(this,CHANNEL).setSmallIcon(R.drawable.ic_faeryware).setContentTitle("Faeryware goblin is loose")
-                .setContentText("drag • tap home • double-tap Fae • long-press form").setContentIntent(open).setOngoing(true)
-                .addAction(new Notification.Action.Builder(Icon.createWithResource(this,R.drawable.ic_faeryware),"More haunted",more).build())
-                .addAction(new Notification.Action.Builder(Icon.createWithResource(this,R.drawable.ic_faeryware),"Banish goblin",banish).build()).build();
-    }
-    private void remove() { if(bubble!=null&&wm!=null){try{wm.removeView(bubble);}catch(Exception ignored){}} bubble=null; }
-    private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
+  private void refresh(){if(main==null)return;int f=fae();if(drawn!=f){img.setImageBitmap(FaerywareChibiRenderer.render(this,f,dp(130)));drawn=f;}int c=FaerywareMemoryStore.faeColor(f);GradientDrawable bg=new GradientDrawable();bg.setColor(Color.argb(218,Color.red(c),Color.green(c),Color.blue(c)));bg.setCornerRadius(dp(24));bg.setStroke(dp(1),Color.WHITE);main.setBackground(bg);name.setText(FaerywareMemoryStore.faeStamp(f));line.setText(FaerywareMemoryStore.whisper(this,f));ctx.setText(FaerywareMemoryStore.summary(this));String level=prefs().getString("haunt","HAUNTED");long now=System.currentTimeMillis();if(now>=dragHold){double p=now/1050.0+f;float ay="FERAL".equals(level)?dp(17):("CALM".equals(level)?0:dp(6)),ax="FERAL".equals(level)?dp(11):("CALM".equals(level)?0:dp(4));float dir="R".equals(pos().getString("dock","L"))?-1:1;main.animate().translationX(dir*(float)((Math.sin(p*.63)+1)*.5)*ax).translationY((float)Math.sin(p)*ay).setDuration(620).start();}moveCompanions(level,f,now);}
+  private void companions(){if(a==null){a=companion();aLp=overlay(-dp(17),dp(80),dp(50),dp(50),true);try{wm.addView(a,aLp);}catch(Exception ignored){}}if(b==null){b=companion();int sw=getResources().getDisplayMetrics().widthPixels;bLp=overlay(sw-dp(33),dp(420),dp(50),dp(50),true);try{wm.addView(b,bLp);}catch(Exception ignored){}}}
+  private ImageView companion(){ImageView v=new ImageView(this);v.setScaleType(ImageView.ScaleType.CENTER_CROP);GradientDrawable g=new GradientDrawable();g.setColor(Color.argb(145,0,0,0));g.setCornerRadius(dp(30));g.setStroke(dp(1),Color.WHITE);v.setBackground(g);v.setPadding(dp(2),dp(2),dp(2),dp(2));return v;}
+  private void moveCompanions(String level,int f,long now){companions();boolean calm="CALM".equals(level),feral="FERAL".equals(level);a.setVisibility(calm?View.GONE:View.VISIBLE);b.setVisibility(feral?View.VISIBLE:View.GONE);if(calm)return;int af=(f+1)%6,bf=(f+2)%6;if(aDrawn!=af){a.setImageBitmap(FaerywareChibiRenderer.render(this,af,dp(72)));aDrawn=af;}if(bDrawn!=bf){b.setImageBitmap(FaerywareChibiRenderer.render(this,bf,dp(72)));bDrawn=bf;}int range=Math.max(dp(180),getResources().getDisplayMetrics().heightPixels-dp(170));aLp.y=dp(70)+(int)((now/37+f*173)%range);bLp.y=dp(120)+(int)((now/53+f*241)%Math.max(dp(150),range-dp(50)));try{wm.updateViewLayout(a,aLp);wm.updateViewLayout(b,bLp);}catch(Exception ignored){}a.animate().translationX((float)Math.sin(now/1250.0+f)*dp(8)).setDuration(800).start();if(feral)b.animate().translationY((float)Math.sin(now/900.0+f)*dp(13)).setDuration(760).start();}
+  private void cycleHaunt(){String q=prefs().getString("haunt","HAUNTED");prefs().edit().putString("haunt","CALM".equals(q)?"HAUNTED":("HAUNTED".equals(q)?"FERAL":"CALM")).apply();}
+  private long delay(){String q=prefs().getString("haunt","HAUNTED");return "FERAL".equals(q)?700:("CALM".equals(q)?1800:1050);}
+  private Notification note(){PendingIntent open=PendingIntent.getActivity(this,1,new Intent(this,FaerywareHauntConsoleActivity.class),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE),cycle=PendingIntent.getService(this,2,new Intent(this,getClass()).setAction(ACTION_CYCLE),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE),more=PendingIntent.getService(this,3,new Intent(this,getClass()).setAction(ACTION_MORE_HAUNTED),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE),ban=PendingIntent.getService(this,4,new Intent(this,getClass()).setAction(ACTION_BANISH),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);return new Notification.Builder(this,CH).setSmallIcon(R.drawable.ic_faeryware).setContentTitle("Faeryware residents • "+FaerywareMemoryStore.faeName(fae())).setContentText(prefs().getString("haunt","HAUNTED")+" • "+FaerywareMemoryStore.summary(this)).setContentIntent(open).setOngoing(true).addAction(new Notification.Action.Builder(Icon.createWithResource(this,R.drawable.ic_faeryware),"Cycle Fae",cycle).build()).addAction(new Notification.Action.Builder(Icon.createWithResource(this,R.drawable.ic_faeryware),"More Haunted",more).build()).addAction(new Notification.Action.Builder(Icon.createWithResource(this,R.drawable.ic_faeryware),"Banish",ban).build()).build();}
+  private void clear(){h.removeCallbacks(tick);if(wm!=null){try{if(main!=null)wm.removeView(main);}catch(Exception ignored){}try{if(a!=null)wm.removeView(a);}catch(Exception ignored){}try{if(b!=null)wm.removeView(b);}catch(Exception ignored){}}main=null;a=null;b=null;}
+  private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
 }
