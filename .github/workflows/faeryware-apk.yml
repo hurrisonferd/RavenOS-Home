@@ -26,11 +26,14 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Materialize Digi Fae sticker atlas
+      - name: Materialize Digi Fae resident stickers
         working-directory: faeryware/android
         run: |
-          base64 -d app/src/main/res/drawable/faeryware_v5_sticker_atlas.txt > app/src/main/res/drawable/faeryware_v5_sticker_atlas.webp
-          rm app/src/main/res/drawable/faeryware_v5_sticker_atlas.txt
+          set -euo pipefail
+          for fae in kyu paimon luma nyx sylph qira; do
+            base64 -d "build-assets/fae_${fae}_224.webp.b64" > "app/src/main/res/drawable/fae_${fae}_224.webp"
+          done
+          rm -f app/src/main/res/drawable/faeryware_v5_sticker_atlas.txt
       - name: Build haunted overlay colony
         working-directory: faeryware/android
         run: gradle :app:assembleDebug --stacktrace
@@ -52,9 +55,9 @@ jobs:
           body: |
             Faeryware V5 Overlay Colony debug APK built from ${{ github.sha }}.
 
-            One UI remains the Home launcher. Faeryware lives above it as small explicit overlay windows using Raven-supplied Digi Fae sticker art.
+            Samsung One UI remains the Home launcher. Faeryware lives above it as small explicit overlay windows using Raven-supplied Digi Fae sticker art.
 
-            V5 includes 36 deterministic sticker states, draggable/perchable main resident, bounded companion residents, Home-only or Follow-me scope, CALM/HAUNTED/FERAL/APOCALYPSE levels, Ghost House edge handle, optional context awareness, notification-source awareness, local memory, Quick Settings control, widget, and optional live wallpaper.
+            This build ships six real Digi Fae visual anchors plus 36 deterministic reaction labels, draggable/perchable main resident, bounded companion residents, Home-only or Follow-me scope, CALM/HAUNTED/FERAL/APOCALYPSE levels, Ghost House edge handle, optional context awareness, notification-source awareness, local memory, Quick Settings control, widget, and optional live wallpaper.
 
             Privacy/safety boundary:
             - no root or device admin
