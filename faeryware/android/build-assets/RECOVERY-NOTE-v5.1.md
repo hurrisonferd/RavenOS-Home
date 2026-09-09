@@ -1,0 +1,1 @@
+Faeryware V5.1 recovery: compact six-Fae direct resource replaces the broken giant-atlas/base64 materialization path. One UI remains HOME; Faeryware remains an explicit small-window overlay colony. This marker exists only to make the recovery boundary visible in source history.
