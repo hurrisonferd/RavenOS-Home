@@ -1,0 +1,1 @@
+Transformed from public architectural patterns: persistent overlay session, compact capsule reactions, and separation between native Home ownership and resident assistant presence. No third-party source copied.
