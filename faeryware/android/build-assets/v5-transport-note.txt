@@ -1,0 +1,1 @@
+Recovery note: V5 real resident art is moving from temporary base64 staging into direct Android binary resources. The old giant atlas/chunk transport path is retired.
