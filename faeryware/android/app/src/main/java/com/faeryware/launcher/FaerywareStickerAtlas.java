@@ -4,26 +4,20 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 
+/** Compact V5.1 visual anchor: one Raven-supplied portrait cell per Digi Fae. */
 final class FaerywareStickerAtlas {
-    private static final Bitmap[] CACHE = new Bitmap[6];
-    private static final int[] RES = {
-        R.drawable.fae_kyu_224,
-        R.drawable.fae_paimon_224,
-        R.drawable.fae_luma_224,
-        R.drawable.fae_sylph_224,
-        R.drawable.fae_qira_224,
-        R.drawable.fae_nyx_224
-    };
+    private static Bitmap strip;
+    private static final int CELLS = 6;
 
     private FaerywareStickerAtlas() {}
 
     static synchronized Bitmap sticker(Context context, int faeIndex, int stateIndex) {
-        int i = Math.floorMod(faeIndex, RES.length);
-        Bitmap b = CACHE[i];
-        if (b == null || b.isRecycled()) {
-            b = BitmapFactory.decodeResource(context.getResources(), RES[i]);
-            CACHE[i] = b;
+        if (strip == null || strip.isRecycled()) {
+            strip = BitmapFactory.decodeResource(context.getResources(), R.drawable.fae_six_strip);
         }
-        return b;
+        if (strip == null) return null;
+        int cell = strip.getWidth() / CELLS;
+        int i = Math.floorMod(faeIndex, CELLS);
+        return Bitmap.createBitmap(strip, i * cell, 0, cell, strip.getHeight());
     }
 }
