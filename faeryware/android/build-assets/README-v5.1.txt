@@ -1,0 +1,1 @@
+V5.1 build-assets should contain only compact source-side recovery metadata. The production APK should consume direct Android image resources; CI should not decode giant text atlases.
