@@ -26,15 +26,15 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Materialize Digi Fae resident stickers
+      - name: Materialize compact six-Fae resident strip
         working-directory: faeryware/android
         run: |
           set -euo pipefail
-          for fae in kyu paimon luma nyx sylph qira; do
-            base64 -d "build-assets/fae_${fae}_224.webp.b64" > "app/src/main/res/drawable/fae_${fae}_224.webp"
-          done
+          mkdir -p app/src/main/res/drawable-nodpi
+          base64 -d build-assets/fae_six_strip_64.webp.b64 > app/src/main/res/drawable-nodpi/fae_six_strip.webp
+          test -s app/src/main/res/drawable-nodpi/fae_six_strip.webp
           rm -f app/src/main/res/drawable/faeryware_v5_sticker_atlas.txt
-      - name: Build haunted overlay colony
+      - name: Build Faeryware Session Colony
         working-directory: faeryware/android
         run: gradle :app:assembleDebug --stacktrace
       - name: Stage APK
@@ -48,16 +48,16 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: faeryware-${{ github.run_number }}
-          name: Faeryware Overlay Colony ${{ github.run_number }}
+          name: Faeryware Session Colony ${{ github.run_number }}
           make_latest: false
           generate_release_notes: false
           files: Faeryware-debug.apk
           body: |
-            Faeryware V5 Overlay Colony debug APK built from ${{ github.sha }}.
+            Faeryware V5.1 Session Colony debug APK built from ${{ github.sha }}.
 
-            Samsung One UI remains the Home launcher. Faeryware lives above it as small explicit overlay windows using Raven-supplied Digi Fae sticker art.
+            Samsung One UI remains the Home launcher. Faeryware lives above it as small explicit overlay windows using a compact six-Fae strip derived from Raven-supplied Digi Fae art.
 
-            This build ships six real Digi Fae visual anchors plus 36 deterministic reaction labels, draggable/perchable main resident, bounded companion residents, Home-only or Follow-me scope, CALM/HAUNTED/FERAL/APOCALYPSE levels, Ghost House edge handle, optional context awareness, notification-source awareness, local memory, Quick Settings control, widget, and optional live wallpaper.
+            V5.1 keeps the resident-colony model: draggable/perchable resident, bounded companions, Home-only or Follow-me scope, CALM/HAUNTED/FERAL/APOCALYPSE levels, Ghost House edge handle, optional narrow app-context awareness, notification-source awareness, local memory, Quick Settings control, widget, and optional live wallpaper.
 
             Privacy/safety boundary:
             - no root or device admin
