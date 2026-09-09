@@ -1,0 +1,2 @@
+RECOVERY_STATE=SOURCE_PREPARED_DIRECT_RESOURCE_PENDING
+NEXT=commit compact direct Fae resource + remove decode step + build APK
