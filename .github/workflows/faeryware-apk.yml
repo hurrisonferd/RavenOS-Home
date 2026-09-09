@@ -1,0 +1,52 @@
+name: Build Faeryware APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'faeryware/**'
+      - '.github/workflows/faeryware-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build haunted launcher
+        working-directory: faeryware/android
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Stage APK
+        run: cp faeryware/android/app/build/outputs/apk/debug/app-debug.apk Faeryware-debug.apk
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Faeryware-debug-apk
+          path: Faeryware-debug.apk
+      - name: Publish Faeryware release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: faeryware-${{ github.run_number }}
+          name: Faeryware Haunted Launcher ${{ github.run_number }}
+          make_latest: false
+          generate_release_notes: false
+          files: Faeryware-debug.apk
+          body: |
+            Faeryware haunted Android HOME launcher debug APK built from ${{ github.sha }}.
+
+            Includes one-swipe Haunt Feed, local scratchpad, app/web search, Ghost House, Fae widget, live wallpaper, Quick Settings haunt tile, and the opt-in draggable resident goblin overlay.
+
+            Safety boundary: no root, no accessibility scraping, no notification listener, no device admin, no silent HOME takeover. Overlay and HOME role require explicit Android user consent.
