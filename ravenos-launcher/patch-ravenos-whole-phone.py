@@ -12,6 +12,7 @@ root = Path(sys.argv[1]).resolve()
 manifest = root / "src/launcher/app/src/main/AndroidManifest.xml"
 listener = root / "src/launcher/app/src/main/java/com/iappyx/launcher/notify/NotificationBadgeListener.kt"
 home = root / "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenHomeActivity.kt"
+raven = root / "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos"
 if not manifest.is_file() or not listener.is_file() or not home.is_file():
     raise SystemExit("whole-phone donor paths missing")
 
@@ -25,6 +26,16 @@ def replace_once(path: Path, marker: str, old: str, new: str) -> None:
         raise SystemExit(f"whole-phone donor drift in {path}: missing {old[:180]!r}")
     path.write_text(text.replace(old, new, 1), encoding="utf-8")
     print(f"RavenOS whole-phone patch: {path}")
+
+
+def require_file(name: str, needles: tuple[str, ...] = ()) -> None:
+    path = raven / name
+    if not path.is_file() or path.stat().st_size == 0:
+        raise SystemExit(f"whole-phone organ missing: {path}")
+    text = path.read_text(encoding="utf-8")
+    for needle in needles:
+        if needle not in text:
+            raise SystemExit(f"whole-phone contract missing {needle!r} in {path}")
 
 
 replace_once(
@@ -70,5 +81,31 @@ replace_once(
     '''                when (which) {\n                    0 -> RavenSummoningWheel.show(this)\n                    1 -> RavenCommandPalette.show(this)\n                    2 -> showAppUniverse(false)\n                    3 -> showSoundDeck()\n                    4 -> RavenOfficeFeed.show(this)\n                    5 -> RavenGhostHotspots.toggle(this)\n                    6 -> RavenTaskerBridge.showSetup(this)\n                    7 -> openStudio()\n                    8 -> RavenOfficeBarService.auto(this)\n                    9 -> RavenOfficeBarService.cycleHaunt(this)\n                    10 -> RavenOfficeBarService.disable(this)\n                } // RAVENOS ECOLOGY: menu routing''',
     '''                when (which) {\n                    0 -> RavenWholePhonePanel.show(this)\n                    1 -> RavenSummoningWheel.show(this)\n                    2 -> RavenCommandPalette.show(this)\n                    3 -> showAppUniverse(false)\n                    4 -> showSoundDeck()\n                    5 -> RavenOfficeFeed.show(this)\n                    6 -> RavenGhostHotspots.toggle(this)\n                    7 -> RavenTaskerBridge.showSetup(this)\n                    8 -> openStudio()\n                    9 -> RavenOfficeBarService.auto(this)\n                    10 -> RavenOfficeBarService.cycleHaunt(this)\n                    11 -> RavenOfficeBarService.disable(this)\n                } // RAVENOS ECOLOGY: menu routing\n                  // RAVENOS WHOLE PHONE: native Home senses routing''',
 )
+
+# Fail closed if the overlay copied an incomplete capability stack.
+require_file("RavenNotificationSenseOS.kt", ("enum class PrivacyMode", "NOTIFICATION_SENSE", "RankingMap"))
+require_file("RavenMediaSessionSenseOS.kt", ("getActiveSessions", "PlaybackState", "MediaMetadata"))
+require_file("RavenScreenWatchActivity.kt", ("createScreenCaptureIntent", "RavenScreenWatchService"))
+require_file("RavenScreenWatchService.kt", ("FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION", "raw_persist:false", "state:changed"))
+require_file("RavenGalaxyHauntOS.kt", ("Never sleeping apps", "isIgnoringBatteryOptimizations"))
+require_file("RavenWholePhonePanel.kt", ("ARM GOBLIN EYE", "FULL LOCAL", "MEDIA SESSION SENSE"))
+require_file("RavenPhoneSceneOS.kt", ("goblinEyeActive", "notificationBurst", "mediaTitle"))
+require_file("RavenTelemetryPackOS.kt", ("GOBLIN_EYE", "MEDIA_SESSION", "BATTERY_SURVIVAL"))
+
+manifest_text = manifest.read_text(encoding="utf-8")
+listener_text = listener.read_text(encoding="utf-8")
+home_text = home.read_text(encoding="utf-8")
+for needle in (
+    "FOREGROUND_SERVICE_MEDIA_PROJECTION",
+    '.ravenos.RavenScreenWatchActivity',
+    '.ravenos.RavenScreenWatchService',
+    'android:foregroundServiceType="mediaProjection"',
+):
+    if needle not in manifest_text:
+        raise SystemExit(f"whole-phone manifest contract missing: {needle}")
+if "RavenNotificationSenseOS.onPosted" not in listener_text or "RavenNotificationSenseOS.onRemoved" not in listener_text:
+    raise SystemExit("whole-phone notification listener contract missing")
+if "RavenWholePhonePanel.show(this)" not in home_text:
+    raise SystemExit("whole-phone native Home control contract missing")
 
 print("RAVENOS_WHOLE_PHONE=true")
