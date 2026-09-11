@@ -19,7 +19,11 @@ object RavenOfficeTraceStore {
         val note: String,
         val haunt: String,
         val repeats: Int,
+        val visual: String,
+        val family: String,
     )
+
+    private data class ReactionNote(val visual: String, val family: String, val text: String)
 
     @Synchronized
     fun record(
@@ -33,12 +37,12 @@ object RavenOfficeTraceStore {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val existing = parseArray(prefs.getString(KEY_TRACE, null))
         val now = System.currentTimeMillis()
-        val clippedNote = note.take(240)
+        val reaction = parseReactionNote(note)
+        val clippedNote = reaction.text.take(240)
         val first = existing.optJSONObject(0)
 
-        // Stale-repeat killer: same resident + same commentary within two minutes becomes one
-        // evolving receipt instead of ten visually identical feed rows. The newest signal/detail
-        // are retained and the repeat count stays explicit.
+        // Same resident + same actual commentary becomes one evolving receipt instead of a wall of
+        // stale repeated rows. New signals/details remain visible and repeat count stays explicit.
         val canCoalesce = first != null &&
             first.optString("owner") == member.id &&
             first.optString("note") == clippedNote &&
@@ -50,11 +54,11 @@ object RavenOfficeTraceStore {
             first!!.put("at", now)
                 .put("signal", signal)
                 .put("detail", detail.take(220))
+                .put("visual", reaction.visual)
+                .put("family", reaction.family)
                 .put("repeats", first.optInt("repeats", 1) + 1)
             next.put(first)
-            for (i in 1 until minOf(existing.length(), MAX_ENTRIES)) {
-                next.put(existing.optJSONObject(i) ?: continue)
-            }
+            for (i in 1 until minOf(existing.length(), MAX_ENTRIES)) next.put(existing.optJSONObject(i) ?: continue)
         } else {
             next.put(
                 JSONObject()
@@ -64,19 +68,17 @@ object RavenOfficeTraceStore {
                     .put("detail", detail.take(220))
                     .put("note", clippedNote)
                     .put("haunt", hauntMode.name)
-                    .put("repeats", 1),
+                    .put("repeats", 1)
+                    .put("visual", reaction.visual)
+                    .put("family", reaction.family),
             )
-            for (i in 0 until minOf(existing.length(), MAX_ENTRIES - 1)) {
-                next.put(existing.optJSONObject(i) ?: continue)
-            }
+            for (i in 0 until minOf(existing.length(), MAX_ENTRIES - 1)) next.put(existing.optJSONObject(i) ?: continue)
         }
         prefs.edit().putString(KEY_TRACE, next.toString()).apply()
     }
 
     fun recent(context: Context, limit: Int = 8): List<Entry> {
-        val array = parseArray(
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_TRACE, null),
-        )
+        val array = parseArray(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_TRACE, null))
         val out = ArrayList<Entry>()
         for (i in 0 until minOf(array.length(), limit.coerceIn(1, MAX_ENTRIES))) {
             val obj = array.optJSONObject(i) ?: continue
@@ -88,6 +90,8 @@ object RavenOfficeTraceStore {
                 note = obj.optString("note", ""),
                 haunt = obj.optString("haunt", "?"),
                 repeats = obj.optInt("repeats", 1).coerceAtLeast(1),
+                visual = obj.optString("visual", ""),
+                family = obj.optString("family", ""),
             )
         }
         return out
@@ -99,12 +103,21 @@ object RavenOfficeTraceStore {
         return entries.joinToString("\n") { e ->
             val detail = if (e.detail.isBlank()) "" else " · ${e.detail.take(70)}"
             val repeat = if (e.repeats > 1) " ×${e.repeats}" else ""
-            "${e.owner} · ${e.signal} · ${e.haunt}$repeat$detail"
+            val visual = if (e.visual.isBlank()) "" else " · ${e.visual}"
+            "${e.owner} · ${e.signal}$visual · ${e.haunt}$repeat$detail"
         }
     }
 
     fun clear(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
+    }
+
+    private fun parseReactionNote(raw: String): ReactionNote {
+        val parts = raw.split(':', limit = 3)
+        if (parts.size == 3 && parts[0].matches(Regex("[A-Z0-9_]+")) && parts[1].matches(Regex("[A-Z0-9_+]+"))) {
+            return ReactionNote(parts[0], parts[1], parts[2])
+        }
+        return ReactionNote("", "", raw)
     }
 
     private fun parseArray(raw: String?): JSONArray = try {
