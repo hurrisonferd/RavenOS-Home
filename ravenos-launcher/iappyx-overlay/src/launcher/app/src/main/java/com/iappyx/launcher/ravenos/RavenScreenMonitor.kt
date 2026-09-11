@@ -11,17 +11,15 @@ object RavenScreenMonitor {
     private var receiver: BroadcastReceiver? = null
 
     fun start(context: Context) {
+        RavenPhonePulseMonitor.start(context)
         if (receiver != null) return
         val app = context.applicationContext
         val r = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent?) {
                 when (intent?.action) {
-                    Intent.ACTION_SCREEN_OFF ->
-                        RavenOfficeBarService.signal(ctx, "NIGHT", "screen:off")
-                    Intent.ACTION_SCREEN_ON ->
-                        RavenOfficeBarService.signal(ctx, "DEVICE", "screen:on")
-                    Intent.ACTION_USER_PRESENT ->
-                        RavenOfficeBarService.signal(ctx, "HOME", "user:present")
+                    Intent.ACTION_SCREEN_OFF -> RavenOfficeBarService.signal(ctx, "NIGHT", "screen:off")
+                    Intent.ACTION_SCREEN_ON -> RavenOfficeBarService.signal(ctx, "DEVICE", "screen:on")
+                    Intent.ACTION_USER_PRESENT -> RavenOfficeBarService.signal(ctx, "HOME", "user:present")
                 }
             }
         }
@@ -39,6 +37,7 @@ object RavenScreenMonitor {
     }
 
     fun stop(context: Context) {
+        RavenPhonePulseMonitor.stop()
         val r = receiver ?: return
         receiver = null
         try { context.applicationContext.unregisterReceiver(r) } catch (_: Throwable) {}
