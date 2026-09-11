@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Promote the RavenOS-native shell to Android HOME and demote donor LauncherActivity to Studio."""
+"""Promote RavenOS native HOME, demote donor workspace to Studio, and keep HOME hot-path lean."""
 from __future__ import annotations
 
 import sys
@@ -23,6 +23,7 @@ def main() -> None:
     root = Path(sys.argv[1]).resolve()
     manifest = root / "src/launcher/app/src/main/AndroidManifest.xml"
     launcher = root / "src/launcher/app/src/main/java/com/iappyx/launcher/LauncherActivity.kt"
+    app = root / "src/launcher/app/src/main/java/com/iappyx/launcher/IappyxApp.kt"
     office = root / "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
     follow = root / "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenFollowMeOverlay.kt"
 
@@ -37,6 +38,14 @@ def main() -> None:
         '''        pager.setCurrentItem(1, false)\n        // RAVENOS STUDIO: explicit workshop launches land on the command/System page.\n        if (intent.getBooleanExtra("RAVEN_OPEN_STUDIO", false)) pager.setCurrentItem(0, false)\n''',
     )
 
+    # The donor theme walker is useful for Studio but wasteful on RavenOS-owned HOME. Raven Home
+    # owns its own palette and view tree, so skip the traversal entirely on that one Activity.
+    replace_once(
+        app,
+        '''            override fun onActivityResumed(activity: Activity) {\n                val decor = activity.window?.decorView ?: return\n''',
+        '''            override fun onActivityResumed(activity: Activity) {\n                // RAVENOS NATIVE HOME FAST PATH: no donor theme-tree traversal on Raven Home.\n                if (activity is com.iappyx.launcher.ravenos.RavenHomeActivity) return\n                val decor = activity.window?.decorView ?: return\n''',
+    )
+
     for path in (office, follow):
         text = path.read_text(encoding="utf-8")
         text = text.replace("import com.iappyx.launcher.LauncherActivity\n", "")
@@ -46,6 +55,7 @@ def main() -> None:
         print(f"RavenOS Home routing: {path}")
 
     print("RAVENOS_NATIVE_HOME=true")
+    print("RAVENOS_NATIVE_HOME_FAST_PATH=true")
 
 
 if __name__ == "__main__":
