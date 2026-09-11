@@ -14,18 +14,10 @@ object RavenCommandRouter {
         if (q.isBlank()) return Result(false)
         val normalized = q.lowercase().replace(Regex("\\s+"), " ")
 
-        parsePercent(normalized, "media", "volume")?.let {
-            return Result(RavenSystemDeck.setMediaPercent(context, it), "media $it%")
-        }
-        parsePercent(normalized, "ring", "ringer")?.let {
-            return Result(RavenSystemDeck.setRingPercent(context, it), "ring $it%")
-        }
-        parsePercent(normalized, "alarm")?.let {
-            return Result(RavenSystemDeck.setAlarmPercent(context, it), "alarm $it%")
-        }
-        parsePercent(normalized, "notification", "notifications")?.let {
-            return Result(RavenSystemDeck.setNotificationPercent(context, it), "notifications $it%")
-        }
+        parsePercent(normalized, "media", "volume")?.let { return Result(RavenSystemDeck.setMediaPercent(context, it), "media $it%") }
+        parsePercent(normalized, "ring", "ringer")?.let { return Result(RavenSystemDeck.setRingPercent(context, it), "ring $it%") }
+        parsePercent(normalized, "alarm")?.let { return Result(RavenSystemDeck.setAlarmPercent(context, it), "alarm $it%") }
+        parsePercent(normalized, "notification", "notifications")?.let { return Result(RavenSystemDeck.setNotificationPercent(context, it), "notifications $it%") }
 
         parseGestureAssignment(normalized)?.let { (direction, target) ->
             RavenGesturePrefs.set(context, direction, target)
@@ -46,6 +38,19 @@ object RavenCommandRouter {
         }
 
         return when (normalized) {
+            "why", "why?", "goblin why", "office why" -> Result(true, RavenEvidenceBoard.why(context))
+            "evidence", "evidence board", "goblin evidence" -> Result(true, RavenEvidenceBoard.compact(context, 10))
+            "clear evidence", "clear evidence board" -> { RavenEvidenceBoard.clear(context); Result(true, "evidence board cleared") }
+            "save that shit", "save this", "bookmark moment", "pin current bit" -> Result(true, RavenReplayOS.saveCurrent(context))
+            "replay", "replay os", "bookmarks" -> Result(true, RavenReplayOS.compact(context))
+            "next drop", "goblin next drop" -> {
+                RavenOfficeBarService.signal(context, "NEXT_DROP", "owner:command")
+                Result(true, "next drop")
+            }
+            "goblin status", "goblin brain", "brain status" -> {
+                val why = RavenEvidenceBoard.why(context).replace('\n', ' ')
+                Result(true, "GOBLIN BRAIN ACTIVE · $why")
+            }
             "quick deck", "quick controls", "controls", "sound controls" -> {
                 val activity = context as? LauncherActivity ?: return Result(false)
                 RavenQuickControls.show(activity)
@@ -56,8 +61,7 @@ object RavenCommandRouter {
                 RavenMenu.open(activity)
                 Result(true, "Raven Menu")
             }
-            "gestures", "gesture status", "gesture controls", "swipe controls" ->
-                Result(true, RavenGesturePrefs.summary(context))
+            "gestures", "gesture status", "gesture controls", "swipe controls" -> Result(true, RavenGesturePrefs.summary(context))
             "gestures off", "gesture off", "disable gestures", "disable vertical gestures" -> {
                 RavenGesturePrefs.set(context, RavenGestureDirection.UP, RavenGestureTarget.NONE)
                 RavenGesturePrefs.set(context, RavenGestureDirection.DOWN, RavenGestureTarget.NONE)
@@ -143,8 +147,7 @@ object RavenCommandRouter {
     }
 
     private fun parseGestureAssignment(input: String): Pair<RavenGestureDirection, RavenGestureTarget>? {
-        val match = Regex("^(?:gesture|swipe)\\s+(up|down)\\s+(apps?|search|menu|none|off)$").matchEntire(input)
-            ?: return null
+        val match = Regex("^(?:gesture|swipe)\\s+(up|down)\\s+(apps?|search|menu|none|off)$").matchEntire(input) ?: return null
         val direction = if (match.groupValues[1] == "up") RavenGestureDirection.UP else RavenGestureDirection.DOWN
         val target = when (match.groupValues[2]) {
             "app", "apps" -> RavenGestureTarget.APPS
