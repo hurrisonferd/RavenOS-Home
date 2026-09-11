@@ -58,6 +58,7 @@ jobs:
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenHauntMode.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeTraceStore.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenAmbientReceiver.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenScreenMonitor.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenAwarenessStatus.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenBootReceiver.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenPermissionDeck.kt"
@@ -69,6 +70,7 @@ jobs:
           grep -R 'APOCALYPSE' "$ROOT/java/com/iappyx/launcher/ravenos/RavenHauntMode.kt"
           grep -R 'RavenFollowMeOverlay.render' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           grep -R 'RavenOfficeTraceStore.record' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
+          grep -R 'RavenScreenMonitor.start' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           test -s 'ravenos-launcher/device-canary.sh'
 
       - name: Build RavenOS Launcher APK
