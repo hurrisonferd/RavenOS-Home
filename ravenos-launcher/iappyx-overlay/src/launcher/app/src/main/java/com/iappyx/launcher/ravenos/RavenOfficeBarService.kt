@@ -14,12 +14,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.iappyx.launcher.R
 
-/**
- * Persistent, user-visible RavenOS Office Bar.
- *
- * Notification Bar and Goblin Vision deliberately consume the same settled employee presentation
- * packet: owner, EmojiOS soup, KaomojiOS posture, accent, deterministic note, lane and context.
- */
+/** Persistent user-visible RavenOS Office Bar backed by the deterministic Goblin Vision brain. */
 class RavenOfficeBarService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -31,7 +26,7 @@ class RavenOfficeBarService : Service() {
 
     override fun onDestroy() {
         RavenScreenMonitor.stop(this)
-        RavenFollowMeOverlay.hide() // legacy projection cleanup
+        RavenFollowMeOverlay.hide()
         RavenGoblinVisionOverlay.hide()
         RavenHomeAura.hide()
         RavenHomeWhisper.hide()
@@ -43,18 +38,9 @@ class RavenOfficeBarService : Service() {
         val action = intent?.action
 
         if (action == ACTION_DISABLE) {
-            prefs.edit()
-                .putBoolean(KEY_ENABLED, false)
-                .putBoolean(KEY_EXPLICIT_DISABLED, true)
-                .apply()
+            prefs.edit().putBoolean(KEY_ENABLED, false).putBoolean(KEY_EXPLICIT_DISABLED, true).apply()
             val stateAt = RavenOfficeStateStore.read(this)?.updatedAt ?: 0L
-            RavenSurfaceIntegrity.mark(
-                this,
-                RavenSurfaceIntegrity.OFFICE_BAR,
-                "INACTIVE",
-                stateAt,
-                "explicit_sleep",
-            )
+            RavenSurfaceIntegrity.mark(this, RavenSurfaceIntegrity.OFFICE_BAR, "INACTIVE", stateAt, "explicit_sleep")
             RavenFollowMeOverlay.hide()
             RavenGoblinVisionOverlay.hide()
             RavenHomeAura.hide()
@@ -64,17 +50,10 @@ class RavenOfficeBarService : Service() {
             return START_NOT_STICKY
         }
 
-        if (action == ACTION_SIGNAL && prefs.getBoolean(KEY_EXPLICIT_DISABLED, false)) {
-            return START_NOT_STICKY
-        }
+        if (action == ACTION_SIGNAL && prefs.getBoolean(KEY_EXPLICIT_DISABLED, false)) return START_NOT_STICKY
 
         when (action) {
-            ACTION_ENABLE -> {
-                prefs.edit()
-                    .putBoolean(KEY_ENABLED, true)
-                    .putBoolean(KEY_EXPLICIT_DISABLED, false)
-                    .apply()
-            }
+            ACTION_ENABLE -> prefs.edit().putBoolean(KEY_ENABLED, true).putBoolean(KEY_EXPLICIT_DISABLED, false).apply()
             ACTION_RESTORE -> {
                 if (!prefs.getBoolean(KEY_ENABLED, false)) return START_NOT_STICKY
                 val reason = intent.getStringExtra(EXTRA_DETAIL).orEmpty()
@@ -89,12 +68,8 @@ class RavenOfficeBarService : Service() {
                 val requested = intent.getStringExtra(EXTRA_OWNER)
                 val member = RavenOfficeRegistry.member(requested)
                 if (member?.routable == true) {
-                    prefs.edit()
-                        .putBoolean(KEY_ENABLED, true)
-                        .putBoolean(KEY_EXPLICIT_DISABLED, false)
-                        .putString(KEY_MANUAL_OWNER, member.id)
-                        .putBoolean(KEY_QUIET, false)
-                        .apply()
+                    prefs.edit().putBoolean(KEY_ENABLED, true).putBoolean(KEY_EXPLICIT_DISABLED, false)
+                        .putString(KEY_MANUAL_OWNER, member.id).putBoolean(KEY_QUIET, false).apply()
                 }
             }
             ACTION_NEXT -> {
@@ -104,31 +79,17 @@ class RavenOfficeBarService : Service() {
                 val list = RavenOfficeRegistry.routableMembers
                 val idx = list.indexOfFirst { it.id == current.id }.let { if (it < 0) 0 else it }
                 val next = list[(idx + 1) % list.size]
-                prefs.edit()
-                    .putBoolean(KEY_ENABLED, true)
-                    .putBoolean(KEY_EXPLICIT_DISABLED, false)
-                    .putString(KEY_MANUAL_OWNER, next.id)
-                    .putBoolean(KEY_QUIET, false)
-                    .apply()
+                prefs.edit().putBoolean(KEY_ENABLED, true).putBoolean(KEY_EXPLICIT_DISABLED, false)
+                    .putString(KEY_MANUAL_OWNER, next.id).putBoolean(KEY_QUIET, false).apply()
             }
-            ACTION_AUTO -> prefs.edit()
-                .putBoolean(KEY_ENABLED, true)
-                .putBoolean(KEY_EXPLICIT_DISABLED, false)
-                .remove(KEY_MANUAL_OWNER)
-                .putBoolean(KEY_QUIET, false)
-                .apply()
-            ACTION_QUIET -> prefs.edit()
-                .putBoolean(KEY_ENABLED, true)
-                .putBoolean(KEY_EXPLICIT_DISABLED, false)
-                .putBoolean(KEY_QUIET, !prefs.getBoolean(KEY_QUIET, false))
-                .apply()
+            ACTION_AUTO -> prefs.edit().putBoolean(KEY_ENABLED, true).putBoolean(KEY_EXPLICIT_DISABLED, false)
+                .remove(KEY_MANUAL_OWNER).putBoolean(KEY_QUIET, false).apply()
+            ACTION_QUIET -> prefs.edit().putBoolean(KEY_ENABLED, true).putBoolean(KEY_EXPLICIT_DISABLED, false)
+                .putBoolean(KEY_QUIET, !prefs.getBoolean(KEY_QUIET, false)).apply()
             ACTION_HAUNT_CYCLE -> {
                 val next = RavenHauntModeStore.cycle(this)
-                prefs.edit()
-                    .putBoolean(KEY_ENABLED, true)
-                    .putBoolean(KEY_EXPLICIT_DISABLED, false)
-                    .putString(KEY_DETAIL, "haunt:${next.label}")
-                    .apply()
+                prefs.edit().putBoolean(KEY_ENABLED, true).putBoolean(KEY_EXPLICIT_DISABLED, false)
+                    .putString(KEY_DETAIL, "haunt:${next.label}").apply()
             }
         }
 
@@ -136,13 +97,7 @@ class RavenOfficeBarService : Service() {
         val notification = buildNotification()
         startForeground(NOTIFICATION_ID, notification)
         RavenOfficeStateStore.read(this)?.let { snapshot ->
-            RavenSurfaceIntegrity.mark(
-                this,
-                RavenSurfaceIntegrity.OFFICE_BAR,
-                "POSTED",
-                snapshot.updatedAt,
-                "foreground_notification",
-            )
+            RavenSurfaceIntegrity.mark(this, RavenSurfaceIntegrity.OFFICE_BAR, "POSTED", snapshot.updatedAt, "foreground_notification")
         }
         return START_STICKY
     }
@@ -154,27 +109,43 @@ class RavenOfficeBarService : Service() {
         val manual = prefs.getString(KEY_MANUAL_OWNER, null)
         val quiet = prefs.getBoolean(KEY_QUIET, false)
         val hauntMode = RavenHauntModeStore.get(this)
-        val member = if (quiet) RavenOfficeRegistry.member("NYX")!! else RavenOfficeRegistry.route(signal, detail, manual)
-        val note = if (quiet) "Quiet watch. The office is still here; only material signals break silence."
-        else RavenOfficeRegistry.authorNote(member, signal, detail)
-        val packet = RavenEmployeePresentation.packet(member, signal, detail, note)
 
+        val brain = RavenGoblinBrain.react(
+            context = this,
+            signal = signal,
+            detail = detail,
+            manualOwner = manual,
+            quiet = quiet,
+            hauntMode = hauntMode,
+        )
+        val member = brain.member
+        val reaction = brain.packet
+        val visibleLine = reaction.dialogue.ifBlank { reaction.authorNote }
+
+        RavenReactionStateStore.write(this, reaction)
         RavenOfficeStateStore.write(
             this,
             member = member,
             signal = signal,
             detail = detail,
-            note = note,
+            note = visibleLine,
             hauntMode = hauntMode,
             manual = manual != null,
             quiet = quiet,
         )
-        RavenOfficeTraceStore.record(this, member, signal, detail, note, hauntMode)
+        RavenOfficeTraceStore.record(
+            this,
+            member,
+            signal,
+            detail,
+            "${reaction.visualState}:${reaction.dialogueFamily}:${visibleLine}",
+            hauntMode,
+        )
 
         RavenHomeAura.render(member, hauntMode)
-        RavenHomeWhisper.render(member, note, signal, detail, hauntMode)
-        RavenFollowMeOverlay.hide() // legacy body must never duplicate Goblin Vision
-        RavenGoblinVisionOverlay.render(this, member, signal, note, detail, hauntMode)
+        RavenHomeWhisper.render(member, visibleLine, signal, detail, hauntMode)
+        RavenFollowMeOverlay.hide()
+        RavenGoblinVisionOverlay.renderReaction(this, reaction, hauntMode)
 
         val openHome = PendingIntent.getActivity(
             this,
@@ -188,20 +159,32 @@ class RavenOfficeBarService : Service() {
         val haunt = serviceAction(ACTION_HAUNT_CYCLE, 14)
 
         val mode = if (manual == null) "AUTO" else "PINNED"
-        val title = "${packet.ownerLine} · ${prettySignal(signal)}"
-        val body = "AUTHOR'S NOTE: ${packet.note}"
+        val title = "${reaction.ownerLine} · ${reaction.visualState.replace('_', ' ')}"
+        val body = visibleLine.ifBlank { "${reaction.owner} is present." }
         val contextLine = buildString {
-            append(packet.lane)
+            append(reaction.lane)
+            append(" · ").append(reaction.zone)
+            append(" · #").append(reaction.occurrence)
             append(" · ").append(mode)
             append(" · ").append(hauntMode.label)
-            if (detail.isNotBlank()) append(" · ").append(detail.take(120))
+            append(" · ").append(reaction.episode)
+            if (reaction.highlight != RavenHighlightOS.Class.NONE.name) {
+                append(" · ").append(reaction.highlight).append(':').append(reaction.highlightScore)
+            }
         }
-        val big = "$body\n\n$contextLine"
+        val big = buildString {
+            append(body)
+            if (reaction.dialogue.isNotBlank() && reaction.authorNote.isNotBlank()) {
+                append("\n\nAUTHOR'S NOTE: ").append(reaction.authorNote)
+            }
+            append("\n\n").append(contextLine)
+            append("\nPROOF: ").append(reaction.proof)
+        }
 
         val custom = RemoteViews(packageName, R.layout.ravenos_office_bar).apply {
-            val textColor = contrastText(packet.accent)
+            val textColor = contrastText(reaction.accent)
             val secondary = if (textColor == Color.BLACK) 0xCC000000.toInt() else 0xDDFFFFFF.toInt()
-            setInt(R.id.raven_office_root, "setBackgroundColor", packet.accent)
+            setInt(R.id.raven_office_root, "setBackgroundColor", reaction.accent)
             setTextViewText(R.id.raven_office_owner, title)
             setTextViewText(R.id.raven_office_note, body)
             setTextViewText(R.id.raven_office_context, contextLine)
@@ -217,7 +200,7 @@ class RavenOfficeBarService : Service() {
             .setStyle(NotificationCompat.BigTextStyle().bigText(big))
             .setCustomContentView(custom)
             .setCustomBigContentView(custom)
-            .setColor(packet.accent)
+            .setColor(reaction.accent)
             .setColorized(true)
             .setContentIntent(openHome)
             .setOngoing(true)
@@ -238,7 +221,9 @@ class RavenOfficeBarService : Service() {
     }
 
     private fun serviceAction(action: String, requestCode: Int): PendingIntent = PendingIntent.getService(
-        this, requestCode, Intent(this, RavenOfficeBarService::class.java).setAction(action),
+        this,
+        requestCode,
+        Intent(this, RavenOfficeBarService::class.java).setAction(action),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
@@ -246,16 +231,13 @@ class RavenOfficeBarService : Service() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(CHANNEL_ID, "RavenOS Office Bar", NotificationManager.IMPORTANCE_LOW).apply {
-            description = "Adaptive EmojiOS/KaomojiOS RavenOS office presence and deterministic author's notes"
+            description = "Adaptive deterministic Goblin Vision office presence"
             setShowBadge(false)
             enableVibration(false)
             setSound(null, null)
         }
         manager.createNotificationChannel(channel)
     }
-
-    private fun prettySignal(signal: String): String = signal.trim().replace('_', ' ').lowercase()
-        .split(' ').joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
 
     companion object {
         private const val PREFS = "ravenos_office_bar_v1"
@@ -328,8 +310,7 @@ class RavenOfficeBarService : Service() {
         }
 
         private fun start(context: Context, intent: Intent) {
-            try { ContextCompat.startForegroundService(context, intent) }
-            catch (_: Throwable) { }
+            try { ContextCompat.startForegroundService(context, intent) } catch (_: Throwable) {}
         }
     }
 }
