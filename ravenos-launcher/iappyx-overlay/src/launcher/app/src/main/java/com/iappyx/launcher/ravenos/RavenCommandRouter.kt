@@ -1,5 +1,6 @@
 package com.iappyx.launcher.ravenos
 
+import android.app.Activity
 import android.content.Context
 import android.media.AudioManager
 
@@ -54,6 +55,28 @@ object RavenCommandRouter {
             "office quiet", "quiet office", "quiet" -> {
                 RavenOfficeBarService.toggleQuiet(context)
                 Result(true, "office quiet")
+            }
+            "office wake", "wake office", "wake bar" -> {
+                RavenOfficeBarService.enable(context)
+                RavenOfficeBarService.signal(context, "SEARCH", "command:office-wake")
+                Result(true, "office wake")
+            }
+            "office sleep", "sleep office", "sleep bar" -> {
+                RavenOfficeBarService.disable(context)
+                Result(true, "office sleep")
+            }
+            "raven status", "launcher status", "awareness status" -> {
+                Result(true, RavenAwarenessStatus.snapshot(context).compact())
+            }
+            "default home", "launcher home", "make ravenos home" -> {
+                val activity = context as? Activity ?: return Result(false)
+                RavenPermissionDeck.requestDefaultHome(activity)
+                Result(true, "default HOME requested")
+            }
+            "battery survival", "background survival" -> {
+                val activity = context as? Activity ?: return Result(false)
+                RavenPermissionDeck.openBatteryOptimization(activity)
+                Result(true, "battery survival settings")
             }
             else -> {
                 if (normalized.startsWith("office ")) {
