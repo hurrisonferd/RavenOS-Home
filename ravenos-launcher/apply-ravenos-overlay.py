@@ -7,6 +7,8 @@ Layering:
         -> RavenOS Launcher overlay
 
 Fail-closed: exact upstream anchors are required; unexpected drift stops the build.
+The RavenOS overlay directory is itself the reviewed addition set, so every file beneath it
+is copied automatically. Donor source edits still require exact pinned anchors below.
 """
 from __future__ import annotations
 
@@ -35,6 +37,15 @@ def copy(rel: str) -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(src, dst)
     print(f"RavenOS copy: {rel}")
+
+
+def copy_reviewed_overlay_tree() -> None:
+    files = sorted(path for path in OVERLAY.rglob("*") if path.is_file())
+    if not files:
+        raise SystemExit("RavenOS overlay is empty")
+    for src in files:
+        copy(str(src.relative_to(OVERLAY)))
+    print(f"RavenOS overlay files copied: {len(files)}")
 
 
 def patch_after(path: Path, marker: str, anchor: str, insertion: str) -> None:
@@ -77,17 +88,11 @@ def rebrand_strings() -> None:
         text = path.read_text(encoding="utf-8")
         new = re.sub(
             r'(<string\s+name="app_name"[^>]*>).*?(</string>)',
-            r'\1RavenOS Launcher\2',
-            text,
-            count=1,
-            flags=re.S,
+            r'\1RavenOS Launcher\2', text, count=1, flags=re.S,
         )
         new = re.sub(
             r'(<string\s+name="wallpaper_label"[^>]*>).*?(</string>)',
-            r'\1RavenOS Live\2',
-            new,
-            count=1,
-            flags=re.S,
+            r'\1RavenOS Live\2', new, count=1, flags=re.S,
         )
         if new != text:
             path.write_text(new, encoding="utf-8")
@@ -105,32 +110,7 @@ def main() -> None:
         raise SystemExit(f"refusing unreviewed chassis: expected {EXPECTED_SHA}, found {actual}")
 
     subprocess.check_call(["python3", str(HOUSE / "apply-overlay.py")])
-
-    files = [
-        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeMember.kt",
-        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt",
-        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenForegroundAwarenessService.kt",
-        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenFollowMeOverlay.kt",
-        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenHomeAura.kt",
-        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenHomeWhisper.kt",
-        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenHauntMode.kt",
-        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeTraceStore.kt",
-        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenAmbientReceiver.kt",
-        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenScreenMonitor.kt",
-        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenAwarenessStatus.kt",
-        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenBootReceiver.kt",
-        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenPermissionDeck.kt",
-        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenCommandRouter.kt",
-        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenSystemDeck.kt",
-        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenSystemDeckPane.kt",
-        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenSurfaceModel.kt",
-        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenIntelligenceProvider.kt",
-        "src/launcher/app/src/main/res/layout/ravenos_office_bar.xml",
-        "src/launcher/app/src/main/res/xml/ravenos_foreground_awareness.xml",
-    ]
-    for rel in files:
-        copy(rel)
-
+    copy_reviewed_overlay_tree()
     rebrand_strings()
 
     build_gradle = UPSTREAM / "src/launcher/app/build.gradle"
