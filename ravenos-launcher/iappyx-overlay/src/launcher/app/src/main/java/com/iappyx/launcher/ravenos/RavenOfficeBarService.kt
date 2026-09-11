@@ -42,6 +42,7 @@ class RavenOfficeBarService : Service() {
                 .putBoolean(KEY_ENABLED, false)
                 .putBoolean(KEY_EXPLICIT_DISABLED, true)
                 .apply()
+            RavenFollowMeOverlay.hide()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
@@ -127,6 +128,9 @@ class RavenOfficeBarService : Service() {
         val member = if (quiet) RavenOfficeRegistry.member("NYX")!! else RavenOfficeRegistry.route(signal, detail, manual)
         val note = if (quiet) "Quiet watch. The office is still here; only material signals break silence."
                    else RavenOfficeRegistry.authorNote(member, signal, detail)
+
+        // Follow-Me Office is the same deterministic presence projected onto an explicit overlay grant.
+        RavenFollowMeOverlay.render(this, member, signal, note, detail)
 
         val openHome = PendingIntent.getActivity(
             this,
