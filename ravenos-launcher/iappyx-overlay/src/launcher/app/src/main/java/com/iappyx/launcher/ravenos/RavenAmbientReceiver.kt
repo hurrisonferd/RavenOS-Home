@@ -26,11 +26,13 @@ class RavenAmbientReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun batteryPercent(context: Context): Int? = try {
-        val manager = context.getSystemService(BatteryManager::class.java) ?: return null
-        manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-            .takeIf { it in 0..100 }
-    } catch (_: Throwable) {
-        null
+    private fun batteryPercent(context: Context): Int? {
+        return try {
+            val manager = context.getSystemService(BatteryManager::class.java) ?: return null
+            manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+                .takeIf { it in 0..100 }
+        } catch (_: Throwable) {
+            null
+        }
     }
 }
