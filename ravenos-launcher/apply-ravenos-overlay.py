@@ -111,6 +111,7 @@ def main() -> None:
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeMember.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenForegroundAwarenessService.kt",
+        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenPermissionDeck.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenSystemDeck.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenSystemDeckPane.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenSurfaceModel.kt",
