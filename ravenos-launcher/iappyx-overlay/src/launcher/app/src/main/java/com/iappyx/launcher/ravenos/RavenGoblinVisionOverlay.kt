@@ -43,28 +43,20 @@ object RavenGoblinVisionOverlay {
         hauntMode: RavenHauntMode,
     ) {
         val packet = RavenEmployeePresentation.packet(member, signal, detail, note)
-        renderBase(context, member, packet.ownerLine, packet.note, "${packet.lane} · ${packet.context}", signal, hauntMode)
+        renderBase(context, member, packet.ownerLine, packet.note, "", "LIVE", hauntMode)
     }
 
     fun renderReaction(context: Context, reaction: RavenReactionPacket, hauntMode: RavenHauntMode) {
         val member = RavenOfficeRegistry.member(reaction.owner) ?: return
-        val spoken = reaction.dialogue.ifBlank { reaction.authorNote }
-        val contextLine = buildString {
-            append(reaction.lane)
-            append(" · ").append(reaction.zone)
-            append(" · #").append(reaction.occurrence)
-            append(" · ").append(reaction.episode)
-            if (reaction.highlight != RavenHighlightOS.Class.NONE.name) {
-                append(" · ").append(reaction.highlight).append(':').append(reaction.highlightScore)
-            }
-        }
+        val spoken = reaction.dialogue.ifBlank { "Noted." }
+        val author = reaction.authorNote.takeIf { it.isNotBlank() }?.let { "AUTHOR'S NOTE: $it" }.orEmpty()
         renderBase(
             context = context,
             member = member,
             ownerLine = reaction.ownerLine,
             note = spoken,
-            contextLine = contextLine,
-            status = "${reaction.visualState} · ${reaction.pose}",
+            contextLine = author,
+            status = "LIVE",
             hauntMode = hauntMode,
         )
         scheduleCollapse(context, reaction, hauntMode)
@@ -113,7 +105,7 @@ object RavenGoblinVisionOverlay {
         }
         statusView?.apply {
             visibility = View.VISIBLE
-            text = "● GOBLIN VISION · ${status.uppercase()}"
+            text = "● GOBLIN VISION · $status"
             setTextColor(0xFFBFC0CC.toInt())
         }
         ownerView?.apply {
@@ -128,21 +120,15 @@ object RavenGoblinVisionOverlay {
             visibility = if (note.isBlank()) View.GONE else View.VISIBLE
             text = note
             textSize = 13.5f
-            maxLines = when (hauntMode) {
-                RavenHauntMode.CALM -> 2
-                RavenHauntMode.LIVED_IN -> 3
-                RavenHauntMode.HAUNTED -> 4
-                RavenHauntMode.FERAL -> 6
-                RavenHauntMode.APOCALYPSE -> 8
-            }
-            ellipsize = if (hauntMode.ordinal >= RavenHauntMode.FERAL.ordinal) null else TextUtils.TruncateAt.END
+            maxLines = 2
+            ellipsize = TextUtils.TruncateAt.END
             setTextColor(0xFFF8F8FC.toInt())
         }
         contextView?.apply {
-            visibility = View.VISIBLE
+            visibility = if (contextLine.isBlank()) View.GONE else View.VISIBLE
             text = contextLine
-            textSize = 10f
-            maxLines = if (hauntMode == RavenHauntMode.APOCALYPSE) 5 else 3
+            textSize = 10.5f
+            maxLines = 3
             ellipsize = TextUtils.TruncateAt.END
             setTextColor(0xFFD4D4DE.toInt())
         }
@@ -162,7 +148,7 @@ object RavenGoblinVisionOverlay {
             }
         }
 
-        RavenSurfaceIntegrity.mark(context, RavenSurfaceIntegrity.FOLLOW_ME, "RENDERED", stateAt, "goblin_vision_cross_app_readable_v2")
+        RavenSurfaceIntegrity.mark(context, RavenSurfaceIntegrity.FOLLOW_ME, "RENDERED", stateAt, "goblin_vision_author_note_v3")
     }
 
     private fun scheduleCollapse(context: Context, reaction: RavenReactionPacket, hauntMode: RavenHauntMode) {
@@ -221,7 +207,7 @@ object RavenGoblinVisionOverlay {
             setPadding(0, dp(context, 5), 0, 0)
         }.also(box::addView)
         contextView = TextView(context).apply {
-            textSize = 10f
+            textSize = 10.5f
             setPadding(0, dp(context, 6), 0, 0)
         }.also(box::addView)
 
