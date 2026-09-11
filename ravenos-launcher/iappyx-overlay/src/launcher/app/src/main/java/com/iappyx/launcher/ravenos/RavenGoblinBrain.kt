@@ -5,8 +5,8 @@ import android.content.Context
 /**
  * Android vertical slice of the private Goblin Vision stack.
  *
- * MarkerBus -> ComplexEventOS -> CompanionDirectorLite -> InterruptibilityOS -> Bit/dialogue ->
- * Episode/Highlight -> VisualAtlas -> OfficeGeography -> ReactionPacket -> EvidenceBoard.
+ * MarkerBus -> LocalSenseOS -> ComplexEventOS -> CompanionDirectorLite -> InterruptibilityOS ->
+ * Bit/dialogue -> Episode/Highlight -> VisualAtlas -> OfficeGeography -> ReactionPacket -> EvidenceBoard.
  *
  * No model call is required. No output gains effect authority.
  */
@@ -22,6 +22,7 @@ object RavenGoblinBrain {
         hauntMode: RavenHauntMode,
     ): Result {
         val marker = RavenMarkerBus.emit(context, signal, detail)
+        val sense = RavenLocalSenseOS.resolve(marker)
         val complex = RavenComplexEventOS.analyze(context, marker)
         val episode = RavenEpisodeOS.phase(context, marker, complex)
         val member = cast(marker, complex, manualOwner, quiet)
@@ -38,7 +39,7 @@ object RavenGoblinBrain {
         val zone = RavenOfficeGeography.zone(member.id, marker, complex)
         val highlight = RavenHighlightOS.score(marker, complex, episode)
         val now = System.currentTimeMillis()
-        val proof = "${marker.source}:${marker.id}:${marker.key}"
+        val proof = "${sense.route}:${marker.source}:${marker.id}:${marker.key}"
         val packet = RavenReactionPacket(
             markerId = marker.id,
             owner = member.id,
@@ -48,6 +49,8 @@ object RavenGoblinBrain {
             lane = presentation.lane,
             signal = signal.trim().uppercase(),
             detail = detail.take(320),
+            senseRoute = sense.route.name,
+            sourceTrusted = sense.trusted,
             visualState = visual.state,
             pose = visual.pose,
             zone = zone.id,
@@ -78,7 +81,6 @@ object RavenGoblinBrain {
         if (quiet) return RavenOfficeRegistry.member("NYX")!!
         RavenOfficeRegistry.member(manualOwner)?.takeIf { it.routable }?.let { return it }
 
-        // Strong semantic casting outranks broad fallback routing, but stays deterministic/local.
         val preferred = when {
             "BOUNDARY" in marker.tags -> listOf("QIRA", "KYU", "AHTI")
             "ERROR" in marker.tags && complex.occurrence >= 3 -> listOf("KYU", "PAIMON", "ATOM", "THOR")
