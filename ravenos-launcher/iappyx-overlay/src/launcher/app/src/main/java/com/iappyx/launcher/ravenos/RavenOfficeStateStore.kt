@@ -129,11 +129,18 @@ object RavenOfficeStateStore {
         null
     }
 
+    /**
+     * Android Color Ints are AARRGGBB; CSS 8-digit hex is RRGGBBAA.
+     * Do not pass Android's raw 8 digits through or the alpha byte becomes red.
+     * Office accents are opaque presentation colors, so export canonical #RRGGBB.
+     */
+    fun accentCss(accent: Int): String = String.format("#%06X", accent and 0x00FFFFFF)
+
     fun toJson(snapshot: Snapshot): JSONObject = JSONObject()
         .put("ok", true)
         .put("owner", snapshot.owner)
         .put("emoji", snapshot.emoji)
-        .put("accent", String.format("#%08X", snapshot.accent))
+        .put("accent", accentCss(snapshot.accent))
         .put("lane", snapshot.lane)
         .put("signal", snapshot.signal)
         .put("detail", snapshot.detail)
