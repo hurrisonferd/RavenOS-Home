@@ -9,10 +9,6 @@ import android.os.SystemClock
  * The Office should feel alive, not like a notification slot machine. This governor runs before
  * RavenOfficeBarService is started, so rejected noise creates no FGS churn, no trace receipt, and
  * no cross-surface re-render. It changes cadence only; it never grants or revokes capability.
- *
- * Haunt mode intentionally changes the hold window:
- * CALM holds a resident longest, APOCALYPSE permits rapid switching. High-priority safety/state
- * changes always interrupt lower-priority presentation noise.
  */
 object RavenOfficeGovernor {
     private const val PREFS = "ravenos_office_governor_v1"
@@ -34,24 +30,26 @@ object RavenOfficeGovernor {
         val previousPriority = prefs.getInt(KEY_PRIORITY, Int.MIN_VALUE)
         val priority = priority(normalized, detail)
 
-        // elapsedRealtime resets at reboot. A persisted timestamp from the prior boot must not
-        // suppress the first signal of the new boot.
         val age = if (previousAt < 0L || now < previousAt) Long.MAX_VALUE else now - previousAt
+        val dupWindow = duplicateWindow(mode)
 
-        // Collapse exact bursts from duplicated Android callbacks / launcher lifecycle edges.
-        if (normalized == previousSignal && detail == previousDetail && age < duplicateWindow(mode)) {
+        if (normalized == previousSignal && detail == previousDetail && age < dupWindow) {
             recordSuppressed(context, "duplicate:$normalized:${age}ms")
             return false
         }
 
-        // Critical/higher-priority context can preempt immediately. Equal/lower-priority chatter
-        // waits for the current resident's minimum dwell time.
+        // Android commonly reports one real app transition twice: launcher APP_LAUNCH followed by
+        // Accessibility FOREGROUND_APP. Treat equal-detail edges as one semantic event so Goblin
+        // Vision comments on the transition instead of narrating callback plumbing.
+        val appEdges = setOf("APP_LAUNCH", "FOREGROUND_APP")
+        if (normalized in appEdges && previousSignal in appEdges && detail == previousDetail && age < dupWindow * 2L) {
+            recordSuppressed(context, "semantic-app-edge:$previousSignal->$normalized:${age}ms")
+            return false
+        }
+
         val hold = holdWindow(mode, previousSignal)
         if (age < hold && priority <= previousPriority) {
-            recordSuppressed(
-                context,
-                "hold:$normalized:p$priority<=p$previousPriority:${age}ms<$hold",
-            )
+            recordSuppressed(context, "hold:$normalized:p$priority<=p$previousPriority:${age}ms<$hold")
             return false
         }
 
@@ -109,11 +107,7 @@ object RavenOfficeGovernor {
             RavenHauntMode.FERAL -> 900L
             RavenHauntMode.APOCALYPSE -> 350L
         }
-        // Foreground/app transitions are especially prone to lifecycle bounce through SystemUI,
-        // launcher, permission dialogs, and the destination app. Give them one extra beat.
-        return if (previousSignal == "FOREGROUND_APP" || previousSignal == "APP_LAUNCH") {
-            (base * 1.35).toLong()
-        } else base
+        return if (previousSignal == "FOREGROUND_APP" || previousSignal == "APP_LAUNCH") (base * 1.35).toLong() else base
     }
 
     private fun priority(signal: String, detail: String): Int = when (signal) {
