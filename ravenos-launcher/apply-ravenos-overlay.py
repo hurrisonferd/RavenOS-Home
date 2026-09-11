@@ -116,6 +116,7 @@ def main() -> None:
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenSystemDeckPane.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenSurfaceModel.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenIntelligenceProvider.kt",
+        "src/launcher/app/src/main/res/layout/ravenos_office_bar.xml",
         "src/launcher/app/src/main/res/xml/ravenos_foreground_awareness.xml",
     ]
     for rel in files:
