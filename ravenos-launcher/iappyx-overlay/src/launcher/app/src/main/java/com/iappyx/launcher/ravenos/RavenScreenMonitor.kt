@@ -12,6 +12,7 @@ object RavenScreenMonitor {
 
     fun start(context: Context) {
         RavenPhonePulseMonitor.start(context)
+        RavenUsageSenseOS.start(context)
         if (receiver != null) return
         val app = context.applicationContext
         val r = object : BroadcastReceiver() {
@@ -38,6 +39,7 @@ object RavenScreenMonitor {
 
     fun stop(context: Context) {
         RavenPhonePulseMonitor.stop()
+        RavenUsageSenseOS.stop()
         val r = receiver ?: return
         receiver = null
         try { context.applicationContext.unregisterReceiver(r) } catch (_: Throwable) {}
