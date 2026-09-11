@@ -55,6 +55,13 @@ def main() -> None:
 
     replace_once(
         home,
+        "RAVENOS ECOLOGY: unified employee presentation",
+        '''        residentOwner.text = "${snapshot.emoji} ${snapshot.owner}"\n        residentNote.text = snapshot.note''',
+        '''        // RAVENOS ECOLOGY: unified employee presentation\n        val member = RavenOfficeRegistry.member(snapshot.owner)\n        val packet = member?.let { RavenEmployeePresentation.packet(it, snapshot.signal, snapshot.detail, snapshot.note) }\n        residentOwner.text = packet?.ownerLine ?: "${snapshot.emoji} ${snapshot.owner}"\n        residentNote.text = packet?.note ?: snapshot.note''',
+    )
+
+    replace_once(
+        home,
         "RAVENOS ECOLOGY: command keyboard",
         '''            setOnClickListener { showAppUniverse(true) }''',
         '''            // RAVENOS ECOLOGY: command keyboard\n            setOnClickListener { RavenCommandPalette.show(this@RavenHomeActivity) }\n            setOnLongClickListener { showAppUniverse(true); true }''',
