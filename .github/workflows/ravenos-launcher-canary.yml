@@ -27,7 +27,7 @@ jobs:
           submodules: recursive
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -59,6 +59,7 @@ jobs:
           grep -R 'updateRavenOffice' "$ROOT/java/com/iappyx/launcher/wallpaper/IappyxWallpaperService.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeMember.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeGovernor.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenForegroundAwarenessService.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenFollowMeOverlay.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenHomeAura.kt"
@@ -79,6 +80,7 @@ jobs:
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenIntelligenceProvider.kt"
           test -s 'ravenos-launcher/patch-ravenos-wallpaper.py'
           grep -R 'APOCALYPSE' "$ROOT/java/com/iappyx/launcher/ravenos/RavenHauntMode.kt"
+          grep -R 'RavenOfficeGovernor.accept' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           grep -R 'RavenFollowMeOverlay.render' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           grep -R 'RavenHomeAura.render' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           grep -R 'RavenHomeWhisper.render' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
@@ -88,11 +90,15 @@ jobs:
           grep -R 'RavenScreenMonitor.start' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           test -s 'ravenos-launcher/device-canary.sh'
 
-      - name: Build RavenOS Launcher APK
+      - name: Fast Kotlin compile gate
         working-directory: faeryware/house/iappyxOS-Launcher/src/launcher
         run: |
           chmod +x ./gradlew
-          ./gradlew :app:assembleDebug --stacktrace
+          ./gradlew :app:compileDebugKotlin --stacktrace
+
+      - name: Build RavenOS Launcher APK
+        working-directory: faeryware/house/iappyxOS-Launcher/src/launcher
+        run: ./gradlew :app:assembleDebug --stacktrace
 
       - name: Stage RavenOS Launcher APK
         run: |
