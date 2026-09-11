@@ -112,6 +112,7 @@ def main() -> None:
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenForegroundAwarenessService.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenFollowMeOverlay.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenHauntMode.kt",
+        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeTraceStore.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenAmbientReceiver.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenAwarenessStatus.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenBootReceiver.kt",
