@@ -13,6 +13,8 @@ data class RavenReactionPacket(
     val lane: String,
     val signal: String,
     val detail: String,
+    val senseRoute: String,
+    val sourceTrusted: Boolean,
     val visualState: String,
     val pose: String,
     val zone: String,
@@ -42,6 +44,8 @@ data class RavenReactionPacket(
         .put("lane", lane)
         .put("signal", signal)
         .put("detail", detail)
+        .put("senseRoute", senseRoute)
+        .put("sourceTrusted", sourceTrusted)
         .put("visualState", visualState)
         .put("pose", pose)
         .put("zone", zone)
