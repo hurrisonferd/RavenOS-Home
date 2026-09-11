@@ -18,7 +18,11 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import kotlin.math.abs
 
-/** Persistent cross-app Goblin Vision speech bubble for ordinary Android app surfaces. */
+/**
+ * GOBLIN VISION cross-app presentation contract.
+ * Persistent speech bubble for ordinary Android app surfaces; secure/system surfaces
+ * remain governed by Android rather than being falsely claimed by RavenOS.
+ */
 object RavenGoblinVisionOverlay {
     private const val PREFS = "ravenos_goblin_vision_v1"
     private const val KEY_X = "x"
