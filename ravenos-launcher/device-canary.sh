@@ -92,28 +92,30 @@ On-device checks:
   4. Raven Search: office kyu -> Office Bar, Home Whisper, and Home Aura all switch to 💗 KYU / KYU accent / KYU note.
   5. In SYSTEM Deck -> SURFACE INTEGRITY, refresh. CANONICAL should be SETTLED/CURRENT; OFFICE_BAR should be POSTED/CURRENT; HOME_AURA and HOME_WHISPER should be RENDERED/CURRENT. FOLLOW_ME may be INACTIVE until explicitly enabled.
   6. In Studio -> Widgets, place bundled "RavenOS Office". It must show the same current owner/note/accent as Home and update live on `office atom`, `office yori`, then `office auto`.
-  7. In Studio -> Wallpapers, select bundled "RavenOS Office". It must receive the same owner/accent/note and react to later office changes without reloading the launcher.
-  8. Refresh SURFACE INTEGRITY. Widget/wallpaper channels are allowed to say DISPATCHED/CURRENT rather than RENDERED; do not count dispatch as JavaScript consumption proof.
-  9. Raven Search: office auto -> deterministic context routing resumes across Home, Office Bar, Follow-Me, widget, and wallpaper.
- 10. Raven Search: haunt calm -> Home Whisper hides, Home Aura becomes minimal, Follow-Me disappears even if overlay permission remains granted.
- 11. Raven Search: haunt lived-in -> compact Home presence returns while Follow-Me remains suppressed.
- 12. Raven Search: haunt haunted / feral / apocalypse -> projections intensify without granting any new Android permission.
- 13. Raven Search: clear office cadence, then rapidly bounce Spotify -> browser -> Settings and trigger several notifications. `office cadence` must show accepted + suppressed counts; lower haunt levels should suppress more flapping.
- 14. Repeat the same quick switching in APOCALYPSE. `office cadence` should show a much shorter hold/duplicate window and visibly faster resident changes.
- 15. Confirm a higher-priority event (screen off / battery low / power transition) can interrupt ordinary app/notification dwell instead of waiting behind it.
- 16. Enable Foreground Awareness; switch Spotify/browser/Settings and verify deterministic owner/note changes and human-readable app labels.
- 17. Grant overlay access; run `follow me` and verify the draggable Office chip follows across apps. Refresh SURFACE INTEGRITY: FOLLOW_ME must become RENDERED/CURRENT.
- 18. Tap Follow-Me -> RavenOS reopens; drag it -> position persists.
- 19. Turn screen off -> Office receipt routes NIGHT/screen:off. Unlock -> HOME/user:present receipt.
- 20. Plug power in/out -> POWER receipts include local battery percentage.
- 21. Raven Search: office trace -> bounded local routing history contains owner/signal/haunt/context receipts.
- 22. Raven Search: office integrity -> same proof ledger is available through deterministic Raven Search.
- 23. Raven Search: clear office trace -> trace clears; new activity starts a fresh history.
- 24. Raven Search: office sleep -> Office Bar and Follow-Me must report INACTIVE on the integrity ledger; ordinary signals do not revive them. `office wake` restores presence.
- 25. While Office wallpaper is hidden behind another app, leave it for a minute; return Home and confirm it resumes current Office state rather than continuously burning visible animation work off-screen.
- 26. Reboot once awake and once asleep: awake restores after BOOT_COMPLETED; explicit sleep survives reboot.
+  7. Refresh SURFACE INTEGRITY after the widget visibly changes. WIDGETS must graduate from DISPATCHED/CURRENT to CONSUMED/CURRENT with detail identifying widget=ravenos_office. DISPATCHED alone is no longer a pass for the bundled proof widget.
+  8. In Studio -> Wallpapers, select bundled "RavenOS Office". It must receive the same owner/accent/note and react to later office changes without reloading the launcher.
+  9. Refresh SURFACE INTEGRITY after the wallpaper visibly changes. WALLPAPER_CHANNEL must graduate from DISPATCHED/CURRENT to CONSUMED/CURRENT with detail wallpaper_js. DISPATCHED alone is transitional, not JavaScript consumption proof.
+ 10. Change resident again (`office kyu`, `office atom`, or `office yori`) and refresh integrity. Both WIDGETS and WALLPAPER_CHANNEL must acknowledge the new exact canonical updatedAt, not remain CURRENT on an older receipt.
+ 11. Raven Search: office auto -> deterministic context routing resumes across Home, Office Bar, Follow-Me, widget, and wallpaper.
+ 12. Raven Search: haunt calm -> Home Whisper hides, Home Aura becomes minimal, Follow-Me disappears even if overlay permission remains granted.
+ 13. Raven Search: haunt lived-in -> compact Home presence returns while Follow-Me remains suppressed.
+ 14. Raven Search: haunt haunted / feral / apocalypse -> projections intensify without granting any new Android permission.
+ 15. Raven Search: clear office cadence, then rapidly bounce Spotify -> browser -> Settings and trigger several notifications. `office cadence` must show accepted + suppressed counts; lower haunt levels should suppress more flapping.
+ 16. Repeat the same quick switching in APOCALYPSE. `office cadence` should show a much shorter hold/duplicate window and visibly faster resident changes.
+ 17. Confirm a higher-priority event (screen off / battery low / power transition) can interrupt ordinary app/notification dwell instead of waiting behind it.
+ 18. Enable Foreground Awareness; switch Spotify/browser/Settings and verify deterministic owner/note changes and human-readable app labels.
+ 19. Grant overlay access; run `follow me` and verify the draggable Office chip follows across apps. Refresh SURFACE INTEGRITY: FOLLOW_ME must become RENDERED/CURRENT.
+ 20. Tap Follow-Me -> RavenOS reopens; drag it -> position persists.
+ 21. Turn screen off -> Office receipt routes NIGHT/screen:off. Unlock -> HOME/user:present receipt.
+ 22. Plug power in/out -> POWER receipts include local battery percentage.
+ 23. Raven Search: office trace -> bounded local routing history contains owner/signal/haunt/context receipts.
+ 24. Raven Search: office integrity -> same proof ledger is available through deterministic Raven Search, including CONSUMED receipts from widget/wallpaper when those proof surfaces are active.
+ 25. Raven Search: clear office trace -> trace clears; new activity starts a fresh history.
+ 26. Raven Search: office sleep -> Office Bar and Follow-Me must report INACTIVE on the integrity ledger; ordinary signals do not revive them. `office wake` restores presence.
+ 27. While Office wallpaper is hidden behind another app, leave it for a minute; return Home and confirm it resumes current Office state rather than continuously burning visible animation work off-screen.
+ 28. Reboot once awake and once asleep: awake restores after BOOT_COMPLETED; explicit sleep survives reboot.
 EOF
 
 echo
 echo "DEVICE_CANARY_SOURCE_COMPLETE=true"
-echo "RUNTIME_RESULT=REQUIRES_HUMAN_OBSERVATION_FOR_HOME_WIDGET_WALLPAPER_OVERLAY_INTEGRITY_CADENCE_SCREEN_POWER_TRACE_AND_REBOOT_EDGES"
+echo "RUNTIME_RESULT=REQUIRES_HUMAN_OBSERVATION_FOR_HOME_WIDGET_WALLPAPER_CONSUMPTION_OVERLAY_INTEGRITY_CADENCE_SCREEN_POWER_TRACE_AND_REBOOT_EDGES"
