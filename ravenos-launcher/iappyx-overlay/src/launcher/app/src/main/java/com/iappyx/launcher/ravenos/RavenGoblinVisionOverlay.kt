@@ -6,6 +6,8 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
@@ -15,16 +17,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import kotlin.math.abs
 
-/**
- * Goblin Vision = the cross-app body of the canonical Office state.
- *
- * It is intentionally screen-recorder-HUD-like without reading the pixels underneath it. Foreground
- * app / notification / power / media / Office signals are settled elsewhere, then this projection
- * meta-reacts to that same state using the same EmojiOS + KaomojiOS packet as the Office Bar.
- *
- * Overlay permission and Follow-Me enablement remain explicit/revocable. The view only intercepts
- * touches inside its own draggable bounds.
- */
+/** Cross-app Goblin Vision body for canonical Office/Goblin reaction state. */
 object RavenGoblinVisionOverlay {
     private const val PREFS = "ravenos_goblin_vision_v1"
     private const val KEY_X = "x"
@@ -37,6 +30,8 @@ object RavenGoblinVisionOverlay {
     private var ownerView: TextView? = null
     private var noteView: TextView? = null
     private var contextView: TextView? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private var collapseRunnable: Runnable? = null
 
     fun render(
         context: Context,
@@ -44,6 +39,43 @@ object RavenGoblinVisionOverlay {
         signal: String,
         note: String,
         detail: String,
+        hauntMode: RavenHauntMode,
+    ) {
+        val packet = RavenEmployeePresentation.packet(member, signal, detail, note)
+        renderBase(context, member, packet.ownerLine, packet.note, "${packet.lane} · ${packet.context}", signal, hauntMode)
+    }
+
+    fun renderReaction(context: Context, reaction: RavenReactionPacket, hauntMode: RavenHauntMode) {
+        val member = RavenOfficeRegistry.member(reaction.owner) ?: return
+        val spoken = reaction.dialogue.ifBlank { reaction.authorNote }
+        val contextLine = buildString {
+            append(reaction.lane)
+            append(" · ").append(reaction.zone)
+            append(" · #").append(reaction.occurrence)
+            append(" · ").append(reaction.episode)
+            if (reaction.highlight != RavenHighlightOS.Class.NONE.name) {
+                append(" · ").append(reaction.highlight).append(':').append(reaction.highlightScore)
+            }
+        }
+        renderBase(
+            context = context,
+            member = member,
+            ownerLine = reaction.ownerLine,
+            note = spoken,
+            contextLine = contextLine,
+            status = "${reaction.visualState} · ${reaction.pose}",
+            hauntMode = hauntMode,
+        )
+        scheduleCollapse(context, reaction, hauntMode)
+    }
+
+    private fun renderBase(
+        context: Context,
+        member: RavenOfficeMember,
+        ownerLine: String,
+        note: String,
+        contextLine: String,
+        status: String,
         hauntMode: RavenHauntMode,
     ) {
         val stateAt = RavenOfficeStateStore.read(context)?.updatedAt ?: 0L
@@ -70,8 +102,7 @@ object RavenGoblinVisionOverlay {
             RavenSurfaceIntegrity.mark(context, RavenSurfaceIntegrity.FOLLOW_ME, "BLOCKED", stateAt, "goblin_vision_unavailable")
             return
         }
-        val packet = RavenEmployeePresentation.packet(member, signal, detail, note)
-        val textColor = contrastText(packet.accent)
+        val textColor = contrastText(member.accent)
         val secondary = if (textColor == Color.BLACK) 0xAA000000.toInt() else 0xCCFFFFFF.toInt()
         val alpha = when (hauntMode) {
             RavenHauntMode.CALM -> 208
@@ -82,20 +113,23 @@ object RavenGoblinVisionOverlay {
         }
         box.background = GradientDrawable().apply {
             cornerRadius = dp(context, if (hauntMode.ordinal >= RavenHauntMode.FERAL.ordinal) 24 else 18).toFloat()
-            setColor(withAlpha(packet.accent, alpha))
+            setColor(withAlpha(member.accent, alpha))
             setStroke(dp(context, if (hauntMode.ordinal >= RavenHauntMode.FERAL.ordinal) 2 else 1), withAlpha(textColor, 90))
         }
         statusView?.apply {
-            text = "● GOBLIN VISION · ${prettySignal(signal).uppercase()}"
+            visibility = View.VISIBLE
+            text = "● GOBLIN VISION · ${status.uppercase()}"
             setTextColor(secondary)
         }
         ownerView?.apply {
-            text = packet.ownerLine
+            visibility = View.VISIBLE
+            text = ownerLine
             textSize = if (hauntMode == RavenHauntMode.APOCALYPSE) 18f else 16f
             setTextColor(textColor)
         }
         noteView?.apply {
-            text = packet.note
+            visibility = if (note.isBlank()) View.GONE else View.VISIBLE
+            text = note
             maxLines = when (hauntMode) {
                 RavenHauntMode.CALM, RavenHauntMode.LIVED_IN -> 1
                 RavenHauntMode.HAUNTED -> 2
@@ -105,18 +139,19 @@ object RavenGoblinVisionOverlay {
             setTextColor(textColor)
         }
         contextView?.apply {
-            text = "${packet.lane} · ${packet.context}"
+            visibility = View.VISIBLE
+            text = contextLine
             maxLines = if (hauntMode.ordinal >= RavenHauntMode.FERAL.ordinal) 3 else 2
             setTextColor(secondary)
         }
 
         lp?.let { params ->
             val widthDp = when (hauntMode) {
-                RavenHauntMode.CALM -> 238
-                RavenHauntMode.LIVED_IN -> 250
-                RavenHauntMode.HAUNTED -> 272
-                RavenHauntMode.FERAL -> 300
-                RavenHauntMode.APOCALYPSE -> 330
+                RavenHauntMode.CALM -> 220
+                RavenHauntMode.LIVED_IN -> 232
+                RavenHauntMode.HAUNTED -> 252
+                RavenHauntMode.FERAL -> 282
+                RavenHauntMode.APOCALYPSE -> 312
             }
             val width = dp(context, widthDp)
             if (params.width != width) {
@@ -128,7 +163,26 @@ object RavenGoblinVisionOverlay {
         RavenSurfaceIntegrity.mark(context, RavenSurfaceIntegrity.FOLLOW_ME, "RENDERED", stateAt, "goblin_vision")
     }
 
+    private fun scheduleCollapse(context: Context, reaction: RavenReactionPacket, hauntMode: RavenHauntMode) {
+        collapseRunnable?.let(handler::removeCallbacks)
+        if (!reaction.interruptible || hauntMode == RavenHauntMode.APOCALYPSE) return
+        val runnable = Runnable {
+            val box = root ?: return@Runnable
+            statusView?.visibility = View.GONE
+            noteView?.visibility = View.GONE
+            contextView?.visibility = View.GONE
+            lp?.let { params ->
+                params.width = dp(context, if (hauntMode == RavenHauntMode.FERAL) 156 else 132)
+                try { wm?.updateViewLayout(box, params) } catch (_: Throwable) {}
+            }
+        }
+        collapseRunnable = runnable
+        handler.postDelayed(runnable, reaction.lifetimeMs.coerceIn(1200L, 12_000L))
+    }
+
     fun hide() {
+        collapseRunnable?.let(handler::removeCallbacks)
+        collapseRunnable = null
         val view = root ?: return
         try { wm?.removeView(view) } catch (_: Throwable) {}
         root = null
@@ -169,7 +223,7 @@ object RavenGoblinVisionOverlay {
         }.also(box::addView)
 
         val params = WindowManager.LayoutParams(
-            dp(context, 272),
+            dp(context, 252),
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
@@ -228,7 +282,6 @@ object RavenGoblinVisionOverlay {
         }
     }
 
-    private fun prettySignal(signal: String): String = signal.trim().replace('_', ' ').lowercase()
     private fun withAlpha(color: Int, alpha: Int): Int = Color.argb(alpha.coerceIn(0, 255), Color.red(color), Color.green(color), Color.blue(color))
     private fun contrastText(color: Int): Int {
         val perceived = (Color.red(color) * 299 + Color.green(color) * 587 + Color.blue(color) * 114) / 1000
