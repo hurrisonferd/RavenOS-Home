@@ -101,7 +101,7 @@ class RavenSystemDeckPane(
         root.addView(section("SURFACE INTEGRITY"), top(28))
         integrityView = text(RavenSurfaceIntegrity.compact(activity), 10f, 0xFFC8C8D4.toInt(), false)
         root.addView(integrityView, top(8))
-        root.addView(text("RENDERED = RavenOS updated an owned native View. POSTED = Android accepted the Office Bar foreground notification. DISPATCHED = state was sent to a WebView/cross-process channel but is not yet device-acknowledged. No optimistic sync claims.", 10f, 0xFF9292A4.toInt(), false), top(4))
+        root.addView(text("RENDERED = RavenOS updated an owned native View. POSTED = Android accepted the Office Bar foreground notification. DISPATCHED = state was sent to a WebView/cross-process channel. CONSUMED = RavenOS-owned JavaScript applied the canonical state and called back with its exact updatedAt. No optimistic sync claims.", 10f, 0xFF9292A4.toInt(), false), top(4))
         root.addView(button("REFRESH SURFACE INTEGRITY") { updateIntegrity() }, top(8))
         root.addView(button("CLEAR SURFACE INTEGRITY") {
             RavenSurfaceIntegrity.clear(activity)
