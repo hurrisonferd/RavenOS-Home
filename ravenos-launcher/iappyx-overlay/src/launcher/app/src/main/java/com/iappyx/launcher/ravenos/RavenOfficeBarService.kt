@@ -38,6 +38,7 @@ class RavenOfficeBarService : Service() {
         RavenScreenMonitor.stop(this)
         RavenFollowMeOverlay.hide()
         RavenHomeAura.hide()
+        RavenHomeWhisper.hide()
         super.onDestroy()
     }
 
@@ -52,6 +53,7 @@ class RavenOfficeBarService : Service() {
                 .apply()
             RavenFollowMeOverlay.hide()
             RavenHomeAura.hide()
+            RavenHomeWhisper.hide()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
@@ -130,7 +132,6 @@ class RavenOfficeBarService : Service() {
             }
         }
 
-        // Null intent can happen when Android recreates a sticky service. Restore only when enabled.
         if (!prefs.getBoolean(KEY_ENABLED, false)) return START_NOT_STICKY
         startForeground(NOTIFICATION_ID, buildNotification())
         return START_STICKY
@@ -149,8 +150,9 @@ class RavenOfficeBarService : Service() {
 
         RavenOfficeTraceStore.record(this, member, signal, detail, note, hauntMode)
 
-        // Same deterministic Office route, projected into three independently bounded surfaces.
+        // Same deterministic Office route, projected into independently bounded surfaces.
         RavenHomeAura.render(member, hauntMode)
+        RavenHomeWhisper.render(member, note, signal, detail, hauntMode)
         RavenFollowMeOverlay.render(this, member, signal, note, detail, hauntMode)
 
         val openHome = PendingIntent.getActivity(
