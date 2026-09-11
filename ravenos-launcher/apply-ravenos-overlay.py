@@ -175,6 +175,14 @@ def main() -> None:
                 "    override fun onNotificationPosted(sbn: StatusBarNotification?) {\n        scheduleRecount()\n",
                 '''        // RAVENOS OFFICE BAR: notification-source signal. Metadata only here; no body/text routing.\n        if (sbn != null) {\n            com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(\n                this, "NOTIFICATION", "package:${sbn.packageName}",\n            )\n        }\n''')
 
+    generated_widget = UPSTREAM / "src/launcher/app/src/main/java/com/iappyx/launcher/cells/GeneratedWidgetCell.kt"
+    patch_after(
+        generated_widget,
+        "RAVENOS WIDGET OFFICE BRIDGE: capability-gated read-only office state",
+        "        widgetHost.registerBridges()\n",
+        '''        // RAVENOS WIDGET OFFICE BRIDGE: capability-gated read-only office state.\n        // Default deny: only ravenos_* / faeryware_resident / explicitly granted ids attach.\n        com.iappyx.launcher.ravenos.RavenWidgetOfficeModule.attach(activity, wv, widgetId)\n''',
+    )
+
     search_panel = UPSTREAM / "src/launcher/app/src/main/java/com/iappyx/launcher/widget/SearchPanel.kt"
     replace_once(
         search_panel,
