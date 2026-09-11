@@ -31,7 +31,28 @@ object RavenCommandRouter {
             return Result(RavenSystemDeck.setNotificationPercent(context, it), "notifications $it%")
         }
 
+        if (normalized.startsWith("haunt ")) {
+            val requested = normalized.removePrefix("haunt ").trim()
+            if (requested == "next" || requested == "cycle") {
+                val next = RavenHauntModeStore.cycle(context)
+                RavenOfficeBarService.setHaunt(context, next)
+                return Result(true, "haunt ${next.label}")
+            }
+            RavenHauntModeStore.parse(requested)?.let { mode ->
+                RavenOfficeBarService.setHaunt(context, mode)
+                return Result(true, "haunt ${mode.label}")
+            }
+        }
+
         return when (normalized) {
+            "haunt", "haunt next", "next haunt" -> {
+                val next = RavenHauntModeStore.cycle(context)
+                RavenOfficeBarService.setHaunt(context, next)
+                Result(true, "haunt ${next.label}")
+            }
+            "haunt status", "haunting status" -> {
+                Result(true, "haunt ${RavenHauntModeStore.get(context).label}")
+            }
             "normal", "ringer normal" -> Result(
                 RavenSystemDeck.setRingerMode(context, AudioManager.RINGER_MODE_NORMAL),
                 "ringer normal",
@@ -85,7 +106,9 @@ object RavenCommandRouter {
                 Result(true, "follow-me off")
             }
             "raven status", "launcher status", "awareness status" -> {
-                Result(true, RavenAwarenessStatus.snapshot(context).compact())
+                val readiness = RavenAwarenessStatus.snapshot(context).compact()
+                val haunt = RavenHauntModeStore.get(context).label
+                Result(true, "$readiness · HAUNT=$haunt")
             }
             "default home", "launcher home", "make ravenos home" -> {
                 val activity = context as? Activity ?: return Result(false)
