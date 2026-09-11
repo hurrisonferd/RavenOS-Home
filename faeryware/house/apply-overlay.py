@@ -58,28 +58,58 @@ def main() -> None:
     if actual != EXPECTED_SHA:
         raise SystemExit(f"refusing unreviewed upstream: expected {EXPECTED_SHA}, found {actual}")
 
-    bridge_rel = "src/launcher/app/src/main/java/com/iappyx/launcher/faeryware/FaerywareResidentBridge.java"
-    widget_rel = "src/launcher/app/src/main/assets/widgets/faeryware_resident.html"
-    copy(bridge_rel)
-    copy(widget_rel)
+    overlay_files = [
+        "src/launcher/app/src/main/java/com/iappyx/launcher/faeryware/FaerywareResidentBridge.java",
+        "src/launcher/app/src/main/java/com/iappyx/launcher/faeryware/FaerywarePossessionController.kt",
+        "src/launcher/app/src/main/java/com/iappyx/launcher/faeryware/FaerywareHouseApi.kt",
+        "src/launcher/app/src/main/assets/widgets/faeryware_resident.html",
+    ]
+    for rel in overlay_files:
+        copy(rel)
 
     widget_host = UPSTREAM / "src/launcher/app/src/main/java/com/iappyx/launcher/WidgetHost.java"
-    host_marker = "// FAERYWARE HOUSE: resident-only bridge"
-    host_anchor = "        // PLUGINS: BEGIN\n"
-    host_insert = '''        // FAERYWARE HOUSE: resident-only bridge\n        // Deliberately unavailable to every other generated widget.\n        if ("faeryware_resident".equals(_widgetId)) {\n            webView.addJavascriptInterface(\n                new com.iappyx.launcher.faeryware.FaerywareResidentBridge(getApplicationContext()),\n                "faerywareResident"\n            );\n        }\n'''
-    patch_before(widget_host, host_marker, host_anchor, host_insert)
+    patch_before(
+        widget_host,
+        "// FAERYWARE HOUSE: resident-only bridge",
+        "        // PLUGINS: BEGIN\n",
+        '''        // FAERYWARE HOUSE: resident-only bridge\n        // Deliberately unavailable to every other generated widget.\n        if ("faeryware_resident".equals(_widgetId)) {\n            webView.addJavascriptInterface(\n                new com.iappyx.launcher.faeryware.FaerywareResidentBridge(getApplicationContext()),\n                "faerywareResident"\n            );\n        }\n''',
+    )
 
     library = UPSTREAM / "src/launcher/app/src/main/java/com/iappyx/launcher/widget/WidgetLibrary.kt"
-    library_marker = '"faeryware_resident", "Faeryware Resident"'
-    library_anchor = "    private val BUNDLED = listOf(\n"
-    library_insert = '''        BundledMeta(\n            "faeryware_resident", "Faeryware Resident",\n            "Owner-gated Digi Fae resident state from the Faeryware colony. No model required.",\n            "widgets/faeryware_resident.html",\n        ),\n'''
-    patch_after(library, library_marker, library_anchor, library_insert)
+    patch_after(
+        library,
+        '"faeryware_resident", "Faeryware Resident"',
+        "    private val BUNDLED = listOf(\n",
+        '''        BundledMeta(\n            "faeryware_resident", "Faeryware Resident",\n            "Owner-gated Digi Fae resident state from the Faeryware colony. No model required.",\n            "widgets/faeryware_resident.html",\n        ),\n''',
+    )
 
     manifest = UPSTREAM / "src/launcher/app/src/main/AndroidManifest.xml"
-    manifest_marker = 'android:authorities="com.faeryware.launcher.resident"'
-    manifest_anchor = "    <application\n"
-    manifest_insert = '''    <!-- FAERYWARE HOUSE: narrow package visibility for the resident provider. -->\n    <queries>\n        <provider android:authorities="com.faeryware.launcher.resident" />\n    </queries>\n\n'''
-    patch_before(manifest, manifest_marker, manifest_anchor, manifest_insert)
+    patch_before(
+        manifest,
+        'android:authorities="com.faeryware.launcher.resident"',
+        "    <application\n",
+        '''    <!-- FAERYWARE HOUSE: narrow package visibility for the resident provider. -->\n    <queries>\n        <provider android:authorities="com.faeryware.launcher.resident" />\n    </queries>\n\n''',
+    )
+
+    routes = UPSTREAM / "src/launcher/app/src/main/java/com/iappyx/launcher/remoteedit/server/EditServerRoutes.kt"
+    patch_after(
+        routes,
+        "import com.iappyx.launcher.faeryware.FaerywareHouseApi",
+        "import android.app.Activity\n",
+        "import com.iappyx.launcher.faeryware.FaerywareHouseApi\n",
+    )
+    patch_after(
+        routes,
+        "private val faeryware = FaerywareHouseApi(activity)",
+        "    private val theme = ThemeApi(activity)\n",
+        "    private val faeryware = FaerywareHouseApi(activity)\n",
+    )
+    patch_after(
+        routes,
+        'path == "/api/faeryware/status"',
+        '            path == "/api/layout" && method == "GET" -> layout.getLayout(ex)\n',
+        '''            // FAERYWARE HOUSE: routes are behind the existing paired-IP/session-cookie gate.\n            path == "/api/faeryware/status" && method == "GET" -> faeryware.status(ex)\n            path == "/api/faeryware/possess" && method == "POST" -> faeryware.possess(ex)\n            path == "/api/faeryware/leave" && method == "POST" -> faeryware.leave(ex)\n''',
+    )
 
     print(f"Faeryware HOUSE overlay applied to pinned iappyx {actual}")
 
