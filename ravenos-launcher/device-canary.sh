@@ -71,23 +71,24 @@ On-device checks:
   1. Swipe into SYSTEM Deck and confirm APP = com.ravenos.launcher.
   2. Run LOCAL RAVENOS CANARY and record readiness X/7.
   3. Raven Search: media 37 -> media volume should become 37%.
-  4. Raven Search: office kyu -> Office Bar should pin 💗 KYU.
-  5. Raven Search: office auto -> context routing resumes.
+  4. Raven Search: office kyu -> Office Bar, Home Whisper, and Home Aura should all switch to 💗 KYU / KYU accent / KYU note.
+  5. Raven Search: office auto -> context routing resumes across all three projections.
   6. Raven Search: haunt status -> confirm the current deterministic haunt mode.
-  7. Raven Search: haunt calm -> Follow-Me projection must disappear even if overlay permission remains granted.
-  8. Raven Search: haunt haunted -> foreground + notification routing resume; Follow-Me may project if separately enabled.
-  9. Raven Search: haunt apocalypse -> Follow-Me surface becomes the largest/highest-detail projection without granting any new permission.
- 10. Enable Foreground Awareness; switch Spotify/browser/Settings and verify owner/note changes and human-readable app labels.
- 11. Grant overlay access; run `follow me` and verify the draggable Office chip follows across apps.
- 12. Tap the Follow-Me chip -> RavenOS should reopen; drag it -> position should persist.
- 13. Turn screen off -> Office receipt should route NIGHT/screen:off (normally NYX/LUMA/EREBUS/AYRE lane). Unlock -> HOME/user:present receipt.
- 14. Plug power in/out and verify POWER receipts. Trigger battery-low if practical and verify BATTERY receipt.
- 15. Raven Search: office trace -> confirm bounded local routing history contains recent owner/signal/haunt/context entries.
- 16. Raven Search: clear office trace -> trace clears, then new activity begins a fresh bounded history.
- 17. Raven Search: office sleep -> bar and Follow-Me disappear and ordinary launcher/device signals do not revive them. `office wake` restores presence.
- 18. Reboot once awake and once asleep: awake state should restore after BOOT_COMPLETED; explicit sleep must survive reboot.
+  7. Raven Search: haunt calm -> Home Whisper hides, Home Aura becomes minimal, and Follow-Me disappears even if overlay permission remains granted.
+  8. Raven Search: haunt lived-in -> Home Whisper returns compact, Home Aura grows slightly, foreground routing is active, Follow-Me stays suppressed.
+  9. Raven Search: haunt haunted -> foreground + notification routing resume; Home Whisper is fuller; Follow-Me may project if separately enabled.
+ 10. Raven Search: haunt feral / haunt apocalypse -> Home Aura and Home Whisper visibly intensify; APOCALYPSE is highest-detail without granting new permission.
+ 11. Enable Foreground Awareness; switch Spotify/browser/Settings and verify owner/note changes and human-readable app labels.
+ 12. Grant overlay access; run `follow me` and verify the draggable Office chip follows across apps.
+ 13. Tap the Follow-Me chip -> RavenOS should reopen; drag it -> position should persist.
+ 14. Turn screen off -> Office receipt should route NIGHT/screen:off (normally NYX/LUMA/EREBUS/AYRE lane). Unlock -> HOME/user:present receipt.
+ 15. Plug power in/out and verify POWER receipts include local battery percentage. Trigger battery-low if practical and verify BATTERY receipt.
+ 16. Raven Search: office trace -> confirm bounded local routing history contains recent owner/signal/haunt/context entries.
+ 17. Raven Search: clear office trace -> trace clears, then new activity begins a fresh bounded history.
+ 18. Raven Search: office sleep -> Office Bar, Home Aura, Home Whisper, and Follow-Me all disappear; ordinary launcher/device signals do not revive them. `office wake` restores presence.
+ 19. Reboot once awake and once asleep: awake state should restore after BOOT_COMPLETED; explicit sleep must survive reboot.
 EOF
 
 echo
 echo "DEVICE_CANARY_SOURCE_COMPLETE=true"
-echo "RUNTIME_RESULT=REQUIRES_HUMAN_OBSERVATION_FOR_UI_OVERLAY_SCREEN_POWER_TRACE_AND_REBOOT_EDGES"
+echo "RUNTIME_RESULT=REQUIRES_HUMAN_OBSERVATION_FOR_HOME_AURA_WHISPER_OVERLAY_SCREEN_POWER_TRACE_AND_REBOOT_EDGES"
