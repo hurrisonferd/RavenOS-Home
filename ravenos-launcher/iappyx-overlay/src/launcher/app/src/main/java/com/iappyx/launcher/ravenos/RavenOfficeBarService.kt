@@ -74,17 +74,13 @@ class RavenOfficeBarService : Service() {
             ACTION_RESTORE -> {
                 if (!prefs.getBoolean(KEY_ENABLED, false)) return START_NOT_STICKY
                 val reason = intent.getStringExtra(EXTRA_DETAIL).orEmpty()
-                if (reason.isNotBlank()) {
-                    prefs.edit().putString(KEY_DETAIL, "restored:$reason").apply()
-                }
+                if (reason.isNotBlank()) prefs.edit().putString(KEY_DETAIL, "restored:$reason").apply()
             }
-            ACTION_SIGNAL -> {
-                prefs.edit()
-                    .putBoolean(KEY_ENABLED, true)
-                    .putString(KEY_SIGNAL, intent.getStringExtra(EXTRA_SIGNAL) ?: "HOME")
-                    .putString(KEY_DETAIL, intent.getStringExtra(EXTRA_DETAIL) ?: "")
-                    .apply()
-            }
+            ACTION_SIGNAL -> prefs.edit()
+                .putBoolean(KEY_ENABLED, true)
+                .putString(KEY_SIGNAL, intent.getStringExtra(EXTRA_SIGNAL) ?: "HOME")
+                .putString(KEY_DETAIL, intent.getStringExtra(EXTRA_DETAIL) ?: "")
+                .apply()
             ACTION_PIN -> {
                 val requested = intent.getStringExtra(EXTRA_OWNER)
                 val member = RavenOfficeRegistry.member(requested)
@@ -148,9 +144,19 @@ class RavenOfficeBarService : Service() {
         val note = if (quiet) "Quiet watch. The office is still here; only material signals break silence."
                    else RavenOfficeRegistry.authorNote(member, signal, detail)
 
+        // One canonical local snapshot, then every projection consumes the same decision.
+        RavenOfficeStateStore.write(
+            this,
+            member = member,
+            signal = signal,
+            detail = detail,
+            note = note,
+            hauntMode = hauntMode,
+            manual = manual != null,
+            quiet = quiet,
+        )
         RavenOfficeTraceStore.record(this, member, signal, detail, note, hauntMode)
 
-        // Same deterministic Office route, projected into independently bounded surfaces.
         RavenHomeAura.render(member, hauntMode)
         RavenHomeWhisper.render(member, note, signal, detail, hauntMode)
         RavenFollowMeOverlay.render(this, member, signal, note, detail, hauntMode)
@@ -171,14 +177,9 @@ class RavenOfficeBarService : Service() {
         val body = "AUTHOR'S NOTE: $note"
         val contextLine = buildString {
             append(member.lane)
-            append(" · ")
-            append(mode)
-            append(" · ")
-            append(hauntMode.label)
-            if (detail.isNotBlank()) {
-                append(" · ")
-                append(detail.take(120))
-            }
+            append(" · ").append(mode)
+            append(" · ").append(hauntMode.label)
+            if (detail.isNotBlank()) append(" · ").append(detail.take(120))
         }
         val big = "$body\n\n$contextLine"
 
@@ -217,28 +218,19 @@ class RavenOfficeBarService : Service() {
     }
 
     private fun contrastText(color: Int): Int {
-        val r = Color.red(color)
-        val g = Color.green(color)
-        val b = Color.blue(color)
-        val perceived = (r * 299 + g * 587 + b * 114) / 1000
+        val perceived = (Color.red(color) * 299 + Color.green(color) * 587 + Color.blue(color) * 114) / 1000
         return if (perceived >= 175) Color.BLACK else Color.WHITE
     }
 
     private fun serviceAction(action: String, requestCode: Int): PendingIntent = PendingIntent.getService(
-        this,
-        requestCode,
-        Intent(this, RavenOfficeBarService::class.java).setAction(action),
+        this, requestCode, Intent(this, RavenOfficeBarService::class.java).setAction(action),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
     private fun ensureChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = getSystemService(NotificationManager::class.java)
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "RavenOS Office Bar",
-            NotificationManager.IMPORTANCE_LOW,
-        ).apply {
+        val channel = NotificationChannel(CHANNEL_ID, "RavenOS Office Bar", NotificationManager.IMPORTANCE_LOW).apply {
             description = "Reactive RavenOS office-member presence and deterministic author's notes"
             setShowBadge(false)
             enableVibration(false)
@@ -247,12 +239,8 @@ class RavenOfficeBarService : Service() {
         manager.createNotificationChannel(channel)
     }
 
-    private fun prettySignal(signal: String): String = signal
-        .trim()
-        .replace('_', ' ')
-        .lowercase()
-        .split(' ')
-        .joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
+    private fun prettySignal(signal: String): String = signal.trim().replace('_', ' ').lowercase()
+        .split(' ').joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
 
     companion object {
         private const val PREFS = "ravenos_office_bar_v1"
@@ -278,8 +266,7 @@ class RavenOfficeBarService : Service() {
         const val ACTION_RESTORE = "com.ravenos.launcher.office.RESTORE"
         const val ACTION_HAUNT_CYCLE = "com.ravenos.launcher.office.HAUNT_CYCLE"
 
-        fun isEnabled(context: Context): Boolean = context
-            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        fun isEnabled(context: Context): Boolean = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_ENABLED, false)
 
         fun signal(context: Context, signal: String, detail: String = "") {
@@ -290,22 +277,12 @@ class RavenOfficeBarService : Service() {
                 "NOTIFICATION" -> if (!mode.notificationRouting) return
             }
             val enriched = enrichDetail(context, normalizedSignal, detail)
-            start(
-                context,
-                Intent(context, RavenOfficeBarService::class.java)
-                    .setAction(ACTION_SIGNAL)
-                    .putExtra(EXTRA_SIGNAL, signal)
-                    .putExtra(EXTRA_DETAIL, enriched),
-            )
+            start(context, Intent(context, RavenOfficeBarService::class.java)
+                .setAction(ACTION_SIGNAL).putExtra(EXTRA_SIGNAL, signal).putExtra(EXTRA_DETAIL, enriched))
         }
 
-        fun pin(context: Context, owner: String) = start(
-            context,
-            Intent(context, RavenOfficeBarService::class.java)
-                .setAction(ACTION_PIN)
-                .putExtra(EXTRA_OWNER, owner),
-        )
-
+        fun pin(context: Context, owner: String) = start(context, Intent(context, RavenOfficeBarService::class.java)
+            .setAction(ACTION_PIN).putExtra(EXTRA_OWNER, owner))
         fun next(context: Context) = start(context, Intent(context, RavenOfficeBarService::class.java).setAction(ACTION_NEXT))
         fun auto(context: Context) = start(context, Intent(context, RavenOfficeBarService::class.java).setAction(ACTION_AUTO))
         fun toggleQuiet(context: Context) = start(context, Intent(context, RavenOfficeBarService::class.java).setAction(ACTION_QUIET))
@@ -317,12 +294,8 @@ class RavenOfficeBarService : Service() {
             enable(context)
             signal(context, "SYSTEM_DECK", "haunt:${mode.label}")
         }
-        fun restore(context: Context, reason: String) = start(
-            context,
-            Intent(context, RavenOfficeBarService::class.java)
-                .setAction(ACTION_RESTORE)
-                .putExtra(EXTRA_DETAIL, reason),
-        )
+        fun restore(context: Context, reason: String) = start(context, Intent(context, RavenOfficeBarService::class.java)
+            .setAction(ACTION_RESTORE).putExtra(EXTRA_DETAIL, reason))
 
         private fun enrichDetail(context: Context, signal: String, detail: String): String {
             if (signal != "APP_LAUNCH" && signal != "FOREGROUND_APP" && signal != "NOTIFICATION") return detail
@@ -335,17 +308,12 @@ class RavenOfficeBarService : Service() {
                 val info = context.packageManager.getApplicationInfo(pkg, 0)
                 val label = context.packageManager.getApplicationLabel(info).toString().trim()
                 if (label.isBlank()) detail else "app:${label.take(80)}|package:$pkg"
-            } catch (_: Throwable) {
-                detail
-            }
+            } catch (_: Throwable) { detail }
         }
 
         private fun start(context: Context, intent: Intent) {
-            try {
-                ContextCompat.startForegroundService(context, intent)
-            } catch (_: Throwable) {
-                // The launcher must remain usable even if Android refuses an FGS start.
-            }
+            try { ContextCompat.startForegroundService(context, intent) }
+            catch (_: Throwable) { /* Launcher remains usable if Android refuses an FGS start. */ }
         }
     }
 }
