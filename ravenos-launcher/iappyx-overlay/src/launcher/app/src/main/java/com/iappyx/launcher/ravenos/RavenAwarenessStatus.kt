@@ -1,7 +1,6 @@
 package com.iappyx.launcher.ravenos
 
 import android.Manifest
-import android.app.role.RoleManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -23,6 +22,7 @@ data class RavenAwarenessSnapshot(
     val foregroundAwareness: Boolean,
     val notificationAwareness: Boolean,
     val overlayAccess: Boolean,
+    val followMeEnabled: Boolean,
     val officeBarEnabled: Boolean,
 ) {
     val passed: Int get() = listOf(
@@ -31,9 +31,10 @@ data class RavenAwarenessSnapshot(
         foregroundAwareness,
         notificationAwareness,
         overlayAccess,
+        followMeEnabled,
         officeBarEnabled,
     ).count { it }
-    val total: Int get() = 6
+    val total: Int get() = 7
 
     fun compact(): String = buildString {
         append("RavenOS readiness $passed/$total")
@@ -42,6 +43,7 @@ data class RavenAwarenessSnapshot(
         append(" · FG=").append(flag(foregroundAwareness))
         append(" · NOTIF=").append(flag(notificationAwareness))
         append(" · OVERLAY=").append(flag(overlayAccess))
+        append(" · FOLLOW=").append(flag(followMeEnabled))
     }
 
     private fun flag(value: Boolean) = if (value) "ON" else "OFF"
@@ -55,6 +57,7 @@ object RavenAwarenessStatus {
         foregroundAwareness = serviceEnabled(context, RavenForegroundAwarenessService::class.java),
         notificationAwareness = notificationListenerEnabled(context),
         overlayAccess = Settings.canDrawOverlays(context),
+        followMeEnabled = RavenFollowMeOverlay.isEnabled(context),
         officeBarEnabled = RavenOfficeBarService.isEnabled(context),
     )
 
