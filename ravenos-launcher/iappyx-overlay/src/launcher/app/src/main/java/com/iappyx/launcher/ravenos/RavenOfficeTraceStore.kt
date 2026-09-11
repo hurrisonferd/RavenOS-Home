@@ -34,11 +34,13 @@ object RavenOfficeTraceStore {
         note: String,
         hauntMode: RavenHauntMode,
     ) {
+        val reaction = parseReactionNote(note)
+        val clippedNote = reaction.text.take(240)
+        if (clippedNote.isBlank()) return
+
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val existing = parseArray(prefs.getString(KEY_TRACE, null))
         val now = System.currentTimeMillis()
-        val reaction = parseReactionNote(note)
-        val clippedNote = reaction.text.take(240)
         val first = existing.optJSONObject(0)
 
         // Same resident + same actual commentary becomes one evolving receipt instead of a wall of
