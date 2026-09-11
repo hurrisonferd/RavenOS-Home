@@ -1,0 +1,42 @@
+name: RavenOS Overlay Diagnostic
+
+on:
+  push:
+    branches: [ravenos-launcher]
+    paths:
+      - 'ravenos-launcher/**'
+      - 'faeryware/house/**'
+      - '.github/workflows/ravenos-overlay-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout pinned chassis
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Capture overlay applicator output
+        shell: bash
+        run: |
+          set +e
+          python3 ravenos-launcher/apply-ravenos-overlay.py > ravenos-overlay-diagnostic.txt 2>&1
+          rc=$?
+          echo >> ravenos-overlay-diagnostic.txt
+          echo "RAVENOS_OVERLAY_RC=$rc" >> ravenos-overlay-diagnostic.txt
+          cat ravenos-overlay-diagnostic.txt
+          echo "$rc" > ravenos-overlay-exit-code.txt
+          exit 0
+
+      - name: Upload overlay diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: ravenos-overlay-diagnostic
+          path: |
+            ravenos-overlay-diagnostic.txt
+            ravenos-overlay-exit-code.txt
