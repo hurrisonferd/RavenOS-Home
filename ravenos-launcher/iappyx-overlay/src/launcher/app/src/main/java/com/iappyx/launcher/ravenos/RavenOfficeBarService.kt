@@ -37,6 +37,7 @@ class RavenOfficeBarService : Service() {
     override fun onDestroy() {
         RavenScreenMonitor.stop(this)
         RavenFollowMeOverlay.hide()
+        RavenHomeAura.hide()
         super.onDestroy()
     }
 
@@ -50,6 +51,7 @@ class RavenOfficeBarService : Service() {
                 .putBoolean(KEY_EXPLICIT_DISABLED, true)
                 .apply()
             RavenFollowMeOverlay.hide()
+            RavenHomeAura.hide()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
@@ -147,7 +149,8 @@ class RavenOfficeBarService : Service() {
 
         RavenOfficeTraceStore.record(this, member, signal, detail, note, hauntMode)
 
-        // Same deterministic office presence, projected only when the chosen haunt level and explicit overlay grant allow it.
+        // Same deterministic Office route, projected into three independently bounded surfaces.
+        RavenHomeAura.render(member, hauntMode)
         RavenFollowMeOverlay.render(this, member, signal, note, detail, hauntMode)
 
         val openHome = PendingIntent.getActivity(
