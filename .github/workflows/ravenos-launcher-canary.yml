@@ -52,6 +52,9 @@ jobs:
           grep -R 'RAVENOS OFFICE BAR: persistent visible presence' "$ROOT/AndroidManifest.xml"
           grep -R 'RAVENOS BOOT RESTORE' "$ROOT/AndroidManifest.xml"
           grep -R 'RAVENOS AMBIENT SIGNALS' "$ROOT/AndroidManifest.xml"
+          grep -R 'RAVENOS ECOLOGY: token-gated Tasker command receiver' "$ROOT/AndroidManifest.xml"
+          grep -R 'com.ravenos.launcher.TASKER_COMMAND' "$ROOT/AndroidManifest.xml"
+          grep -R 'android:name=".ravenos.RavenHomeActivity"' "$ROOT/AndroidManifest.xml"
           grep -R 'RAVENOS HOME AURA' "$ROOT/java/com/iappyx/launcher/LauncherActivity.kt"
           grep -R 'RAVENOS HOME WHISPER' "$ROOT/java/com/iappyx/launcher/LauncherActivity.kt"
           grep -R 'RAVENOS ERGONOMICS: persistent Raven edge menu' "$ROOT/java/com/iappyx/launcher/LauncherActivity.kt"
@@ -65,6 +68,8 @@ jobs:
           grep -R 'updateRavenOffice' "$ROOT/java/com/iappyx/launcher/wallpaper/IappyxWallpaperService.kt"
           grep -R 'setRavenOfficeAckEnabled' "$ROOT/java/com/iappyx/launcher/wallpaper/IappyxWallpaperService.kt"
           grep -R 'ravenOfficeAck' "$ROOT/java/com/iappyx/launcher/wallpaper/IappyxWallpaperService.kt"
+
+          # Core haunted runtime
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeMember.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeGovernor.kt"
@@ -90,6 +95,33 @@ jobs:
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenSystemDeckPane.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenSurfaceModel.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenIntelligenceProvider.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenHomeActivity.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenAppCatalog.kt"
+
+          # Haunted ecology wave
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenHauntRequirements.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeFeed.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenMorphSurface.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenPossessedPopup.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenSummoningWheel.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenGhostHotspots.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenCommandPalette.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenTaskerBridge.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenTaskerReceiver.kt"
+          grep -R 'RAVENOS ECOLOGY: attach morph + ghost hotspots' "$ROOT/java/com/iappyx/launcher/ravenos/RavenHomeActivity.kt"
+          grep -R 'RAVENOS ECOLOGY: possessed app popup' "$ROOT/java/com/iappyx/launcher/ravenos/RavenHomeActivity.kt"
+          grep -R 'RAVENOS ECOLOGY: command keyboard' "$ROOT/java/com/iappyx/launcher/ravenos/RavenHomeActivity.kt"
+          grep -R 'RavenHauntRequirements.evaluateAndSignal' "$ROOT/java/com/iappyx/launcher/ravenos/RavenHomeActivity.kt"
+          grep -R 'RavenSummoningWheel.show' "$ROOT/java/com/iappyx/launcher/ravenos/RavenHomeActivity.kt"
+          grep -R 'RavenOfficeFeed.show' "$ROOT/java/com/iappyx/launcher/ravenos/RavenHomeActivity.kt"
+          grep -R 'RavenTaskerBridge.showSetup' "$ROOT/java/com/iappyx/launcher/ravenos/RavenHomeActivity.kt"
+          grep -R 'RavenTaskerBridge.emit' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
+          grep -R 'RavenTaskerBridge.validToken' "$ROOT/java/com/iappyx/launcher/ravenos/RavenTaskerReceiver.kt"
+          grep -R 'RavenCommandRouter.execute' "$ROOT/java/com/iappyx/launcher/ravenos/RavenTaskerReceiver.kt"
+          grep -R '#tasker' "$ROOT/java/com/iappyx/launcher/ravenos/RavenCommandPalette.kt"
+          test -s 'ravenos-launcher/patch-ravenos-ecology.py'
+
+          # Existing proof contracts
           test -s 'ravenos-launcher/patch-ravenos-wallpaper.py'
           test -s 'ravenos-launcher/patch-ravenos-ergonomics.py'
           grep -R 'APOCALYPSE' "$ROOT/java/com/iappyx/launcher/ravenos/RavenHauntMode.kt"
