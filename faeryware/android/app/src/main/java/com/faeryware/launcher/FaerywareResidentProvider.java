@@ -16,7 +16,7 @@ import com.faeryware.launcher.resident.ResidentSignalStore;
 
 /**
  * Read-only, deliberately tiny inter-app surface for HOUSE mode.
- * Exposes only resident presentation state to the pinned iappyx launcher.
+ * Exposes only resident presentation state to the reviewed HOUSE launcher package(s).
  * No private memory, notification bodies, page text, keys, write methods, or model credentials.
  */
 public final class FaerywareResidentProvider extends ContentProvider {
@@ -91,7 +91,9 @@ public final class FaerywareResidentProvider extends ContentProvider {
         String[] packages = context.getPackageManager().getPackagesForUid(uid);
         if (packages != null) {
             for (String pkg : packages) {
-                if ("com.iappyx.launcher".equals(pkg) || "com.faeryware.house".equals(pkg)) return;
+                if ("com.ravenos.launcher".equals(pkg) ||
+                    "com.iappyx.launcher".equals(pkg) ||
+                    "com.faeryware.house".equals(pkg)) return;
             }
         }
         throw new SecurityException("Faeryware resident state is not exported to this caller");
