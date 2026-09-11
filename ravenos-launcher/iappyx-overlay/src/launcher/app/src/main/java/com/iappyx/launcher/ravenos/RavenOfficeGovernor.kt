@@ -3,13 +3,7 @@ package com.iappyx.launcher.ravenos
 import android.content.Context
 import android.os.SystemClock
 
-/**
- * Deterministic anti-flap governor for reactive Office signals.
- *
- * The Office should feel alive, not like a notification slot machine. This governor runs before
- * RavenOfficeBarService is started, so rejected noise creates no FGS churn, no trace receipt, and
- * no cross-surface re-render. It changes cadence only; it never grants or revokes capability.
- */
+/** Deterministic anti-flap governor for reactive Office signals. */
 object RavenOfficeGovernor {
     private const val PREFS = "ravenos_office_governor_v1"
     private const val KEY_SIGNAL = "last_signal"
@@ -38,9 +32,6 @@ object RavenOfficeGovernor {
             return false
         }
 
-        // Android commonly reports one real app transition twice: launcher APP_LAUNCH followed by
-        // Accessibility FOREGROUND_APP. Treat equal-detail edges as one semantic event so Goblin
-        // Vision comments on the transition instead of narrating callback plumbing.
         val appEdges = setOf("APP_LAUNCH", "FOREGROUND_APP")
         if (normalized in appEdges && previousSignal in appEdges && detail == previousDetail && age < dupWindow * 2L) {
             recordSuppressed(context, "semantic-app-edge:$previousSignal->$normalized:${age}ms")
@@ -55,7 +46,7 @@ object RavenOfficeGovernor {
 
         prefs.edit()
             .putString(KEY_SIGNAL, normalized)
-            .putString(KEY_DETAIL, detail.take(240))
+            .putString(KEY_DETAIL, detail.take(360))
             .putLong(KEY_AT, now)
             .putInt(KEY_PRIORITY, priority)
             .putLong(KEY_ACCEPTED, prefs.getLong(KEY_ACCEPTED, 0L) + 1L)
@@ -77,10 +68,7 @@ object RavenOfficeGovernor {
 
     fun clearStats(context: Context) {
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .remove(KEY_ACCEPTED)
-            .remove(KEY_SUPPRESSED)
-            .remove(KEY_LAST_SUPPRESSION)
-            .apply()
+            .remove(KEY_ACCEPTED).remove(KEY_SUPPRESSED).remove(KEY_LAST_SUPPRESSION).apply()
     }
 
     private fun recordSuppressed(context: Context, reason: String) {
@@ -107,7 +95,11 @@ object RavenOfficeGovernor {
             RavenHauntMode.FERAL -> 900L
             RavenHauntMode.APOCALYPSE -> 350L
         }
-        return if (previousSignal == "FOREGROUND_APP" || previousSignal == "APP_LAUNCH") (base * 1.35).toLong() else base
+        return when (previousSignal) {
+            "FOREGROUND_APP", "APP_LAUNCH" -> (base * 1.35).toLong()
+            "SCREEN_VISUAL" -> (base * 0.85).toLong()
+            else -> base
+        }
     }
 
     private fun priority(signal: String, detail: String): Int = when (signal) {
@@ -119,10 +111,12 @@ object RavenOfficeGovernor {
         "SYSTEM_DECK", "AUDIO", "DEVICE" -> 68
         "APP_LAUNCH" -> 62
         "FOREGROUND_APP" -> 60
+        "MEDIA_SESSION" -> if (detail.contains("state:PLAYING")) 58 else 52
         "SEARCH", "STUDIO", "EDIT" -> 56
         "INCOMING", "CLIPPING", "SHARE" -> 52
         "MEDIA", "MUSIC" -> 50
-        "NOTIFICATION" -> 36
+        "SCREEN_VISUAL" -> if (detail.contains("motion:6") || detail.contains("motion:7") || detail.contains("motion:8") || detail.contains("motion:9")) 48 else 42
+        "NOTIFICATION", "NOTIFICATION_SENSE" -> if (detail.contains("alerting:true")) 46 else 36
         "ROOM", "APP_UNIVERSE" -> 32
         "IDLE" -> 20
         else -> 45
