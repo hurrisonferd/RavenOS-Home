@@ -39,11 +39,14 @@ class RavenScreenWatchService : Service() {
     private var lastAnalyzeAt = 0L
     private var lastEmitAt = 0L
     private var ignoreFrames = 0
+    private var stopping = false
 
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
-            RavenOfficeBarService.signal(applicationContext, "SCREEN_VISUAL", "state:stopped_by_system")
-            stopInternal(false)
+            // Android may invoke this synchronously while our own stop() is already unwinding.
+            // A single guard prevents recursive cleanup and duplicate stop commentary.
+            if (stopping) return
+            stopInternal(explicit = false, stopProjection = false, systemStop = true)
         }
     }
 
@@ -52,7 +55,7 @@ class RavenScreenWatchService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
-                stopInternal(true)
+                stopInternal(explicit = true)
                 return START_NOT_STICKY
             }
             ACTION_START -> {
@@ -60,6 +63,7 @@ class RavenScreenWatchService : Service() {
                 val data = intent.intentExtra(EXTRA_RESULT_DATA) ?: return START_NOT_STICKY
                 if (code == Int.MIN_VALUE) return START_NOT_STICKY
                 if (projection != null) return START_STICKY
+                stopping = false
                 startProjection(code, data)
             }
         }
@@ -67,7 +71,7 @@ class RavenScreenWatchService : Service() {
     }
 
     override fun onDestroy() {
-        stopInternal(false)
+        stopInternal(explicit = false)
         super.onDestroy()
     }
 
@@ -81,11 +85,11 @@ class RavenScreenWatchService : Service() {
         }
 
         val manager = getSystemService(MediaProjectionManager::class.java) ?: run {
-            stopInternal(false)
+            stopInternal(explicit = false)
             return
         }
         val p = try { manager.getMediaProjection(resultCode, data) } catch (_: Throwable) { null } ?: run {
-            stopInternal(false)
+            stopInternal(explicit = false)
             return
         }
         projection = p
@@ -121,7 +125,7 @@ class RavenScreenWatchService : Service() {
             null
         }
         if (virtualDisplay == null) {
-            stopInternal(false)
+            stopInternal(explicit = false)
             return
         }
         setActive(this, true)
@@ -129,6 +133,7 @@ class RavenScreenWatchService : Service() {
     }
 
     private fun analyze(image: Image) {
+        if (stopping) return
         val now = System.currentTimeMillis()
         val interval = when (RavenHauntModeStore.get(this)) {
             RavenHauntMode.CALM -> 3000L
@@ -187,13 +192,13 @@ class RavenScreenWatchService : Service() {
                 deltaSum += d
                 if (d >= 26) changed++
             }
-            val motion = (changed * 100 / n.coerceAtLeast(1))
+            val motion = changed * 100 / n.coerceAtLeast(1)
             val delta = (deltaSum / n.coerceAtLeast(1)).toInt()
             val hashDistance = java.lang.Long.bitCount(hash xor lastHash)
             val meaningful = motion >= 18 || delta >= 20 || hashDistance >= 22
             if (meaningful && now - lastEmitAt >= 1200L) {
                 lastEmitAt = now
-                ignoreFrames = 2 // avoid reacting to RavenOS's own next overlay repaint
+                ignoreFrames = 2 // reduce feedback from RavenOS's own next overlay repaint
                 RavenOfficeBarService.signal(
                     this,
                     "SCREEN_VISUAL",
@@ -252,7 +257,13 @@ class RavenScreenWatchService : Service() {
         )
     }
 
-    private fun stopInternal(explicit: Boolean) {
+    private fun stopInternal(
+        explicit: Boolean,
+        stopProjection: Boolean = true,
+        systemStop: Boolean = false,
+    ) {
+        if (stopping) return
+        stopping = true
         val wasActive = projection != null || isActive(this)
         try { reader?.setOnImageAvailableListener(null, null) } catch (_: Throwable) {}
         try { virtualDisplay?.release() } catch (_: Throwable) {}
@@ -260,7 +271,9 @@ class RavenScreenWatchService : Service() {
         try { reader?.close() } catch (_: Throwable) {}
         reader = null
         try { projection?.unregisterCallback(projectionCallback) } catch (_: Throwable) {}
-        try { projection?.stop() } catch (_: Throwable) {}
+        if (stopProjection) {
+            try { projection?.stop() } catch (_: Throwable) {}
+        }
         projection = null
         try { workerThread?.quitSafely() } catch (_: Throwable) {}
         workerThread = null
@@ -268,7 +281,14 @@ class RavenScreenWatchService : Service() {
         lastSample = null
         lastHash = 0L
         setActive(this, false)
-        if (wasActive) RavenOfficeBarService.signal(this, "SCREEN_VISUAL", "state:${if (explicit) "stopped_by_raven" else "stopped"}")
+        if (wasActive) {
+            val state = when {
+                explicit -> "stopped_by_raven"
+                systemStop -> "stopped_by_system"
+                else -> "stopped"
+            }
+            RavenOfficeBarService.signal(this, "SCREEN_VISUAL", "state:$state")
+        }
         try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Throwable) {}
         stopSelf()
     }
