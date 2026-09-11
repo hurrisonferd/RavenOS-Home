@@ -17,6 +17,7 @@ class RavenSystemDeckPane(
 ) : ScrollView(activity) {
     private val root = LinearLayout(activity)
     private val dp = resources.displayMetrics.density
+    private lateinit var readinessView: TextView
 
     init {
         isFillViewport = true
@@ -28,13 +29,40 @@ class RavenSystemDeckPane(
         root.addView(text("native controls first · intelligence optional", 12f, Color.LTGRAY, false), top(3))
         root.addView(text("Swipe right from Home lands here. AI / Widgets / Wallpapers / Transitions / Icons stay in the tabs above.", 12f, 0xFFB8B8C8.toInt(), false), top(12))
 
-        root.addView(section("AUDIO"), top(26))
+        root.addView(section("ACTIVATION / SURVIVAL"), top(26))
+        readinessView = text(readinessText(), 12f, 0xFFD5D5DF.toInt(), false)
+        root.addView(readinessView, top(8))
+        root.addView(button("MAKE RAVENOS DEFAULT HOME") {
+            RavenPermissionDeck.requestDefaultHome(activity)
+            RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "default-home-requested")
+        }, top(10))
+        root.addView(button("WAKE OFFICE BAR") {
+            RavenPermissionDeck.ensureOfficeBarNotifications(activity)
+            RavenOfficeBarService.enable(activity)
+            RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "office-bar-wake")
+            updateReadiness()
+        }, top(6))
+        root.addView(button("SLEEP OFFICE BAR") {
+            RavenOfficeBarService.disable(activity)
+            updateReadiness()
+        }, top(6))
+        root.addView(button("BACKGROUND / BATTERY SURVIVAL") {
+            RavenPermissionDeck.openBatteryOptimization(activity)
+        }, top(6))
+        root.addView(button("RUN LOCAL RAVENOS CANARY") {
+            val snap = RavenAwarenessStatus.snapshot(activity)
+            readinessView.text = readinessText(snap) + "\n\nLOCAL CANARY: ${snap.compact()}"
+            RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "canary:${snap.passed}/${snap.total}")
+        }, top(6))
+
+        root.addView(section("AUDIO"), top(28))
         rebuildAudio()
 
         root.addView(section("OFFICE BAR"), top(28))
         root.addView(text("The always-on Office Bar changes owner, emoji, accent and deterministic author's note as RavenOS context changes.", 13f, 0xFFD5D5DF.toInt(), false), top(8))
         root.addView(button("ENABLE OFFICE BAR NOTIFICATIONS") {
             RavenPermissionDeck.ensureOfficeBarNotifications(activity)
+            RavenOfficeBarService.enable(activity)
             RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "notification-permission-requested")
         }, top(10))
         root.addView(button("PING SYSTEM DECK") {
@@ -46,11 +74,11 @@ class RavenSystemDeckPane(
         root.addView(button("FOREGROUND APP AWARENESS") {
             RavenPermissionDeck.openForegroundAwareness(activity)
         }, top(10))
-        root.addView(text("Package/window transitions only. The RavenOS service is configured with canRetrieveWindowContent=false; it does not read page text or typed input.", 11f, 0xFFAAAAba.toInt(), false), top(3))
+        root.addView(text("Package/window transitions only. The RavenOS service is configured with canRetrieveWindowContent=false; it does not read page text or typed input.", 11f, 0xFFAAAABA.toInt(), false), top(3))
         root.addView(button("NOTIFICATION SOURCE AWARENESS") {
             RavenPermissionDeck.openNotificationAwareness(activity)
         }, top(8))
-        root.addView(text("Lets RavenOS route from notification source metadata. Office Bar does not consume title/body text in this path.", 11f, 0xFFAAAAba.toInt(), false), top(3))
+        root.addView(text("Lets RavenOS route from notification source metadata. Office Bar does not consume title/body text in this path.", 11f, 0xFFAAAABA.toInt(), false), top(3))
         root.addView(button("OVERLAY / FOLLOW-ME ACCESS") {
             RavenPermissionDeck.openOverlayAccess(activity)
         }, top(8))
@@ -60,10 +88,26 @@ class RavenSystemDeckPane(
     }
 
     fun refresh() {
-        // Audio controls are self-updating after writes; a future pass can replace this
-        // with a small state observer when external volume changes need live slider motion.
+        updateReadiness()
         RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "refresh")
     }
+
+    private fun updateReadiness() {
+        readinessView.text = readinessText()
+    }
+
+    private fun readinessText(snapshot: RavenAwarenessSnapshot = RavenAwarenessStatus.snapshot(activity)): String = buildString {
+        append("MAX AWARENESS READINESS  ${snapshot.passed}/${snapshot.total}\n")
+        append("APP  ").append(snapshot.applicationId).append('\n')
+        append("DEFAULT HOME  ").append(onOff(snapshot.defaultHome)).append('\n')
+        append("OFFICE BAR  ").append(onOff(snapshot.officeBarEnabled)).append('\n')
+        append("NOTIFICATION PERMISSION  ").append(onOff(snapshot.notificationPermission)).append('\n')
+        append("FOREGROUND AWARENESS  ").append(onOff(snapshot.foregroundAwareness)).append('\n')
+        append("NOTIFICATION AWARENESS  ").append(onOff(snapshot.notificationAwareness)).append('\n')
+        append("OVERLAY ACCESS  ").append(onOff(snapshot.overlayAccess))
+    }
+
+    private fun onOff(value: Boolean): String = if (value) "ON" else "OFF"
 
     private fun rebuildAudio() {
         val state = RavenSystemDeck.snapshot(activity)
