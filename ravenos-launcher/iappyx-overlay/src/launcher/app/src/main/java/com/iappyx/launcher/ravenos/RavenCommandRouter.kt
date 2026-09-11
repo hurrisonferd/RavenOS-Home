@@ -4,12 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.media.AudioManager
 
-/**
- * Deterministic Raven Search command grammar.
- *
- * Exact/local commands are consumed before any AI/provider path. Unknown text returns false
- * and remains ordinary universal search input.
- */
+/** Deterministic Raven Search command grammar; exact/local commands run before any AI path. */
 object RavenCommandRouter {
     data class Result(val handled: Boolean, val message: String = "")
 
@@ -50,55 +45,28 @@ object RavenCommandRouter {
                 RavenOfficeBarService.setHaunt(context, next)
                 Result(true, "haunt ${next.label}")
             }
-            "haunt status", "haunting status" -> {
-                Result(true, "haunt ${RavenHauntModeStore.get(context).label}")
-            }
-            "normal", "ringer normal" -> Result(
-                RavenSystemDeck.setRingerMode(context, AudioManager.RINGER_MODE_NORMAL),
-                "ringer normal",
-            )
-            "vibrate", "ringer vibrate" -> Result(
-                RavenSystemDeck.setRingerMode(context, AudioManager.RINGER_MODE_VIBRATE),
-                "ringer vibrate",
-            )
-            "silent", "ringer silent" -> Result(
-                RavenSystemDeck.setRingerMode(context, AudioManager.RINGER_MODE_SILENT),
-                "ringer silent",
-            )
-            "office next", "next office", "next member" -> {
-                RavenOfficeBarService.next(context)
-                Result(true, "office next")
-            }
-            "office auto", "auto office" -> {
-                RavenOfficeBarService.auto(context)
-                Result(true, "office auto")
-            }
-            "office quiet", "quiet office", "quiet" -> {
-                RavenOfficeBarService.toggleQuiet(context)
-                Result(true, "office quiet")
-            }
+            "haunt status", "haunting status" -> Result(true, "haunt ${RavenHauntModeStore.get(context).label}")
+            "normal", "ringer normal" -> Result(RavenSystemDeck.setRingerMode(context, AudioManager.RINGER_MODE_NORMAL), "ringer normal")
+            "vibrate", "ringer vibrate" -> Result(RavenSystemDeck.setRingerMode(context, AudioManager.RINGER_MODE_VIBRATE), "ringer vibrate")
+            "silent", "ringer silent" -> Result(RavenSystemDeck.setRingerMode(context, AudioManager.RINGER_MODE_SILENT), "ringer silent")
+            "office next", "next office", "next member" -> { RavenOfficeBarService.next(context); Result(true, "office next") }
+            "office auto", "auto office" -> { RavenOfficeBarService.auto(context); Result(true, "office auto") }
+            "office quiet", "quiet office", "quiet" -> { RavenOfficeBarService.toggleQuiet(context); Result(true, "office quiet") }
             "office wake", "wake office", "wake bar" -> {
                 RavenOfficeBarService.enable(context)
                 RavenOfficeBarService.signal(context, "SEARCH", "command:office-wake")
                 Result(true, "office wake")
             }
-            "office sleep", "sleep office", "sleep bar" -> {
-                RavenOfficeBarService.disable(context)
-                Result(true, "office sleep")
-            }
-            "office trace", "trace office", "routing trace" -> {
-                Result(true, RavenOfficeTraceStore.compact(context, 8))
-            }
-            "clear office trace", "office trace clear" -> {
-                RavenOfficeTraceStore.clear(context)
-                Result(true, "office trace cleared")
-            }
-            "office cadence", "cadence office", "office governor" -> {
-                Result(true, RavenOfficeGovernor.compact(context))
-            }
+            "office sleep", "sleep office", "sleep bar" -> { RavenOfficeBarService.disable(context); Result(true, "office sleep") }
+            "office trace", "trace office", "routing trace" -> Result(true, RavenOfficeTraceStore.compact(context, 8))
+            "clear office trace", "office trace clear" -> { RavenOfficeTraceStore.clear(context); Result(true, "office trace cleared") }
+            "office cadence", "cadence office", "office governor" -> Result(true, RavenOfficeGovernor.compact(context))
             "clear office cadence", "office cadence clear", "clear office governor" -> {
-                RavenOfficeGovernor.clearStats(context)
-                Result(true, "office cadence stats cleared")
+                RavenOfficeGovernor.clearStats(context); Result(true, "office cadence stats cleared")
+            }
+            "office integrity", "surface integrity", "office surfaces" -> Result(true, RavenSurfaceIntegrity.compact(context))
+            "clear office integrity", "office integrity clear" -> {
+                RavenSurfaceIntegrity.clear(context); Result(true, "office surface integrity cleared")
             }
             "follow me", "follow me on", "overlay on", "office overlay" -> {
                 val enabled = RavenFollowMeOverlay.enable(context)
@@ -149,8 +117,7 @@ object RavenCommandRouter {
 
     private fun parsePercent(input: String, vararg labels: String): Int? {
         for (label in labels) {
-            val match = Regex("^${Regex.escape(label)}(?:\\s+|\\s*=\\s*)(\\d{1,3})%?$").matchEntire(input)
-                ?: continue
+            val match = Regex("^${Regex.escape(label)}(?:\\s+|\\s*=\\s*)(\\d{1,3})%?$").matchEntire(input) ?: continue
             return match.groupValues[1].toIntOrNull()?.coerceIn(0, 100)
         }
         return null
