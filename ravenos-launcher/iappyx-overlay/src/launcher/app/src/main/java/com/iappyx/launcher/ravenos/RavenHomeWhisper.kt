@@ -114,7 +114,7 @@ object RavenHomeWhisper {
                 setStroke(dp(if (mode.ordinal >= RavenHauntMode.FERAL.ordinal) 2 else 1), withAlpha(accent, 225))
             }
 
-            owner.text = "${member.emoji} ${member.id} ${member.kaomoji}"
+            owner.text = "${member.emoji} ${member.id}"
             owner.setTextColor(accent)
 
             note.text = authorNote
