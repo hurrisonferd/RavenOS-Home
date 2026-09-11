@@ -42,6 +42,13 @@ class RavenOfficeBarService : Service() {
                     .putString(KEY_DETAIL, intent.getStringExtra(EXTRA_DETAIL) ?: "")
                     .apply()
             }
+            ACTION_PIN -> {
+                val requested = intent.getStringExtra(EXTRA_OWNER)
+                val member = RavenOfficeRegistry.member(requested)
+                if (member?.routable == true) {
+                    prefs.edit().putString(KEY_MANUAL_OWNER, member.id).putBoolean(KEY_QUIET, false).apply()
+                }
+            }
             ACTION_NEXT -> {
                 val signal = prefs.getString(KEY_SIGNAL, "HOME") ?: "HOME"
                 val detail = prefs.getString(KEY_DETAIL, "") ?: ""
@@ -49,9 +56,9 @@ class RavenOfficeBarService : Service() {
                 val list = RavenOfficeRegistry.routableMembers
                 val idx = list.indexOfFirst { it.id == current.id }.let { if (it < 0) 0 else it }
                 val next = list[(idx + 1) % list.size]
-                prefs.edit().putString(KEY_MANUAL_OWNER, next.id).apply()
+                prefs.edit().putString(KEY_MANUAL_OWNER, next.id).putBoolean(KEY_QUIET, false).apply()
             }
-            ACTION_AUTO -> prefs.edit().remove(KEY_MANUAL_OWNER).apply()
+            ACTION_AUTO -> prefs.edit().remove(KEY_MANUAL_OWNER).putBoolean(KEY_QUIET, false).apply()
             ACTION_QUIET -> prefs.edit().putBoolean(KEY_QUIET, !prefs.getBoolean(KEY_QUIET, false)).apply()
         }
 
@@ -151,19 +158,36 @@ class RavenOfficeBarService : Service() {
         private const val KEY_QUIET = "quiet"
         private const val EXTRA_SIGNAL = "signal"
         private const val EXTRA_DETAIL = "detail"
+        private const val EXTRA_OWNER = "owner"
 
         const val CHANNEL_ID = "ravenos_office_bar"
         const val NOTIFICATION_ID = 0x524156
         const val ACTION_SIGNAL = "com.ravenos.launcher.office.SIGNAL"
+        const val ACTION_PIN = "com.ravenos.launcher.office.PIN"
         const val ACTION_NEXT = "com.ravenos.launcher.office.NEXT"
         const val ACTION_AUTO = "com.ravenos.launcher.office.AUTO"
         const val ACTION_QUIET = "com.ravenos.launcher.office.QUIET"
 
-        fun signal(context: Context, signal: String, detail: String = "") {
-            val intent = Intent(context, RavenOfficeBarService::class.java)
+        fun signal(context: Context, signal: String, detail: String = "") = start(
+            context,
+            Intent(context, RavenOfficeBarService::class.java)
                 .setAction(ACTION_SIGNAL)
                 .putExtra(EXTRA_SIGNAL, signal)
-                .putExtra(EXTRA_DETAIL, detail)
+                .putExtra(EXTRA_DETAIL, detail),
+        )
+
+        fun pin(context: Context, owner: String) = start(
+            context,
+            Intent(context, RavenOfficeBarService::class.java)
+                .setAction(ACTION_PIN)
+                .putExtra(EXTRA_OWNER, owner),
+        )
+
+        fun next(context: Context) = start(context, Intent(context, RavenOfficeBarService::class.java).setAction(ACTION_NEXT))
+        fun auto(context: Context) = start(context, Intent(context, RavenOfficeBarService::class.java).setAction(ACTION_AUTO))
+        fun toggleQuiet(context: Context) = start(context, Intent(context, RavenOfficeBarService::class.java).setAction(ACTION_QUIET))
+
+        private fun start(context: Context, intent: Intent) {
             try {
                 ContextCompat.startForegroundService(context, intent)
             } catch (_: Throwable) {
