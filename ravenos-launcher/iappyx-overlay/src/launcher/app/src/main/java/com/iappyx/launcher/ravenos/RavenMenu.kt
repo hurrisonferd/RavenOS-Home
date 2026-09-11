@@ -79,11 +79,8 @@ object RavenMenu {
                     2 -> activity.ravenOpenSearch()
                     3 -> activity.ravenOpenSystemDeck()
                     4 -> RavenGesturePrefs.showDialog(activity)
-                    5 -> {
-                        val next = RavenHauntModeStore.cycle(activity)
-                        RavenOfficeBarService.setHaunt(activity, next)
-                    }
-                    6 -> RavenOfficeBarService.setAuto(activity)
+                    5 -> RavenOfficeBarService.cycleHaunt(activity)
+                    6 -> RavenOfficeBarService.auto(activity)
                     7 -> RavenOfficeBarService.disable(activity)
                 }
             }
