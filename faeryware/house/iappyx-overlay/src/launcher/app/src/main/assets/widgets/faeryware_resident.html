@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Faeryware Resident</title>
+<style>
+:root { color-scheme: dark; --fae:#ff4e9d; }
+* { box-sizing:border-box; }
+html,body { width:100%; height:100%; margin:0; overflow:hidden; background:transparent; font-family:system-ui,-apple-system,sans-serif; }
+#card { width:100%; height:100%; min-height:150px; padding:16px; border-radius:24px; color:#fff; position:relative; overflow:hidden;
+  background:linear-gradient(145deg,rgba(10,8,20,.95),rgba(22,14,36,.88)); border:1px solid color-mix(in srgb,var(--fae) 55%,transparent);
+  box-shadow:inset 0 0 34px color-mix(in srgb,var(--fae) 14%,transparent); }
+#orb { position:absolute; width:110px; height:110px; border-radius:50%; right:-28px; top:-30px; background:var(--fae); opacity:.16; filter:blur(8px); }
+#stamp { font-weight:800; font-size:19px; letter-spacing:.02em; }
+#mode { margin-top:4px; font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--fae); }
+#summary { margin-top:13px; font-size:12px; line-height:1.35; color:rgba(255,255,255,.76); }
+#speech { display:none; margin-top:12px; padding:10px 11px; border-radius:14px; background:rgba(255,255,255,.07); font-size:13px; line-height:1.35; }
+#footer { position:absolute; left:16px; right:16px; bottom:12px; display:flex; justify-content:space-between; gap:8px; color:rgba(255,255,255,.48); font-size:9px; letter-spacing:.07em; text-transform:uppercase; }
+.offline #mode { color:#aaa; } .offline #orb { background:#777; }
+</style>
+</head>
+<body>
+<div id="card" class="offline">
+  <div id="orb"></div>
+  <div id="stamp">🦋 FAERYWARE</div>
+  <div id="mode">COLONY OFFLINE</div>
+  <div id="summary">Open Faeryware to wake the resident bridge.</div>
+  <div id="speech"></div>
+  <div id="footer"><span id="office">OFFLINE</span><span id="proof">NO SOURCE</span></div>
+</div>
+<script>
+(function(){
+  const card=document.getElementById('card'), stamp=document.getElementById('stamp'), mode=document.getElementById('mode');
+  const summary=document.getElementById('summary'), speech=document.getElementById('speech'), office=document.getElementById('office'), proof=document.getElementById('proof');
+  function cssColor(n){ const v=(Number(n)>>>0)&0xffffff; return '#'+v.toString(16).padStart(6,'0'); }
+  function render(s){
+    if(!s || !s.available){ card.classList.add('offline'); stamp.textContent='🦋 FAERYWARE'; mode.textContent='COLONY OFFLINE'; summary.textContent=(s&&s.reason)||'Resident bridge unavailable.'; speech.style.display='none'; office.textContent='OFFLINE'; proof.textContent='NO SOURCE'; return; }
+    card.classList.remove('offline'); document.documentElement.style.setProperty('--fae',cssColor(s.color));
+    stamp.textContent=s.stamp||s.name||'FAERYWARE'; mode.textContent=[s.lane,s.visualState].filter(Boolean).join(' · '); summary.textContent=s.summary||'Resident present.';
+    if(s.speech){ speech.textContent=s.speech; speech.style.display='block'; } else { speech.textContent=''; speech.style.display='none'; }
+    office.textContent=s.officeState||'OFFLINE'; proof.textContent=s.sourceSha ? ('SRC '+String(s.sourceSha).slice(0,8)) : 'LOCAL STATE';
+  }
+  function tick(){
+    try {
+      if(!window.faerywareResident || typeof window.faerywareResident.state!=='function') return render({available:false,reason:'Faeryware bridge not installed.'});
+      render(JSON.parse(window.faerywareResident.state()));
+    } catch(e){ render({available:false,reason:'Resident state unreadable.'}); }
+  }
+  tick(); setInterval(tick,1200);
+})();
+</script>
+</body>
+</html>

@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 
+import com.faeryware.launcher.FaerywareResidentProvider;
 import com.faeryware.launcher.FaerywareWidgetProvider;
 
 /** Local bounded event bus. It routes facts; it does not invent resident speech. */
@@ -30,6 +31,10 @@ public final class ResidentEventBus {
         event.putExtra(KEY_SOURCE, source == null ? "" : source);
         event.putExtra(KEY_AT, now);
         context.sendBroadcast(event);
+
+        // HOUSE widgets may use a ContentObserver later; the v0.9 cell also polls as a fail-safe.
+        try { context.getContentResolver().notifyChange(FaerywareResidentProvider.STATE_URI, null); }
+        catch (Throwable ignored) {}
 
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
         int[] ids = manager.getAppWidgetIds(new ComponentName(context, FaerywareWidgetProvider.class));
