@@ -1,0 +1,77 @@
+name: Faeryware HOUSE Canary
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'faeryware/**'
+      - '.gitmodules'
+      - '.github/workflows/faeryware-house-canary.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  house:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout with pinned house chassis
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle for Colony
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Materialize compact six-Fae resident strip
+        working-directory: faeryware/android
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/res/drawable-nodpi
+          base64 -d build-assets/fae_six_strip_64.webp.b64 > app/src/main/res/drawable-nodpi/fae_six_strip.webp
+          test -s app/src/main/res/drawable-nodpi/fae_six_strip.webp
+          rm -f app/src/main/res/drawable/faeryware_v5_sticker_atlas.txt
+
+      - name: Build COLONY resident APK
+        working-directory: faeryware/android
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Apply reviewed Faeryware overlay to pinned iappyx
+        run: python3 faeryware/house/apply-overlay.py
+
+      - name: Verify anti-Jim / transaction hooks landed
+        run: |
+          set -euo pipefail
+          ROOT=faeryware/house/iappyxOS-Launcher/src/launcher/app/src/main
+          grep -q 'faerywareResident' "$ROOT/java/com/iappyx/launcher/WidgetHost.java"
+          grep -q 'faeryware_resident' "$ROOT/java/com/iappyx/launcher/widget/WidgetLibrary.kt"
+          grep -q '/api/faeryware/possess' "$ROOT/java/com/iappyx/launcher/remoteedit/server/EditServerRoutes.kt"
+          grep -q 'restoration anchor is written BEFORE' "$ROOT/java/com/iappyx/launcher/faeryware/FaerywarePossessionController.kt"
+
+      - name: Build HOUSE launcher APK
+        working-directory: faeryware/house/iappyxOS-Launcher/src/launcher
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Stage APKs
+        run: |
+          cp faeryware/android/app/build/outputs/apk/debug/app-debug.apk Faeryware-Colony-debug.apk
+          cp faeryware/house/iappyxOS-Launcher/src/launcher/app/build/outputs/apk/debug/app-debug.apk Faeryware-House-debug.apk
+
+      - name: Upload dual-habitat APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: faeryware-dual-habitat-debug-apks
+          path: |
+            Faeryware-Colony-debug.apk
+            Faeryware-House-debug.apk
