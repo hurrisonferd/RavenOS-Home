@@ -9,10 +9,7 @@ import org.json.JSONObject
 
 /**
  * Read-only RavenOS Office capability for generated widgets.
- *
- * Default deny. The bridge is attached only to RavenOS-owned widget ids or ids Raven has
- * explicitly granted. It exposes presentation state only: no notification body, page text,
- * clipboard, private memory, keys, credentials, or write authority.
+ * Default deny; presentation state only, no write authority or private-content bridge.
  */
 object RavenWidgetOfficeModule {
     private const val PREFS = "ravenos_widget_capabilities_v1"
@@ -41,16 +38,28 @@ object RavenWidgetOfficeModule {
             .getBoolean(key(widgetId, CAP_OFFICE), false)
     }
 
-    /** Push the already-settled canonical snapshot to live allowed generated widgets. */
+    /**
+     * Push canonical state to live authorized WidgetHosts.
+     * Integrity records DISPATCHED only; JavaScript consumption remains device-proof territory.
+     */
     fun broadcast(context: Context, snapshot: RavenOfficeStateStore.Snapshot) {
         val payload = safeJson(snapshot).toString()
         val quoted = JSONObject.quote(payload)
+        var dispatched = 0
         for ((widgetId, host) in WidgetHost.hostsByWidgetId.entries) {
             if (!hasOfficeCapability(context, widgetId)) continue
             host.evaluateJavaScript(
                 "window.dispatchEvent(new CustomEvent('ravenofficechange',{detail:JSON.parse($quoted)}));",
             )
+            dispatched += 1
         }
+        RavenSurfaceIntegrity.mark(
+            context,
+            RavenSurfaceIntegrity.WIDGETS,
+            if (dispatched > 0) "DISPATCHED" else "INACTIVE",
+            snapshot.updatedAt,
+            "live_hosts=$dispatched",
+        )
     }
 
     private fun key(widgetId: String, capability: String): String =
