@@ -222,6 +222,8 @@ def main() -> None:
     # Keep the donor's mature :wallpaper runtime and add only the RavenOS one-way
     # Office-state channel through a separate exact-anchor patcher.
     subprocess.check_call(["python3", str(RAVEN / "patch-ravenos-wallpaper.py"), str(UPSTREAM)])
+    # Navigation ergonomics are part of the canonical RavenOS build too, not CI-only magic.
+    subprocess.check_call(["python3", str(RAVEN / "patch-ravenos-ergonomics.py"), str(UPSTREAM)])
 
     print(f"RavenOS Launcher overlay applied over pinned iappyx {actual} as com.ravenos.launcher")
 
