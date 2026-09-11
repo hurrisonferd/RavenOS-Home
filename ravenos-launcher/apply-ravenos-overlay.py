@@ -104,7 +104,6 @@ def main() -> None:
     if actual != EXPECTED_SHA:
         raise SystemExit(f"refusing unreviewed chassis: expected {EXPECTED_SHA}, found {actual}")
 
-    # Ensure the previously-reviewed resident/possession layer lands first.
     subprocess.check_call(["python3", str(HOUSE / "apply-overlay.py")])
 
     files = [
@@ -112,6 +111,7 @@ def main() -> None:
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenForegroundAwarenessService.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenPermissionDeck.kt",
+        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenCommandRouter.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenSystemDeck.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenSystemDeckPane.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenSurfaceModel.kt",
@@ -135,90 +135,53 @@ def main() -> None:
     manifest.write_text(text, encoding="utf-8")
 
     launcher = UPSTREAM / "src/launcher/app/src/main/java/com/iappyx/launcher/LauncherActivity.kt"
-    patch_after(
-        launcher,
-        "RAVENOS OFFICE BAR: initial home signal",
-        "        setContentView(R.layout.activity_launcher)\n",
-        '''        // RAVENOS OFFICE BAR: initial home signal\n        com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(this, "HOME", "launcher:home")\n''',
-    )
-    patch_after(
-        launcher,
-        "RAVENOS OFFICE BAR: page context",
-        "            override fun onPageSelected(position: Int) {\n",
-        '''                // RAVENOS OFFICE BAR: page context\n                com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(this@LauncherActivity, "ROOM", "page:$position")\n''',
-    )
-    patch_after(
-        launcher,
-        "RAVENOS OFFICE BAR: app universe",
-        "    private fun showAppDrawer() {\n",
-        '''        // RAVENOS OFFICE BAR: app universe\n        com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(this, "APP_UNIVERSE", "drawer")\n''',
-    )
-    patch_after(
-        launcher,
-        "RAVENOS OFFICE BAR: search",
-        "    private fun showSearch() {\n",
-        '''        // RAVENOS OFFICE BAR: search\n        com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(this, "SEARCH", "universal-search")\n''',
-    )
+    patch_after(launcher, "RAVENOS OFFICE BAR: initial home signal", "        setContentView(R.layout.activity_launcher)\n",
+                '''        // RAVENOS OFFICE BAR: initial home signal\n        com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(this, "HOME", "launcher:home")\n''')
+    patch_after(launcher, "RAVENOS OFFICE BAR: page context", "            override fun onPageSelected(position: Int) {\n",
+                '''                // RAVENOS OFFICE BAR: page context\n                com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(this@LauncherActivity, "ROOM", "page:$position")\n''')
+    patch_after(launcher, "RAVENOS OFFICE BAR: app universe", "    private fun showAppDrawer() {\n",
+                '''        // RAVENOS OFFICE BAR: app universe\n        com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(this, "APP_UNIVERSE", "drawer")\n''')
+    patch_after(launcher, "RAVENOS OFFICE BAR: search", "    private fun showSearch() {\n",
+                '''        // RAVENOS OFFICE BAR: search\n        com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(this, "SEARCH", "universal-search")\n''')
 
     app_lock = UPSTREAM / "src/launcher/app/src/main/java/com/iappyx/launcher/applock/AppLockManager.kt"
-    patch_before(
-        app_lock,
-        "RAVENOS OFFICE BAR: app launch signal",
-        "        if (!isLocked(activity, packageName)) {\n",
-        '''        // RAVENOS OFFICE BAR: app launch signal\n        com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(activity, "APP_LAUNCH", "package:$packageName")\n''',
-    )
+    patch_before(app_lock, "RAVENOS OFFICE BAR: app launch signal", "        if (!isLocked(activity, packageName)) {\n",
+                 '''        // RAVENOS OFFICE BAR: app launch signal\n        com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(activity, "APP_LAUNCH", "package:$packageName")\n''')
 
     notification_listener = UPSTREAM / "src/launcher/app/src/main/java/com/iappyx/launcher/notify/NotificationBadgeListener.kt"
-    patch_after(
-        notification_listener,
-        "RAVENOS OFFICE BAR: notification-source signal",
-        "    override fun onNotificationPosted(sbn: StatusBarNotification?) {\n        scheduleRecount()\n",
-        '''        // RAVENOS OFFICE BAR: notification-source signal. Metadata only here; no body/text routing.\n        if (sbn != null) {\n            com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(\n                this, "NOTIFICATION", "package:${sbn.packageName}",\n            )\n        }\n''',
+    patch_after(notification_listener, "RAVENOS OFFICE BAR: notification-source signal",
+                "    override fun onNotificationPosted(sbn: StatusBarNotification?) {\n        scheduleRecount()\n",
+                '''        // RAVENOS OFFICE BAR: notification-source signal. Metadata only here; no body/text routing.\n        if (sbn != null) {\n            com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(\n                this, "NOTIFICATION", "package:${sbn.packageName}",\n            )\n        }\n''')
+
+    search_panel = UPSTREAM / "src/launcher/app/src/main/java/com/iappyx/launcher/widget/SearchPanel.kt"
+    replace_once(
+        search_panel,
+        "RAVENOS SEARCH: deterministic command grammar",
+        '''                if (q.isNotEmpty()) {\n                    prefs.recordSearch(q)\n                    launchTopResult()\n                }''',
+        '''                if (q.isNotEmpty()) {\n                    prefs.recordSearch(q)\n                    // RAVENOS SEARCH: deterministic command grammar runs before ordinary search launch.\n                    val command = com.iappyx.launcher.ravenos.RavenCommandRouter.execute(context, q)\n                    if (command.handled) {\n                        com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(context, "SEARCH", "command:${command.message}")\n                        onRequestHide?.invoke()\n                    } else {\n                        launchTopResult()\n                    }\n                }''',
     )
 
     command = UPSTREAM / "src/launcher/app/src/main/java/com/iappyx/launcher/widget/CommandPanelHost.kt"
-    patch_after(
-        command,
-        "private val systemDeckPane: com.iappyx.launcher.ravenos.RavenSystemDeckPane",
-        "    private val iconsPane: ManageIconFiltersTab\n",
-        "    private val systemDeckPane: com.iappyx.launcher.ravenos.RavenSystemDeckPane\n",
-    )
-    patch_after(
-        command,
-        'newTab().setText("SYSTEM")',
-        "            addTab(newTab().setText(activity.getString(com.iappyx.launcher.R.string.tab_icons)))\n",
-        '            addTab(newTab().setText("SYSTEM"))\n',
-    )
-    patch_after(
-        command,
-        "systemDeckPane = com.iappyx.launcher.ravenos.RavenSystemDeckPane(activity)",
-        "        iconsPane = ManageIconFiltersTab(activity, host = this)\n",
-        "        systemDeckPane = com.iappyx.launcher.ravenos.RavenSystemDeckPane(activity)\n",
-    )
-    patch_after(
-        command,
-        "contentFrame.addView(systemDeckPane, frameMatch())",
-        "        contentFrame.addView(iconsPane, frameMatch())\n",
-        "        contentFrame.addView(systemDeckPane, frameMatch())\n",
-    )
-    patch_after(
-        command,
-        "systemDeckPane.visibility = if (index == 5)",
-        "        iconsPane.visibility = if (index == 4) View.VISIBLE else View.GONE\n",
-        "        systemDeckPane.visibility = if (index == 5) View.VISIBLE else View.GONE\n",
-    )
-    patch_after(
-        command,
-        "5 -> systemDeckPane.refresh()",
-        "            4 -> iconsPane.refresh()\n",
-        "            5 -> systemDeckPane.refresh()\n",
-    )
-    patch_before(
-        command,
-        "RAVENOS SYSTEM DECK: default command-page tab",
-        "    }\n\n    private fun frameMatch()",
-        '''        // RAVENOS SYSTEM DECK: default command-page tab\n        tabLayout.getTabAt(5)?.select()\n''',
-    )
+    patch_after(command, "private val systemDeckPane: com.iappyx.launcher.ravenos.RavenSystemDeckPane",
+                "    private val iconsPane: ManageIconFiltersTab\n",
+                "    private val systemDeckPane: com.iappyx.launcher.ravenos.RavenSystemDeckPane\n")
+    patch_after(command, 'newTab().setText("SYSTEM")',
+                "            addTab(newTab().setText(activity.getString(com.iappyx.launcher.R.string.tab_icons)))\n",
+                '            addTab(newTab().setText("SYSTEM"))\n')
+    patch_after(command, "systemDeckPane = com.iappyx.launcher.ravenos.RavenSystemDeckPane(activity)",
+                "        iconsPane = ManageIconFiltersTab(activity, host = this)\n",
+                "        systemDeckPane = com.iappyx.launcher.ravenos.RavenSystemDeckPane(activity)\n")
+    patch_after(command, "contentFrame.addView(systemDeckPane, frameMatch())",
+                "        contentFrame.addView(iconsPane, frameMatch())\n",
+                "        contentFrame.addView(systemDeckPane, frameMatch())\n")
+    patch_after(command, "systemDeckPane.visibility = if (index == 5)",
+                "        iconsPane.visibility = if (index == 4) View.VISIBLE else View.GONE\n",
+                "        systemDeckPane.visibility = if (index == 5) View.VISIBLE else View.GONE\n")
+    patch_after(command, "5 -> systemDeckPane.refresh()", "            4 -> iconsPane.refresh()\n",
+                "            5 -> systemDeckPane.refresh()\n")
+    patch_before(command, "RAVENOS SYSTEM DECK: default command-page tab",
+                 "    }\n\n    private fun frameMatch()",
+                 '''        // RAVENOS SYSTEM DECK: default command-page tab\n        tabLayout.getTabAt(5)?.select()\n''')
     replace_once(
         command,
         "RAVENOS SYSTEM DECK: return default",
