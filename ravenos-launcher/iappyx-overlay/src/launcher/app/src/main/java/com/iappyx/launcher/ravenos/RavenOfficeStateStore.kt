@@ -5,17 +5,7 @@ import android.content.Intent
 import org.json.JSONObject
 import java.io.File
 
-/**
- * Single local current-state snapshot for all RavenOS Office projections.
- *
- * The routing decision is made once by RavenOfficeBarService, then persisted here so Home,
- * Follow-Me, generated surfaces, wallpaper effects, and future bridges can consume the same
- * owner/note/context rather than independently re-routing and drifting apart.
- *
- * SharedPreferences remains the cheap in-process read path. A small atomic JSON snapshot plus
- * explicit same-package broadcast is the cross-process path used by the :wallpaper process;
- * Android does not guarantee coherent SharedPreferences caches across app processes.
- */
+/** Single local current-state snapshot for all RavenOS Office projections. */
 object RavenOfficeStateStore {
     private const val PREFS = "ravenos_office_state_v1"
     private const val SNAPSHOT_DIR = "ravenos"
@@ -87,18 +77,38 @@ object RavenOfficeStateStore {
 
         val json = toJson(snapshot).toString()
         writeSnapshotFile(app, json)
+        RavenSurfaceIntegrity.mark(
+            app,
+            RavenSurfaceIntegrity.CANONICAL,
+            "SETTLED",
+            snapshot.updatedAt,
+            "${snapshot.owner}:${snapshot.signal}",
+        )
 
         // Explicit same-package broadcast is the live sync lane for other app processes.
-        // Receiver registrations are non-exported; nothing leaves RavenOS.
+        // This proves dispatch, not wallpaper-JS consumption.
         try {
             app.sendBroadcast(
                 Intent(ACTION_CHANGED)
                     .setPackage(app.packageName)
                     .putExtra(EXTRA_JSON, json),
             )
-        } catch (_: Throwable) {}
+            RavenSurfaceIntegrity.mark(
+                app,
+                RavenSurfaceIntegrity.WALLPAPER_CHANNEL,
+                "DISPATCHED",
+                snapshot.updatedAt,
+                "same-package office state broadcast",
+            )
+        } catch (_: Throwable) {
+            RavenSurfaceIntegrity.mark(
+                app,
+                RavenSurfaceIntegrity.WALLPAPER_CHANNEL,
+                "DISPATCH_FAILED",
+                snapshot.updatedAt,
+            )
+        }
 
-        // Push only the safe/presentation subset to capability-granted generated widgets.
         RavenWidgetOfficeModule.broadcast(app, snapshot)
         return snapshot
     }
@@ -121,7 +131,6 @@ object RavenOfficeStateStore {
         )
     }
 
-    /** Cross-process seed path. Returns the same safe presentation JSON sent in ACTION_CHANGED. */
     fun readSnapshotJson(context: Context): String? = try {
         val file = File(File(context.filesDir, SNAPSHOT_DIR), SNAPSHOT_FILE)
         if (file.isFile) file.readText(Charsets.UTF_8) else null
@@ -129,11 +138,7 @@ object RavenOfficeStateStore {
         null
     }
 
-    /**
-     * Android Color Ints are AARRGGBB; CSS 8-digit hex is RRGGBBAA.
-     * Do not pass Android's raw 8 digits through or the alpha byte becomes red.
-     * Office accents are opaque presentation colors, so export canonical #RRGGBB.
-     */
+    /** Android Color Ints are AARRGGBB; Office surfaces consume canonical opaque CSS #RRGGBB. */
     fun accentCss(accent: Int): String = String.format("#%06X", accent and 0x00FFFFFF)
 
     fun toJson(snapshot: Snapshot): JSONObject = JSONObject()
@@ -161,7 +166,7 @@ object RavenOfficeStateStore {
                 tmp.delete()
             }
         } catch (_: Throwable) {
-            // A failed cross-process mirror must never break the launcher-facing state path.
+            // Cross-process mirror failure must never break launcher-facing state.
         }
     }
 }
