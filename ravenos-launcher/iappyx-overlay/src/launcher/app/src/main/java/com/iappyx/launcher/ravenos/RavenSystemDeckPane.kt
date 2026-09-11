@@ -18,6 +18,7 @@ class RavenSystemDeckPane(
     private val root = LinearLayout(activity)
     private val dp = resources.displayMetrics.density
     private lateinit var readinessView: TextView
+    private lateinit var navigationView: TextView
     private lateinit var hauntView: TextView
     private lateinit var traceView: TextView
     private lateinit var integrityView: TextView
@@ -30,7 +31,24 @@ class RavenSystemDeckPane(
 
         root.addView(text("RAVENOS SYSTEM DECK", 27f, Color.WHITE, true))
         root.addView(text("native controls first · intelligence optional", 12f, Color.LTGRAY, false), top(3))
-        root.addView(text("Swipe right from Home lands here. AI / Widgets / Wallpapers / Transitions / Icons stay in the tabs above.", 12f, 0xFFB8B8C8.toInt(), false), top(12))
+        root.addView(text("Raven Menu makes gestures optional. AI / Widgets / Wallpapers / Transitions / Icons stay in the tabs above.", 12f, 0xFFB8B8C8.toInt(), false), top(12))
+
+        root.addView(section("NAVIGATION / ERGONOMICS"), top(24))
+        navigationView = text(RavenGesturePrefs.summary(activity), 12f, 0xFFD5D5DF.toInt(), true)
+        root.addView(navigationView, top(8))
+        root.addView(text("Tap the small R edge tab from anywhere in RavenOS for explicit navigation. Long-press it for gesture settings. Vertical gestures can be remapped or disabled completely.", 11f, 0xFFAAAABA.toInt(), false), top(4))
+        root.addView(button("OPEN RAVEN MENU") {
+            RavenMenu.open(activity)
+        }, top(8))
+        root.addView(button("CONFIGURE GESTURES") {
+            RavenGesturePrefs.showDialog(activity)
+            updateNavigation()
+        }, top(6))
+        root.addView(button("RESET GESTURES") {
+            RavenGesturePrefs.reset(activity)
+            updateNavigation()
+            RavenOfficeBarService.signal(activity, "NAVIGATION", "gesture-defaults-restored")
+        }, top(6))
 
         root.addView(section("ACTIVATION / SURVIVAL"), top(26))
         readinessView = text(readinessText(), 12f, 0xFFD5D5DF.toInt(), false)
@@ -161,6 +179,7 @@ class RavenSystemDeckPane(
 
     fun refresh() {
         updateReadiness()
+        updateNavigation()
         updateHaunt()
         updateTrace()
         updateIntegrity()
@@ -172,6 +191,10 @@ class RavenSystemDeckPane(
         updateHaunt()
         updateReadiness()
         updateIntegrity()
+    }
+
+    private fun updateNavigation() {
+        navigationView.text = RavenGesturePrefs.summary(activity)
     }
 
     private fun updateHaunt() {
