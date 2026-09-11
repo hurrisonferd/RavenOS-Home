@@ -274,7 +274,7 @@ class RavenHomeActivity : AppCompatActivity() {
             setHintTextColor(0xFF8F8F9D.toInt())
             setTextColor(Color.WHITE)
             textSize = 16f
-            singleLine = true
+            setSingleLine(true)
             setPadding(dp(16), 0, dp(16), 0)
             background = rounded(0xFF2A2931.toInt(), 22, 0x55FFFFFF)
         }
