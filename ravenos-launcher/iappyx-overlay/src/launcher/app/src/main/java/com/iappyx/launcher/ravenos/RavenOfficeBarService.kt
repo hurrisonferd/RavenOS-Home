@@ -31,6 +31,13 @@ class RavenOfficeBarService : Service() {
     override fun onCreate() {
         super.onCreate()
         ensureChannel()
+        RavenScreenMonitor.start(this)
+    }
+
+    override fun onDestroy() {
+        RavenScreenMonitor.stop(this)
+        RavenFollowMeOverlay.hide()
+        super.onDestroy()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
