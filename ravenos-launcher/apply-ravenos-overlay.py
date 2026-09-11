@@ -99,6 +99,9 @@ def main() -> None:
     files = [
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeMember.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt",
+        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenSystemDeck.kt",
+        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenSurfaceModel.kt",
+        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenIntelligenceProvider.kt",
     ]
     for rel in files:
         copy(rel)
@@ -143,10 +146,10 @@ def main() -> None:
     )
 
     app_lock = UPSTREAM / "src/launcher/app/src/main/java/com/iappyx/launcher/applock/AppLockManager.kt"
-    patch_after(
+    patch_before(
         app_lock,
         "RAVENOS OFFICE BAR: app launch signal",
-        "    ) {\n        if (!isLocked(activity, packageName)) {\n",
+        "        if (!isLocked(activity, packageName)) {\n",
         '''        // RAVENOS OFFICE BAR: app launch signal\n        com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(activity, "APP_LAUNCH", "package:$packageName")\n''',
     )
 
