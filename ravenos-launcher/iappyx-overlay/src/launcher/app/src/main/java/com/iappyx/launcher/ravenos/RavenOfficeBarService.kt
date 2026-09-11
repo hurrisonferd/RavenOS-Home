@@ -51,6 +51,14 @@ class RavenOfficeBarService : Service() {
                 .putBoolean(KEY_ENABLED, false)
                 .putBoolean(KEY_EXPLICIT_DISABLED, true)
                 .apply()
+            val stateAt = RavenOfficeStateStore.read(this)?.updatedAt ?: 0L
+            RavenSurfaceIntegrity.mark(
+                this,
+                RavenSurfaceIntegrity.OFFICE_BAR,
+                "INACTIVE",
+                stateAt,
+                "explicit_sleep",
+            )
             RavenFollowMeOverlay.hide()
             RavenHomeAura.hide()
             RavenHomeWhisper.hide()
@@ -129,7 +137,17 @@ class RavenOfficeBarService : Service() {
         }
 
         if (!prefs.getBoolean(KEY_ENABLED, false)) return START_NOT_STICKY
-        startForeground(NOTIFICATION_ID, buildNotification())
+        val notification = buildNotification()
+        startForeground(NOTIFICATION_ID, notification)
+        RavenOfficeStateStore.read(this)?.let { snapshot ->
+            RavenSurfaceIntegrity.mark(
+                this,
+                RavenSurfaceIntegrity.OFFICE_BAR,
+                "POSTED",
+                snapshot.updatedAt,
+                "foreground_notification",
+            )
+        }
         return START_STICKY
     }
 
