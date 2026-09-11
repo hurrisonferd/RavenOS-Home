@@ -22,7 +22,6 @@ def main() -> None:
         raise SystemExit("usage: patch-ravenos-ecology.py <iappyx-root>")
     root = Path(sys.argv[1]).resolve()
     home = root / "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenHomeActivity.kt"
-    office = root / "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
     manifest = root / "src/launcher/app/src/main/AndroidManifest.xml"
 
     replace_once(
@@ -87,12 +86,9 @@ def main() -> None:
         '''                when (which) {\n                    0 -> RavenSummoningWheel.show(this)\n                    1 -> RavenCommandPalette.show(this)\n                    2 -> showAppUniverse(false)\n                    3 -> showSoundDeck()\n                    4 -> RavenOfficeFeed.show(this)\n                    5 -> RavenGhostHotspots.toggle(this)\n                    6 -> RavenTaskerBridge.showSetup(this)\n                    7 -> openStudio()\n                    8 -> RavenOfficeBarService.auto(this)\n                    9 -> RavenOfficeBarService.cycleHaunt(this)\n                    10 -> RavenOfficeBarService.disable(this)\n                } // RAVENOS ECOLOGY: menu routing''',
     )
 
-    replace_once(
-        office,
-        "RAVENOS ECOLOGY: outbound automation event",
-        '''        RavenOfficeTraceStore.record(this, member, signal, detail, note, hauntMode)\n''',
-        '''        RavenOfficeTraceStore.record(this, member, signal, detail, note, hauntMode)\n        // RAVENOS ECOLOGY: outbound automation event (sanitized metadata only).\n        RavenTaskerBridge.emit(this, "office_state", "owner:${member.id}|signal:$signal|haunt:${hauntMode.label}")\n''',
-    )
+    # Outbound automation no longer patches RavenOfficeBarService here. The canonical Goblin Vision
+    # ReactionPacket mirror owns that responsibility, so every projection emits one shared event.
+    # Keeping the old pre-brain OfficeBar anchor would couple this patch to a legacy trace signature.
 
     replace_once(
         manifest,
