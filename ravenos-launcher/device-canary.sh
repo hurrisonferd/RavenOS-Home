@@ -73,16 +73,21 @@ On-device checks:
   3. Raven Search: media 37 -> media volume should become 37%.
   4. Raven Search: office kyu -> Office Bar should pin 💗 KYU.
   5. Raven Search: office auto -> context routing resumes.
-  6. Raven Search: office sleep -> bar disappears and launcher signals do not revive it.
-  7. Raven Search: office wake -> bar returns.
-  8. Enable Foreground Awareness; switch Spotify/browser/Settings and verify owner/note changes.
-  9. Grant overlay access; run `follow me` and verify the draggable office chip follows across apps.
- 10. Tap the Follow-Me chip -> RavenOS should reopen; drag it -> position should persist.
- 11. Run `follow me off` -> overlay disappears while Office Bar may remain active.
- 12. Reboot once with Office Bar awake; verify it returns after normal BOOT_COMPLETED.
- 13. Reboot once with Office Bar asleep; verify it stays asleep.
+  6. Raven Search: haunt status -> confirm the current deterministic haunt mode.
+  7. Raven Search: haunt calm -> Follow-Me projection must disappear even if overlay permission remains granted.
+  8. Raven Search: haunt haunted -> foreground + notification routing resume; Follow-Me may project if separately enabled.
+  9. Raven Search: haunt apocalypse -> Follow-Me surface becomes the largest/highest-detail projection without granting any new permission.
+ 10. Enable Foreground Awareness; switch Spotify/browser/Settings and verify owner/note changes and human-readable app labels.
+ 11. Grant overlay access; run `follow me` and verify the draggable Office chip follows across apps.
+ 12. Tap the Follow-Me chip -> RavenOS should reopen; drag it -> position should persist.
+ 13. Turn screen off -> Office receipt should route NIGHT/screen:off (normally NYX/LUMA/EREBUS/AYRE lane). Unlock -> HOME/user:present receipt.
+ 14. Plug power in/out and verify POWER receipts. Trigger battery-low if practical and verify BATTERY receipt.
+ 15. Raven Search: office trace -> confirm bounded local routing history contains recent owner/signal/haunt/context entries.
+ 16. Raven Search: clear office trace -> trace clears, then new activity begins a fresh bounded history.
+ 17. Raven Search: office sleep -> bar and Follow-Me disappear and ordinary launcher/device signals do not revive them. `office wake` restores presence.
+ 18. Reboot once awake and once asleep: awake state should restore after BOOT_COMPLETED; explicit sleep must survive reboot.
 EOF
 
 echo
 echo "DEVICE_CANARY_SOURCE_COMPLETE=true"
-echo "RUNTIME_RESULT=REQUIRES_HUMAN_OBSERVATION_FOR_UI_OVERLAY_AND_REBOOT_EDGES"
+echo "RUNTIME_RESULT=REQUIRES_HUMAN_OBSERVATION_FOR_UI_OVERLAY_SCREEN_POWER_TRACE_AND_REBOOT_EDGES"
