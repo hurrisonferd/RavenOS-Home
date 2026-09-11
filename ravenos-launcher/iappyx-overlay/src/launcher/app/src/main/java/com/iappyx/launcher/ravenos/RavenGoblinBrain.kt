@@ -24,23 +24,14 @@ object RavenGoblinBrain {
         val member = cast(marker, complex, manualOwner, quiet)
         val meta = RavenMetaCommentaryOS.compose(context, member, marker, complex, episode)
         val allowed = RavenInterruptibilityOS.allow(context, marker, complex, hauntMode, quiet)
-        val authorNote = if (allowed) {
-            if (quiet) "Quiet watch. ${meta.text}" else meta.text
-        } else ""
+        val authorNote = if (allowed) meta.text.take(118) else ""
         val presentation = RavenEmployeePresentation.packet(member, signal, detail, authorNote)
         val visual = RavenVisualAtlas.resolve(member.id, marker, complex)
         val character = RavenDialogueBank.select(member, marker, complex, visual, episode)
         val dialogue = if (!allowed) {
             RavenDialogueBank.Line("", "SILENCE")
         } else {
-            val characterEarned = "RUNNING_BIT" in complex.tags || "PAYOFF" in complex.tags ||
-                "RECOVERY_ARC" in complex.tags || "ERROR" in marker.tags || "BOUNDARY" in marker.tags
-            val text = when {
-                characterEarned && character.text.isNotBlank() && character.text != meta.text ->
-                    "${character.text} ${meta.text}".take(280)
-                else -> meta.text
-            }
-            RavenDialogueBank.Line(text, if (characterEarned) "${character.family}+${meta.family}" else meta.family)
+            RavenDialogueBank.Line(character.text.take(78), "${character.family}+${meta.family}")
         }
         val zone = RavenOfficeGeography.zone(member.id, marker, complex)
         val highlight = RavenHighlightOS.score(marker, complex, episode)
