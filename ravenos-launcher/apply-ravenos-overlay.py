@@ -65,7 +65,7 @@ def replace_once(path: Path, marker: str, old: str, new: str) -> None:
         print(f"RavenOS already present: {path.relative_to(UPSTREAM)}")
         return
     if old not in text:
-        raise SystemExit(f"upstream drift: replacement anchor missing in {path}")
+        raise SystemExit(f"upstream drift: replacement anchor missing in {path}: {old!r}")
     path.write_text(text.replace(old, new, 1), encoding="utf-8")
     print(f"RavenOS replace: {path.relative_to(UPSTREAM)}")
 
@@ -124,7 +124,22 @@ def main() -> None:
 
     rebrand_strings()
 
+    # RavenOS is a distinct installable launcher, not a skin that replaces upstream iappyx.
+    build_gradle = UPSTREAM / "src/launcher/app/build.gradle"
+    replace_once(
+        build_gradle,
+        'applicationId "com.ravenos.launcher"',
+        'applicationId "com.iappyx.launcher"',
+        'applicationId "com.ravenos.launcher"',
+    )
+
     manifest = UPSTREAM / "src/launcher/app/src/main/AndroidManifest.xml"
+    replace_once(
+        manifest,
+        'android:authorities="${applicationId}.provider"',
+        'android:authorities="com.iappyx.launcher.provider"',
+        'android:authorities="${applicationId}.provider"',
+    )
     patch_before(
         manifest,
         "RAVENOS OFFICE BAR: persistent visible presence",
@@ -134,6 +149,20 @@ def main() -> None:
     text = manifest.read_text(encoding="utf-8")
     text = text.replace('android:label="iappyxOS notification badges"', 'android:label="RavenOS notification awareness"')
     manifest.write_text(text, encoding="utf-8")
+
+    share_helper = UPSTREAM / "src/launcher/app/src/main/java/com/iappyx/launcher/sharing/ShareHelper.kt"
+    replace_once(
+        share_helper,
+        "RAVENOS DYNAMIC FILE PROVIDER",
+        '    private const val FP_AUTHORITY = "com.iappyx.launcher.provider"\n',
+        '    // RAVENOS DYNAMIC FILE PROVIDER: authority follows applicationId so donor and RavenOS can coexist.\n',
+    )
+    replace_once(
+        share_helper,
+        '"${context.packageName}.provider"',
+        'FileProvider.getUriForFile(context, FP_AUTHORITY, file)',
+        'FileProvider.getUriForFile(context, "${context.packageName}.provider", file)',
+    )
 
     launcher = UPSTREAM / "src/launcher/app/src/main/java/com/iappyx/launcher/LauncherActivity.kt"
     patch_after(launcher, "RAVENOS OFFICE BAR: initial home signal", "        setContentView(R.layout.activity_launcher)\n",
@@ -190,7 +219,7 @@ def main() -> None:
         '''    fun resetToAi() {\n        // RAVENOS SYSTEM DECK: return default. Name retained for upstream API compatibility.\n        if (tabLayout.selectedTabPosition != 5) tabLayout.getTabAt(5)?.select()\n    }''',
     )
 
-    print(f"RavenOS Launcher overlay applied over pinned iappyx {actual}")
+    print(f"RavenOS Launcher overlay applied over pinned iappyx {actual} as com.ravenos.launcher")
 
 
 if __name__ == "__main__":
