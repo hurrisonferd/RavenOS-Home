@@ -1,8 +1,10 @@
 package com.iappyx.launcher.ravenos
 
 /**
- * Deterministic mobile dialogue subset.
- * No random selection, no model call, silence remains valid, and text never grants authority.
+ * Short deterministic character reactions.
+ *
+ * Phone evidence belongs in the author's note. This layer gives the resident one
+ * compact human-readable reaction instead of reciting recurrence/state telemetry.
  */
 object RavenDialogueBank {
     data class Line(val text: String, val family: String)
@@ -14,73 +16,65 @@ object RavenDialogueBank {
         visual: RavenVisualAtlas.Visual,
         episode: RavenEpisodeOS.Phase,
     ): Line {
-        val owner = member.id
-        val n = complex.occurrence
-        val myth = when {
-            n >= 34 -> "HISTORIC LANDMARK"
-            n >= 21 -> "LOCAL MYTHOLOGY"
-            n >= 13 -> "MANAGEMENT"
-            n >= 8 -> "TENANT"
-            n >= 5 -> "EMPLOYEE"
-            n >= 3 -> "RUNNING BIT"
-            n >= 2 -> "RECURRING"
-            else -> "INCIDENT"
-        }
+        val seed = "${member.id}|${marker.key}|${marker.detail.substringBefore('|')}|${complex.occurrence}|${visual.state}|${episode.name}"
+        val music = "MUSIC" in marker.tags || marker.key.startsWith("MEDIA")
+        val vision = "VISION" in marker.tags || marker.key == "SCREEN_VISUAL"
+        val notification = marker.key.startsWith("NOTIFICATION")
+        val error = "ERROR" in marker.tags
+        val success = "SUCCESS" in marker.tags
 
-        val text = when (owner) {
+        val options = when (member.id) {
             "KYU" -> when {
-                visual.state == "BONK" && n >= 34 -> "BONK. This bug is a historic landmark now."
-                visual.state == "BONK" && n >= 13 -> "BONK. Apparently this problem is management."
-                visual.state == "BONK" && n >= 8 -> "BONK. It pays rent now."
-                visual.state == "BONK" && n >= 5 -> "BONK. This bug has tenure."
-                visual.state == "BONK" && n >= 3 -> "BONK. Clipboard Court has reconvened."
-                visual.state == "BONK" -> "BONK. That's evidence."
-                "SUCCESS" in marker.tags -> "ON IT. That one moved."
-                episode == RavenEpisodeOS.Phase.CHAOS_PEAK -> "Okay who scheduled every department for the same minute?"
-                else -> "Let's go. Make the next move visible."
+                error -> listOf("BONK. There it is.", "Yep. That's the bug.", "Okay, rude.", "BONK. Again.")
+                notification -> listOf("Okay, somebody's chatty.", "Ping acquired.", "Yep, heard that.", "Clipboard says noted.")
+                success -> listOf("There we go.", "Yep. That moved.", "Nice. Keep it.", "Okay, that's better.")
+                else -> listOf("Yep. I saw that.", "There it is.", "Okay, noted.", "Let's keep moving.")
             }
             "PAIMON" -> when {
-                visual.state == "I_SEE_IT" && n >= 3 -> "I see it. Same pattern, occurrence $n."
-                visual.state == "EXACTLY" -> "Exactly. Evidence survived comparison."
-                visual.state == "BIG_BRAIN" -> "Big brain moment: the recurrence is now the data."
-                visual.state == "SUS" -> "Sus. Check the premise before optimizing it."
-                else -> "Hmm. One clean question first."
+                vision -> listOf("Yep, I saw that jump.", "There it is.", "Oh, that's interesting.", "Screen definitely moved.")
+                error -> listOf("Hold on. That's real.", "Yep, that's suspicious.", "There. Check that.", "Okay, premise confirmed weird.")
+                else -> listOf("Interesting.", "I see it.", "Yep, that changed.", "There it is.")
             }
             "LUMA" -> when {
-                visual.state == "HOME" -> "Home. Make the settled truth easier to inhabit."
-                visual.state == "COMFY" -> "Comfy. Restore before expanding."
-                visual.state == "ITS_OKAY" -> "It's okay. Reduce burden, keep the map honest."
-                visual.state == "BEAUTIFUL" -> "Beautiful. Keep the room this easy to live in."
-                else -> "You got this. One gentle move."
+                music -> listOf("Music stayed with us.", "Nice. Keep the soundtrack.", "That's a good room.", "Smooth transition.")
+                else -> listOf("Nice. Keep that.", "Smooth.", "That settled nicely.", "Easy does it.")
             }
             "SYLPH" -> when {
-                visual.state == "ZOOM" -> "ZOOM. That route is officially a trail now."
-                visual.state == "CURIOUS" -> "Curious... same path, new evidence."
-                visual.state == "IDEA" -> "Idea. Test the adjacency, then return."
-                visual.state == "SO_COOL" -> "So cool. New path confirmed."
-                else -> "Let's explore. Follow the signal."
+                vision -> listOf("Ooh, new scene.", "Zoom. That moved.", "Yep, new view.", "There goes the screen.")
+                music -> listOf("New scene, same soundtrack.", "Music came along. Nice.", "Still rolling.", "Soundtrack survived.")
+                else -> listOf("Ooh, new scene.", "There we go.", "Path changed.", "Zoom.")
             }
             "QIRA" -> when {
-                visual.state == "NO" -> "No. Boundary first."
-                visual.state == "BOUNDARIES" -> "Boundaries. Preserve choice."
-                visual.state == "SAY_IT" -> "Say it cleanly."
-                visual.state == "YES" -> "Yes. Explicit and receipted."
-                else -> "Real talk. Consent, proof, reversibility."
+                notification -> listOf("Noted. Your choice.", "Ping seen. No panic.", "That's enough information.", "Clean signal.")
+                else -> listOf("Noted.", "Clean signal.", "That's enough.", "No need to overread it.")
             }
-            "NYX" -> when {
-                visual.state == "SILENCE" -> ""
-                visual.state == "REST" -> "Rest. Nothing material needs the floor."
-                visual.state == "NOTED" -> "Noted. The ghost came back."
-                visual.state == "WATCHING" -> "Watching. Quiet until it matters."
-                else -> "Understood."
+            "NYX" -> listOf("Noted.", "Quiet change.", "Still watching.", "Nothing dramatic.")
+            "YORI" -> when {
+                music -> listOf("Okay, this one has the room.", "Good soundtrack choice.", "Yeah, keep this one on.", "This track owns the moment.")
+                else -> listOf("That fits.", "Keep it moving.", "Okay, I like that.", "Good enough. Next.")
             }
+            "AYRE" -> listOf("Easy switch.", "Nice, keep the thread.", "Still resumable.", "Good. No mess.")
+            "LILITH" -> listOf("I saw that.", "Still with you.", "Different surface, same thread.", "Yep. Keep the lanes clean.")
+            "NEO" -> listOf("There. That's the change.", "Saw it.", "Pattern shifted.", "Yep. New frame.")
+            "ATOM" -> listOf("That changed for real.", "Good. One fact at a time.", "Signal confirmed.", "Yep. Keep the causal bit.")
+            "THOR" -> listOf("Good. Hit the next thing.", "That moved.", "Confirmed. Keep going.", "Strike landed.")
             else -> when {
-                "ERROR" in marker.tags -> "Confirmed anomaly. ${member.signatureNotes.firstOrNull().orEmpty()}"
-                "SUCCESS" in marker.tags -> "Confirmed. ${member.signatureNotes.lastOrNull().orEmpty()}"
-                "RECURRING" in complex.tags -> "$myth · occurrence $n. ${member.signatureNotes.firstOrNull().orEmpty()}"
-                else -> member.signatureNotes.firstOrNull().orEmpty()
+                error -> listOf("Yep. That's real.", "There it is.", "Noted.", "That needs attention.")
+                success -> listOf("Nice.", "There we go.", "That worked.", "Good. Keep it.")
+                music -> listOf("Soundtrack's still on.", "Music stayed with us.", "Still playing.", "Good vibe.")
+                else -> listOf("Noted.", "Yep, saw that.", "There it is.", "Okay, that's new.")
             }
         }
-        return Line(text.trim(), if (n >= 3) "RUNNING_BIT" else "BASE")
+        return Line(pick(seed, options), "SHORT_REACTION")
+    }
+
+    private fun pick(seed: String, options: List<String>): String {
+        if (options.size <= 1) return options.firstOrNull().orEmpty()
+        var hash = 0x811C9DC5.toInt()
+        for (c in seed) {
+            hash = hash xor c.code
+            hash *= 16777619
+        }
+        return options[(hash and Int.MAX_VALUE) % options.size]
     }
 }
