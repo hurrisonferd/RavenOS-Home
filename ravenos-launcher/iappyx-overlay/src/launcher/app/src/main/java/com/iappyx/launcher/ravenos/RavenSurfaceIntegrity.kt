@@ -155,17 +155,22 @@ object RavenSurfaceIntegrity {
         }
     }
 
-    private fun readCrossProcessEntry(context: Context, surface: String): Entry? = try {
-        val file = crossProcessFile(context, surface)
-        if (!file.isFile) return null
-        val json = JSONObject(file.readText(Charsets.UTF_8))
-        Entry(
-            status = json.optString("status", "UNSEEN"),
-            stateAt = json.optLong("stateAt", 0L),
-            observedAt = json.optLong("observedAt", 0L),
-            detail = json.optString("detail", ""),
-        )
-    } catch (_: Throwable) {
-        null
+    private fun readCrossProcessEntry(context: Context, surface: String): Entry? {
+        return try {
+            val file = crossProcessFile(context, surface)
+            if (!file.isFile) {
+                null
+            } else {
+                val json = JSONObject(file.readText(Charsets.UTF_8))
+                Entry(
+                    status = json.optString("status", "UNSEEN"),
+                    stateAt = json.optLong("stateAt", 0L),
+                    observedAt = json.optLong("observedAt", 0L),
+                    detail = json.optString("detail", ""),
+                )
+            }
+        } catch (_: Throwable) {
+            null
+        }
     }
 }
