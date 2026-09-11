@@ -32,7 +32,7 @@ object RavenNotificationSenseOS {
     fun setMode(context: Context, mode: PrivacyMode) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putString(KEY_MODE, mode.name).apply()
-        RavenOfficeBarService.signal(context, "NOTIFICATION", "sense_mode:${mode.name.lowercase()}")
+        RavenOfficeBarService.signal(context, "SYSTEM_DECK", "notification-sense:${mode.name.lowercase()}")
     }
 
     fun cycle(context: Context): PrivacyMode {
@@ -48,6 +48,7 @@ object RavenNotificationSenseOS {
         rankingMap: NotificationListenerService.RankingMap?,
         interruptionFilter: Int,
     ) {
+        if (!RavenHauntModeStore.get(context).notificationRouting) return
         val n = sbn.notification ?: return
         val ranking = NotificationListenerService.Ranking()
         val ranked = runCatching { rankingMap?.getRanking(sbn.key, ranking) == true }.getOrDefault(false)
@@ -92,13 +93,15 @@ object RavenNotificationSenseOS {
             }
             append("|privacy:").append(privacy.name)
         }
-        RavenOfficeBarService.signal(context, "NOTIFICATION", detail)
+        // Dedicated signal avoids the legacy app-label enricher truncating notification metadata.
+        RavenOfficeBarService.signal(context, "NOTIFICATION_SENSE", detail)
     }
 
     fun onRemoved(context: Context, sbn: StatusBarNotification) {
+        if (!RavenHauntModeStore.get(context).notificationRouting) return
         RavenOfficeBarService.signal(
             context,
-            "NOTIFICATION",
+            "NOTIFICATION_SENSE",
             "package:${sbn.packageName}|state:removed|privacy:${mode(context).name}",
         )
     }
