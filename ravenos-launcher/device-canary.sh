@@ -65,21 +65,24 @@ else
   echo "PENDING: foreground awareness disabled"
 fi
 
-printf '\n[7/7] deterministic command / reactive-bar manual canary\n'
+printf '\n[7/7] deterministic command / reactive-presence manual canary\n'
 cat <<'EOF'
 On-device checks:
   1. Swipe into SYSTEM Deck and confirm APP = com.ravenos.launcher.
-  2. Run LOCAL RAVENOS CANARY and record readiness X/6.
+  2. Run LOCAL RAVENOS CANARY and record readiness X/7.
   3. Raven Search: media 37 -> media volume should become 37%.
   4. Raven Search: office kyu -> Office Bar should pin 💗 KYU.
   5. Raven Search: office auto -> context routing resumes.
   6. Raven Search: office sleep -> bar disappears and launcher signals do not revive it.
   7. Raven Search: office wake -> bar returns.
   8. Enable Foreground Awareness; switch Spotify/browser/Settings and verify owner/note changes.
-  9. Reboot once with Office Bar awake; verify it returns after normal BOOT_COMPLETED.
- 10. Reboot once with Office Bar asleep; verify it stays asleep.
+  9. Grant overlay access; run `follow me` and verify the draggable office chip follows across apps.
+ 10. Tap the Follow-Me chip -> RavenOS should reopen; drag it -> position should persist.
+ 11. Run `follow me off` -> overlay disappears while Office Bar may remain active.
+ 12. Reboot once with Office Bar awake; verify it returns after normal BOOT_COMPLETED.
+ 13. Reboot once with Office Bar asleep; verify it stays asleep.
 EOF
 
 echo
 echo "DEVICE_CANARY_SOURCE_COMPLETE=true"
-echo "RUNTIME_RESULT=REQUIRES_HUMAN_OBSERVATION_FOR_UI_AND_REBOOT_EDGES"
+echo "RUNTIME_RESULT=REQUIRES_HUMAN_OBSERVATION_FOR_UI_OVERLAY_AND_REBOOT_EDGES"
