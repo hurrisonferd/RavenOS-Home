@@ -17,20 +17,25 @@ object RavenCaptureRecipeOS {
 
     data class Result(val status: String, val message: String, val effectAuthority: String = "NONE")
 
-    fun execute(context: Context, recipe: Recipe): Result = when (recipe) {
-        Recipe.EVIDENCE_CARD -> Result("PASS", RavenEvidenceBoard.why(context))
-        Recipe.REPLAY_EVIDENCE -> Result("PASS", RavenReplayOS.compact(context, 8))
-        Recipe.CLIP_RECIPE -> {
-            val last = RavenEvidenceBoard.last(context)
-                ?: return Result("EMPTY", "CLIP_RECIPE: no receipted semantic event")
-            Result(
-                "READY",
-                "CLIP_RECIPE marker=${last.optString("markerId")} highlight=${last.optString("highlight")} score=${last.optInt("highlightScore", 0)} · owner replay request required",
+    fun execute(context: Context, recipe: Recipe): Result {
+        return when (recipe) {
+            Recipe.EVIDENCE_CARD -> Result("PASS", RavenEvidenceBoard.why(context))
+            Recipe.REPLAY_EVIDENCE -> Result("PASS", RavenReplayOS.compact(context, 8))
+            Recipe.CLIP_RECIPE -> {
+                val last = RavenEvidenceBoard.last(context)
+                if (last == null) {
+                    Result("EMPTY", "CLIP_RECIPE: no receipted semantic event")
+                } else {
+                    Result(
+                        "READY",
+                        "CLIP_RECIPE marker=${last.optString("markerId")} highlight=${last.optString("highlight")} score=${last.optInt("highlightScore", 0)} · owner replay request required",
+                    )
+                }
+            }
+            Recipe.PIN_REGION, Recipe.DIAGNOSTIC_SNAPSHOT -> Result(
+                "REQUIRES_OWNER_CAPTURE_SESSION",
+                "${recipe.name}: pixel capture is not armed. Raven must explicitly grant a user-visible screen-capture session first.",
             )
         }
-        Recipe.PIN_REGION, Recipe.DIAGNOSTIC_SNAPSHOT -> Result(
-            "REQUIRES_OWNER_CAPTURE_SESSION",
-            "${recipe.name}: pixel capture is not armed. Raven must explicitly grant a user-visible screen-capture session first.",
-        )
     }
 }
