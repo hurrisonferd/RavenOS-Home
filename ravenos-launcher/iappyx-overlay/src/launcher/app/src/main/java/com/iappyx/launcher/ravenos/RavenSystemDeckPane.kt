@@ -82,6 +82,21 @@ class RavenSystemDeckPane(
         root.addView(button("OVERLAY / FOLLOW-ME ACCESS") {
             RavenPermissionDeck.openOverlayAccess(activity)
         }, top(8))
+        root.addView(button("ENABLE FOLLOW-ME OFFICE") {
+            if (RavenFollowMeOverlay.enable(activity)) {
+                RavenOfficeBarService.enable(activity)
+                RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "follow-me-enabled")
+                updateReadiness()
+            } else {
+                RavenPermissionDeck.openOverlayAccess(activity)
+            }
+        }, top(6))
+        root.addView(text("Projects the routed office member as a small draggable overlay across apps. It sees only the already-routed Office state; it does not read the app underneath it.", 11f, 0xFFAAAABA.toInt(), false), top(3))
+        root.addView(button("HIDE FOLLOW-ME OFFICE") {
+            RavenFollowMeOverlay.disable(activity)
+            RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "follow-me-disabled")
+            updateReadiness()
+        }, top(6))
         root.addView(button("APP PERMISSION DETAILS") {
             RavenPermissionDeck.openAppDetails(activity)
         }, top(8))
@@ -104,7 +119,8 @@ class RavenSystemDeckPane(
         append("NOTIFICATION PERMISSION  ").append(onOff(snapshot.notificationPermission)).append('\n')
         append("FOREGROUND AWARENESS  ").append(onOff(snapshot.foregroundAwareness)).append('\n')
         append("NOTIFICATION AWARENESS  ").append(onOff(snapshot.notificationAwareness)).append('\n')
-        append("OVERLAY ACCESS  ").append(onOff(snapshot.overlayAccess))
+        append("OVERLAY ACCESS  ").append(onOff(snapshot.overlayAccess)).append('\n')
+        append("FOLLOW-ME OFFICE  ").append(onOff(snapshot.followMeEnabled))
     }
 
     private fun onOff(value: Boolean): String = if (value) "ON" else "OFF"
