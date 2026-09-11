@@ -3,8 +3,8 @@
 
 The donor already has the expensive plumbing: a separate :wallpaper process,
 VirtualDisplay/Presentation/WebView, visibility pausing, render-process recovery,
-same-package broadcasts, and a bundled-widget catalogue. RavenOS adds only narrow,
-fail-closed hooks on exact reviewed anchors.
+same-package broadcasts, and bundled widget/wallpaper catalogues. RavenOS adds only
+narrow, fail-closed hooks on exact reviewed anchors.
 """
 from __future__ import annotations
 
@@ -70,8 +70,6 @@ after(
     '''        // RAVENOS OFFICE WALLPAPER: presentation state. One-way JS event only;\n        // wallpaper HTML receives no new native-call authority.\n        private var ravenOfficeJson: String? = null\n''',
 )
 
-# Replay the most recent state after each HTML load. Inline wallpaper JS can register
-# a ravenofficechange listener during page execution; onPageFinished then delivers state.
 after(
     "RAVENOS OFFICE WALLPAPER: replay after page load",
     "                webViewClient = object : WebViewClient() {\n",
@@ -101,3 +99,18 @@ if widget_marker not in widget_text:
     widget_text = widget_text.replace(widget_anchor, widget_anchor + insertion, 1)
     widget_library.write_text(widget_text, encoding="utf-8")
     print("RavenOS bundled Office widget registered")
+
+# Register the Office-reactive live wallpaper without changing iappyx's existing default.
+wallpaper_library = root / "src/launcher/app/src/main/java/com/iappyx/launcher/wallpaper/WallpaperLibrary.kt"
+if not wallpaper_library.is_file():
+    raise SystemExit(f"wallpaper library missing: {wallpaper_library}")
+wallpaper_text = wallpaper_library.read_text(encoding="utf-8")
+wallpaper_marker = "RAVENOS BUNDLED OFFICE WALLPAPER"
+wallpaper_anchor = "    private val BUNDLED = listOf(\n"
+if wallpaper_marker not in wallpaper_text:
+    if wallpaper_anchor not in wallpaper_text:
+        raise SystemExit(f"wallpaper donor drift: missing anchor {wallpaper_anchor!r}")
+    insertion = '''        // RAVENOS BUNDLED OFFICE WALLPAPER: one canonical Office state, rendered live.\n        BundledMeta(\n            "ravenos_office", "RavenOS Office Field",\n            "Reactive neon office field driven by the canonical resident, accent, author's note, signal, and haunt level.",\n        ),\n'''
+    wallpaper_text = wallpaper_text.replace(wallpaper_anchor, wallpaper_anchor + insertion, 1)
+    wallpaper_library.write_text(wallpaper_text, encoding="utf-8")
+    print("RavenOS bundled Office wallpaper registered")
