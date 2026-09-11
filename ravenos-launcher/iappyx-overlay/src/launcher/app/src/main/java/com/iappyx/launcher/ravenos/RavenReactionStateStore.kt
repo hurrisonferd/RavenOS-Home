@@ -28,6 +28,9 @@ object RavenReactionStateStore {
             app.sendBroadcast(Intent(ACTION_CHANGED).setPackage(app.packageName).putExtra(EXTRA_JSON, json))
         } catch (_: Throwable) {}
 
+        // PhysicalOffice / Watchlet presentation consumes the exact same canonical packet.
+        RavenWatchletOS.render(app, packet, RavenHauntModeStore.get(app))
+
         // Canonical outbound automation event. This is deliberately a small semantic envelope,
         // not a private-state dump and not an action grant.
         RavenTaskerBridge.emit(
