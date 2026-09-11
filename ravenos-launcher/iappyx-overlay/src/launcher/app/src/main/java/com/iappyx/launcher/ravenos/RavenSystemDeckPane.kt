@@ -19,6 +19,7 @@ class RavenSystemDeckPane(
     private val dp = resources.displayMetrics.density
     private lateinit var readinessView: TextView
     private lateinit var hauntView: TextView
+    private lateinit var traceView: TextView
 
     init {
         isFillViewport = true
@@ -81,6 +82,17 @@ class RavenSystemDeckPane(
         }, weight())
         root.addView(hauntRow2, top(6))
 
+        root.addView(section("OFFICE FLIGHT RECORDER"), top(28))
+        traceView = text(RavenOfficeTraceStore.compact(activity), 11f, 0xFFC8C8D4.toInt(), false)
+        root.addView(traceView, top(8))
+        root.addView(text("Bounded local routing receipts only. No cloud sync, no app body text, no keystrokes.", 10f, 0xFF9292A4.toInt(), false), top(4))
+        root.addView(button("REFRESH OFFICE TRACE") { updateTrace() }, top(8))
+        root.addView(button("CLEAR OFFICE TRACE") {
+            RavenOfficeTraceStore.clear(activity)
+            updateTrace()
+            RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "office-trace-cleared")
+        }, top(6))
+
         root.addView(section("AUDIO"), top(28))
         rebuildAudio()
 
@@ -131,6 +143,7 @@ class RavenSystemDeckPane(
     fun refresh() {
         updateReadiness()
         updateHaunt()
+        updateTrace()
         RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "refresh")
     }
 
@@ -142,6 +155,10 @@ class RavenSystemDeckPane(
 
     private fun updateHaunt() {
         hauntView.text = hauntText()
+    }
+
+    private fun updateTrace() {
+        traceView.text = RavenOfficeTraceStore.compact(activity)
     }
 
     private fun hauntText(): String {
