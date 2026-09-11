@@ -23,6 +23,7 @@ def main() -> None:
     root = Path(sys.argv[1]).resolve()
     home = root / "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenHomeActivity.kt"
     office = root / "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
+    manifest = root / "src/launcher/app/src/main/AndroidManifest.xml"
 
     replace_once(
         home,
@@ -76,7 +77,7 @@ def main() -> None:
         home,
         "RAVENOS ECOLOGY: menu routing",
         '''                when (which) {\n                    0 -> showAppUniverse(false)\n                    1 -> showSoundDeck()\n                    2 -> openStudio()\n                    3 -> RavenOfficeBarService.auto(this)\n                    4 -> RavenOfficeBarService.cycleHaunt(this)\n                    5 -> RavenOfficeBarService.disable(this)\n                }''',
-        '''                when (which) {\n                    0 -> RavenSummoningWheel.show(this)\n                    1 -> RavenCommandPalette.show(this)\n                    2 -> showAppUniverse(false)\n                    3 -> showSoundDeck()\n                    4 -> RavenOfficeFeed.show(this)\n                    5 -> RavenGhostHotspots.toggle(this)\n                    6 -> if (!RavenTaskerBridge.openTasker(this)) {\n                        android.widget.Toast.makeText(this, RavenTaskerBridge.summary(this), android.widget.Toast.LENGTH_SHORT).show()\n                    }\n                    7 -> openStudio()\n                    8 -> RavenOfficeBarService.auto(this)\n                    9 -> RavenOfficeBarService.cycleHaunt(this)\n                    10 -> RavenOfficeBarService.disable(this)\n                } // RAVENOS ECOLOGY: menu routing''',
+        '''                when (which) {\n                    0 -> RavenSummoningWheel.show(this)\n                    1 -> RavenCommandPalette.show(this)\n                    2 -> showAppUniverse(false)\n                    3 -> showSoundDeck()\n                    4 -> RavenOfficeFeed.show(this)\n                    5 -> RavenGhostHotspots.toggle(this)\n                    6 -> RavenTaskerBridge.showSetup(this)\n                    7 -> openStudio()\n                    8 -> RavenOfficeBarService.auto(this)\n                    9 -> RavenOfficeBarService.cycleHaunt(this)\n                    10 -> RavenOfficeBarService.disable(this)\n                } // RAVENOS ECOLOGY: menu routing''',
     )
 
     replace_once(
@@ -84,6 +85,13 @@ def main() -> None:
         "RAVENOS ECOLOGY: outbound automation event",
         '''        RavenOfficeTraceStore.record(this, member, signal, detail, note, hauntMode)\n''',
         '''        RavenOfficeTraceStore.record(this, member, signal, detail, note, hauntMode)\n        // RAVENOS ECOLOGY: outbound automation event (sanitized metadata only).\n        RavenTaskerBridge.emit(this, "office_state", "owner:${member.id}|signal:$signal|haunt:${hauntMode.label}")\n''',
+    )
+
+    replace_once(
+        manifest,
+        "RAVENOS ECOLOGY: token-gated Tasker command receiver",
+        '''    </application>''',
+        '''        <!-- RAVENOS ECOLOGY: token-gated Tasker command receiver. Exported intentionally;\n             every request must carry the locally-generated RavenOS token. -->\n        <receiver\n            android:name=".ravenos.RavenTaskerReceiver"\n            android:enabled="true"\n            android:exported="true">\n            <intent-filter>\n                <action android:name="com.ravenos.launcher.TASKER_COMMAND" />\n            </intent-filter>\n        </receiver>\n\n    </application>''',
     )
 
     print("RAVENOS_ECOLOGY=true")
