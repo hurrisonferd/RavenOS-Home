@@ -46,6 +46,11 @@ object RavenCommandRouter {
         }
 
         return when (normalized) {
+            "quick deck", "quick controls", "controls", "sound controls" -> {
+                val activity = context as? LauncherActivity ?: return Result(false)
+                RavenQuickControls.show(activity)
+                Result(true, "Quick Deck")
+            }
             "menu", "raven menu", "launcher menu" -> {
                 val activity = context as? LauncherActivity ?: return Result(false)
                 RavenMenu.open(activity)
