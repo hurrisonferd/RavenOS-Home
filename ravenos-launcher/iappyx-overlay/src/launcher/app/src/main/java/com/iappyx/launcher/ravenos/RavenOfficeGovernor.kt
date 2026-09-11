@@ -20,6 +20,9 @@ object RavenOfficeGovernor {
     private const val KEY_DETAIL = "last_detail"
     private const val KEY_AT = "last_elapsed_ms"
     private const val KEY_PRIORITY = "last_priority"
+    private const val KEY_ACCEPTED = "accepted_count"
+    private const val KEY_SUPPRESSED = "suppressed_count"
+    private const val KEY_LAST_SUPPRESSION = "last_suppression"
 
     fun accept(context: Context, signal: String, detail: String, mode: RavenHauntMode): Boolean {
         val normalized = signal.trim().uppercase()
@@ -37,12 +40,18 @@ object RavenOfficeGovernor {
 
         // Collapse exact bursts from duplicated Android callbacks / launcher lifecycle edges.
         if (normalized == previousSignal && detail == previousDetail && age < duplicateWindow(mode)) {
+            recordSuppressed(context, "duplicate:$normalized:${age}ms")
             return false
         }
 
         // Critical/higher-priority context can preempt immediately. Equal/lower-priority chatter
         // waits for the current resident's minimum dwell time.
-        if (age < holdWindow(mode, previousSignal) && priority <= previousPriority) {
+        val hold = holdWindow(mode, previousSignal)
+        if (age < hold && priority <= previousPriority) {
+            recordSuppressed(
+                context,
+                "hold:$normalized:p$priority<=p$previousPriority:${age}ms<$hold",
+            )
             return false
         }
 
@@ -51,8 +60,37 @@ object RavenOfficeGovernor {
             .putString(KEY_DETAIL, detail.take(240))
             .putLong(KEY_AT, now)
             .putInt(KEY_PRIORITY, priority)
+            .putLong(KEY_ACCEPTED, prefs.getLong(KEY_ACCEPTED, 0L) + 1L)
             .apply()
         return true
+    }
+
+    fun compact(context: Context): String {
+        val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val mode = RavenHauntModeStore.get(context)
+        val accepted = prefs.getLong(KEY_ACCEPTED, 0L)
+        val suppressed = prefs.getLong(KEY_SUPPRESSED, 0L)
+        val signal = prefs.getString(KEY_SIGNAL, "none").orEmpty()
+        val lastSuppression = prefs.getString(KEY_LAST_SUPPRESSION, "none").orEmpty()
+        val hold = holdWindow(mode, signal)
+        val dup = duplicateWindow(mode)
+        return "CADENCE=${mode.label} accepted=$accepted suppressed=$suppressed hold=${hold}ms duplicate=${dup}ms last=$lastSuppression"
+    }
+
+    fun clearStats(context: Context) {
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .remove(KEY_ACCEPTED)
+            .remove(KEY_SUPPRESSED)
+            .remove(KEY_LAST_SUPPRESSION)
+            .apply()
+    }
+
+    private fun recordSuppressed(context: Context, reason: String) {
+        val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putLong(KEY_SUPPRESSED, prefs.getLong(KEY_SUPPRESSED, 0L) + 1L)
+            .putString(KEY_LAST_SUPPRESSION, reason.take(180))
+            .apply()
     }
 
     private fun duplicateWindow(mode: RavenHauntMode): Long = when (mode) {
