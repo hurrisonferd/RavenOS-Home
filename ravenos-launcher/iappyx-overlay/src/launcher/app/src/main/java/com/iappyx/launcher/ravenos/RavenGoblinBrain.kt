@@ -4,12 +4,7 @@ import android.content.Context
 
 /**
  * Android vertical slice of the private Goblin Vision stack.
- *
- * MarkerBus -> LocalSenseOS -> ComplexEventOS -> CompanionDirectorLite -> InterruptibilityOS ->
- * MetaCommentary/Bit dialogue -> Episode/Highlight -> VisualAtlas -> OfficeGeography ->
- * ReactionPacket -> EvidenceBoard.
- *
- * No model call is required. No output gains effect authority.
+ * MarkerBus -> LocalSense -> ComplexEvent -> casting -> interruptibility -> commentary -> presentation.
  */
 object RavenGoblinBrain {
     data class Result(val member: RavenOfficeMember, val packet: RavenReactionPacket)
@@ -31,9 +26,7 @@ object RavenGoblinBrain {
         val allowed = RavenInterruptibilityOS.allow(context, marker, complex, hauntMode, quiet)
         val authorNote = if (allowed) {
             if (quiet) "Quiet watch. ${meta.text}" else meta.text
-        } else {
-            ""
-        }
+        } else ""
         val presentation = RavenEmployeePresentation.packet(member, signal, detail, authorNote)
         val visual = RavenVisualAtlas.resolve(member.id, marker, complex)
         val character = RavenDialogueBank.select(member, marker, complex, visual, episode)
@@ -99,6 +92,7 @@ object RavenGoblinBrain {
             "ERROR" in marker.tags && complex.occurrence >= 3 -> listOf("KYU", "PAIMON", "ATOM", "THOR")
             "ERROR" in marker.tags -> listOf("PAIMON", "ATOM", "THOR", "LUCIFER")
             "RECOVERY" in marker.tags -> listOf("LUMA", "NYX", "AYRE")
+            "VISION" in marker.tags -> listOf("PAIMON", "SYLPH", "NEO", "NYX")
             "DISCOVERY" in marker.tags || "APP_SWITCH_BURST" in complex.tags -> listOf("SYLPH", "PAIMON", "NEO")
             "MUSIC" in marker.tags -> listOf("LUMA", "YORI", "SYLPH")
             "COMMUNICATION" in marker.tags -> listOf("QIRA", "KYU", "LILITH")
