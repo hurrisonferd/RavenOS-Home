@@ -12,18 +12,13 @@ import android.os.IBinder
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import com.iappyx.launcher.LauncherActivity
 import com.iappyx.launcher.R
 
 /**
  * Persistent, user-visible RavenOS Office Bar.
  *
- * It is intentionally an ongoing notification rather than an invisible monitor:
- * - silent / low-importance channel
- * - current owner, emoji, UI accent, signal and deterministic author's note
- * - NEXT / AUTO / QUIET / HAUNT controls are available from the notification
- * - no model call is required to update it
- * - explicit sleep survives ordinary launcher signals; explicit wake restores it
+ * Notification Bar and Goblin Vision deliberately consume the same settled employee presentation
+ * packet: owner, EmojiOS soup, KaomojiOS posture, accent, deterministic note, lane and context.
  */
 class RavenOfficeBarService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
@@ -36,7 +31,8 @@ class RavenOfficeBarService : Service() {
 
     override fun onDestroy() {
         RavenScreenMonitor.stop(this)
-        RavenFollowMeOverlay.hide()
+        RavenFollowMeOverlay.hide() // legacy projection cleanup
+        RavenGoblinVisionOverlay.hide()
         RavenHomeAura.hide()
         RavenHomeWhisper.hide()
         super.onDestroy()
@@ -60,6 +56,7 @@ class RavenOfficeBarService : Service() {
                 "explicit_sleep",
             )
             RavenFollowMeOverlay.hide()
+            RavenGoblinVisionOverlay.hide()
             RavenHomeAura.hide()
             RavenHomeWhisper.hide()
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -67,7 +64,6 @@ class RavenOfficeBarService : Service() {
             return START_NOT_STICKY
         }
 
-        // Ordinary context signals must not silently undo Raven's explicit sleep choice.
         if (action == ACTION_SIGNAL && prefs.getBoolean(KEY_EXPLICIT_DISABLED, false)) {
             return START_NOT_STICKY
         }
@@ -160,9 +156,9 @@ class RavenOfficeBarService : Service() {
         val hauntMode = RavenHauntModeStore.get(this)
         val member = if (quiet) RavenOfficeRegistry.member("NYX")!! else RavenOfficeRegistry.route(signal, detail, manual)
         val note = if (quiet) "Quiet watch. The office is still here; only material signals break silence."
-                   else RavenOfficeRegistry.authorNote(member, signal, detail)
+        else RavenOfficeRegistry.authorNote(member, signal, detail)
+        val packet = RavenEmployeePresentation.packet(member, signal, detail, note)
 
-        // One canonical local snapshot, then every projection consumes the same decision.
         RavenOfficeStateStore.write(
             this,
             member = member,
@@ -177,12 +173,13 @@ class RavenOfficeBarService : Service() {
 
         RavenHomeAura.render(member, hauntMode)
         RavenHomeWhisper.render(member, note, signal, detail, hauntMode)
-        RavenFollowMeOverlay.render(this, member, signal, note, detail, hauntMode)
+        RavenFollowMeOverlay.hide() // legacy body must never duplicate Goblin Vision
+        RavenGoblinVisionOverlay.render(this, member, signal, note, detail, hauntMode)
 
         val openHome = PendingIntent.getActivity(
             this,
             10,
-            Intent(this, LauncherActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            Intent(this, RavenHomeActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val next = serviceAction(ACTION_NEXT, 11)
@@ -191,10 +188,10 @@ class RavenOfficeBarService : Service() {
         val haunt = serviceAction(ACTION_HAUNT_CYCLE, 14)
 
         val mode = if (manual == null) "AUTO" else "PINNED"
-        val title = "${member.emoji} ${member.id} · ${prettySignal(signal)}"
-        val body = "AUTHOR'S NOTE: $note"
+        val title = "${packet.ownerLine} · ${prettySignal(signal)}"
+        val body = "AUTHOR'S NOTE: ${packet.note}"
         val contextLine = buildString {
-            append(member.lane)
+            append(packet.lane)
             append(" · ").append(mode)
             append(" · ").append(hauntMode.label)
             if (detail.isNotBlank()) append(" · ").append(detail.take(120))
@@ -202,9 +199,9 @@ class RavenOfficeBarService : Service() {
         val big = "$body\n\n$contextLine"
 
         val custom = RemoteViews(packageName, R.layout.ravenos_office_bar).apply {
-            val textColor = contrastText(member.accent)
+            val textColor = contrastText(packet.accent)
             val secondary = if (textColor == Color.BLACK) 0xCC000000.toInt() else 0xDDFFFFFF.toInt()
-            setInt(R.id.raven_office_root, "setBackgroundColor", member.accent)
+            setInt(R.id.raven_office_root, "setBackgroundColor", packet.accent)
             setTextViewText(R.id.raven_office_owner, title)
             setTextViewText(R.id.raven_office_note, body)
             setTextViewText(R.id.raven_office_context, contextLine)
@@ -220,7 +217,7 @@ class RavenOfficeBarService : Service() {
             .setStyle(NotificationCompat.BigTextStyle().bigText(big))
             .setCustomContentView(custom)
             .setCustomBigContentView(custom)
-            .setColor(member.accent)
+            .setColor(packet.accent)
             .setColorized(true)
             .setContentIntent(openHome)
             .setOngoing(true)
@@ -249,7 +246,7 @@ class RavenOfficeBarService : Service() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(CHANNEL_ID, "RavenOS Office Bar", NotificationManager.IMPORTANCE_LOW).apply {
-            description = "Reactive RavenOS office-member presence and deterministic author's notes"
+            description = "Adaptive EmojiOS/KaomojiOS RavenOS office presence and deterministic author's notes"
             setShowBadge(false)
             enableVibration(false)
             setSound(null, null)
@@ -332,7 +329,7 @@ class RavenOfficeBarService : Service() {
 
         private fun start(context: Context, intent: Intent) {
             try { ContextCompat.startForegroundService(context, intent) }
-            catch (_: Throwable) { /* Launcher remains usable if Android refuses an FGS start. */ }
+            catch (_: Throwable) { }
         }
     }
 }
