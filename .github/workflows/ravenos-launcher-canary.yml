@@ -52,6 +52,8 @@ jobs:
           grep -R 'RAVENOS OFFICE BAR: app launch signal' "$ROOT/java/com/iappyx/launcher/applock/AppLockManager.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeMember.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenForegroundAwarenessService.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenFollowMeOverlay.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenAwarenessStatus.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenBootReceiver.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenPermissionDeck.kt"
