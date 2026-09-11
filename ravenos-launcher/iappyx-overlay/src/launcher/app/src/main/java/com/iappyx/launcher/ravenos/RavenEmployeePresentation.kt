@@ -1,11 +1,11 @@
 package com.iappyx.launcher.ravenos
 
 /**
- * Launcher-local EmojiOS + KaomojiOS presentation packet.
+ * Launcher-local EmojiOS + KaomojiOS expression organ.
  *
- * Identity/routing still comes from RavenOfficeRegistry. This layer only decides how the already
- * selected employee presents on launcher surfaces. Selection is deterministic from the settled
- * Office context, so notification and Goblin Vision projections cannot drift into different styles.
+ * Semantics and casting are already settled before this layer runs. This renderer only
+ * adds deterministic emoji/sigil/posture from the same phone event, following Core
+ * KaomojiOS law: expression may decorate truth but may not invent it.
  */
 object RavenEmployeePresentation {
     data class Packet(
@@ -17,7 +17,7 @@ object RavenEmployeePresentation {
         val accent: Int,
         val lane: String,
     ) {
-        val ownerLine: String get() = "$emojiSoup $owner  $kaomoji"
+        val ownerLine: String get() = "$emojiSoup $owner $kaomoji"
     }
 
     private data class Style(val soup: String, val kaomoji: List<String>)
@@ -57,18 +57,50 @@ object RavenEmployeePresentation {
         note: String,
     ): Packet {
         val style = styles[member.id] ?: Style(member.emoji, listOf("(•̀ᴗ•́)و", "(￣ー￣)", "(・_・;)"))
-        val kaomoji = style.kaomoji[stableIndex("${member.id}|$signal|$detail", style.kaomoji.size)]
-        val soup = if (style.soup.contains(member.emoji)) style.soup else "${member.emoji}${style.soup}"
+        val postureSeed = "${member.id}|${signal.uppercase()}|${semanticBand(detail)}"
+        val posture = when {
+            isBoundary(signal, detail) -> style.kaomoji.last()
+            isVision(signal) -> style.kaomoji[stableIndex("vision|$postureSeed", style.kaomoji.size)]
+            isMusic(signal, detail) -> style.kaomoji[stableIndex("music|$postureSeed", style.kaomoji.size)]
+            else -> style.kaomoji[stableIndex(postureSeed, style.kaomoji.size)]
+        }
+        val baseSoup = if (style.soup.contains(member.emoji)) style.soup else "${member.emoji}${style.soup}"
+        val eventGlyph = signalGlyph(signal, detail)
+        val soup = if (eventGlyph.isBlank() || baseSoup.contains(eventGlyph)) baseSoup else "$baseSoup$eventGlyph"
         return Packet(
             owner = member.id,
             emojiSoup = soup,
-            kaomoji = kaomoji,
+            kaomoji = posture,
             note = note,
-            context = prettySignal(signal) + if (detail.isNotBlank()) " · ${detail.take(120)}" else "",
+            context = eventGlyph.ifBlank { prettySignal(signal) },
             accent = member.accent,
             lane = member.lane,
         )
     }
+
+    fun signalGlyph(signal: String, detail: String = ""): String {
+        val s = signal.trim().uppercase()
+        return when {
+            s.contains("SCREEN_VISUAL") || s.contains("EYE") -> "👁"
+            s.startsWith("MEDIA") || s == "AUDIO" || detail.contains("track:", true) -> "🎵"
+            s.startsWith("NOTIFICATION") || s == "NOTIFICATION" -> "🔔"
+            s.contains("FOREGROUND") || s.contains("APP_") || s.contains("HOME") || s.contains("WINDOW") -> "📱"
+            s.contains("POWER") -> "⚡"
+            s.contains("BATTERY") -> "🔋"
+            s.contains("SEARCH") -> "🔎"
+            s.contains("SYSTEM") || s.contains("SETTING") -> "🛠️"
+            else -> ""
+        }
+    }
+
+    private fun isVision(signal: String): Boolean = signal.uppercase().contains("SCREEN_VISUAL") || signal.uppercase().contains("EYE")
+    private fun isMusic(signal: String, detail: String): Boolean = signal.uppercase().startsWith("MEDIA") || signal.uppercase() == "AUDIO" || detail.contains("track:", true)
+    private fun isBoundary(signal: String, detail: String): Boolean = signal.uppercase().contains("PERMISSION") || detail.contains("denied", true) || detail.contains("blocked", true)
+
+    private fun semanticBand(detail: String): String = detail
+        .replace(Regex("position[^|]*", RegexOption.IGNORE_CASE), "position")
+        .replace(Regex("duration[^|]*", RegexOption.IGNORE_CASE), "duration")
+        .take(96)
 
     private fun prettySignal(signal: String): String = signal.trim().replace('_', ' ').lowercase()
         .split(' ').joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
