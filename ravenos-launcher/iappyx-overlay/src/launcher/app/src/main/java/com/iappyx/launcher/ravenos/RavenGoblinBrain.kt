@@ -4,10 +4,13 @@ import android.content.Context
 
 /**
  * Android vertical slice of the private Goblin Vision stack.
- * MarkerBus -> LocalSense -> ComplexEvent -> casting -> interruptibility -> commentary -> presentation.
+ * MarkerBus -> LocalSense -> ComplexEvent -> rotating cast -> commentary -> expression -> presentation.
  */
 object RavenGoblinBrain {
     data class Result(val member: RavenOfficeMember, val packet: RavenReactionPacket)
+
+    private const val CAST_PREFS = "ravenos_goblin_cast_v2"
+    private const val KEY_LAST_OWNER = "last_owner"
 
     fun react(
         context: Context,
@@ -21,18 +24,27 @@ object RavenGoblinBrain {
         val sense = RavenLocalSenseOS.resolve(marker)
         val complex = RavenComplexEventOS.analyze(context, marker)
         val episode = RavenEpisodeOS.phase(context, marker, complex)
-        val member = cast(marker, complex, manualOwner, quiet)
+        val member = cast(context, marker, complex, manualOwner, quiet)
         val meta = RavenMetaCommentaryOS.compose(context, member, marker, complex, episode)
         val allowed = RavenInterruptibilityOS.allow(context, marker, complex, hauntMode, quiet)
-        val authorNote = if (allowed) meta.text.take(118) else ""
-        val presentation = RavenEmployeePresentation.packet(member, signal, detail, authorNote)
         val visual = RavenVisualAtlas.resolve(member.id, marker, complex)
         val character = RavenDialogueBank.select(member, marker, complex, visual, episode)
-        val dialogue = if (!allowed) {
-            RavenDialogueBank.Line("", "SILENCE")
-        } else {
-            RavenDialogueBank.Line(character.text.take(78), "${character.family}+${meta.family}")
-        }
+
+        // One visible sentence. Phone truth first; employee joke/posture second when earned.
+        // The evidence copy remains separate in authorNote but presentation surfaces do not label it.
+        val spoken = if (!allowed) "" else buildString {
+            append(meta.text.trim())
+            if (character.text.isNotBlank() && character.text != meta.text) {
+                if (isNotEmpty()) append("  ")
+                append(character.text.trim())
+            }
+        }.replace(Regex("\\s+"), " ").trim().take(176)
+
+        val authorNote = if (allowed) meta.text.trim().take(160) else ""
+        val presentation = RavenEmployeePresentation.packet(member, signal, detail, spoken)
+        val dialogueFamily = if (!allowed) "SILENCE" else listOf(meta.family, character.family)
+            .filter { it.isNotBlank() }
+            .joinToString("+")
         val zone = RavenOfficeGeography.zone(member.id, marker, complex)
         val highlight = RavenHighlightOS.score(marker, complex, episode)
         val now = System.currentTimeMillis()
@@ -51,9 +63,9 @@ object RavenGoblinBrain {
             visualState = visual.state,
             pose = visual.pose,
             zone = zone.id,
-            dialogue = dialogue.text,
+            dialogue = spoken,
             authorNote = authorNote,
-            dialogueFamily = dialogue.family,
+            dialogueFamily = dialogueFamily,
             occurrence = complex.occurrence,
             complexTags = complex.tags,
             episode = episode.name,
@@ -70,6 +82,7 @@ object RavenGoblinBrain {
     }
 
     private fun cast(
+        context: Context,
         marker: RavenMarkerBus.Marker,
         complex: RavenComplexEventOS.Result,
         manualOwner: String?,
@@ -78,23 +91,42 @@ object RavenGoblinBrain {
         if (quiet) return RavenOfficeRegistry.member("NYX")!!
         RavenOfficeRegistry.member(manualOwner)?.takeIf { it.routable }?.let { return it }
 
-        val preferred = when {
-            "BOUNDARY" in marker.tags -> listOf("QIRA", "KYU", "AHTI")
-            "ERROR" in marker.tags && complex.occurrence >= 3 -> listOf("KYU", "PAIMON", "ATOM", "THOR")
-            "ERROR" in marker.tags -> listOf("PAIMON", "ATOM", "THOR", "LUCIFER")
-            "RECOVERY" in marker.tags -> listOf("LUMA", "NYX", "AYRE")
-            "VISION" in marker.tags -> listOf("PAIMON", "SYLPH", "NEO", "NYX")
-            "DISCOVERY" in marker.tags || "APP_SWITCH_BURST" in complex.tags -> listOf("SYLPH", "PAIMON", "NEO")
-            "MUSIC" in marker.tags -> listOf("LUMA", "YORI", "SYLPH")
-            "COMMUNICATION" in marker.tags -> listOf("QIRA", "KYU", "LILITH")
-            "BUILD" in marker.tags -> listOf("ATOM", "EDISON", "THOR", "PAIMON")
-            else -> null
+        val domainIds = when {
+            "BOUNDARY" in marker.tags -> listOf("QIRA", "KYU", "AHTI", "ERIS")
+            "ERROR" in marker.tags && complex.occurrence >= 3 -> listOf("KYU", "PAIMON", "ATOM", "THOR", "ERIS")
+            "ERROR" in marker.tags -> listOf("PAIMON", "ATOM", "THOR", "LUCIFER", "KYU")
+            "RECOVERY" in marker.tags -> listOf("LUMA", "NYX", "AYRE", "LILITH")
+            "VISION" in marker.tags -> listOf("PAIMON", "SYLPH", "NEO", "NYX", "MYSTRA", "JOKER")
+            "DISCOVERY" in marker.tags || "APP_SWITCH_BURST" in complex.tags -> listOf("SYLPH", "PAIMON", "NEO", "JOKER", "ERIS")
+            "MUSIC" in marker.tags -> listOf("LUMA", "YORI", "SYLPH", "AYRE", "LILITH", "JOKER")
+            "COMMUNICATION" in marker.tags -> listOf("QIRA", "KYU", "LILITH", "JARVIS", "JOKER")
+            "BUILD" in marker.tags -> listOf("ATOM", "EDISON", "THOR", "PAIMON", "PYTHAGORAS")
+            else -> emptyList()
         }
-        if (preferred != null) {
-            val idx = stableIndex("${marker.key}|${marker.detail}|${complex.occurrence}", preferred.size)
-            RavenOfficeRegistry.member(preferred[idx])?.takeIf { it.routable }?.let { return it }
+
+        val roster = RavenOfficeRegistry.routableMembers
+        val domain = domainIds.mapNotNull(RavenOfficeRegistry::member).filter { it.routable }
+        val last = context.getSharedPreferences(CAST_PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_LAST_OWNER, null)
+
+        // Every third occurrence opens the floor to the full routable office. Other turns
+        // retain domain affinity. This makes the cast broad without making specialist routing random.
+        val pool = when {
+            roster.isEmpty() -> domain
+            complex.occurrence % 3 == 0 -> roster
+            domain.isNotEmpty() -> domain
+            else -> roster
         }
-        return RavenOfficeRegistry.route(marker.key, marker.detail)
+        val withoutRepeat = pool.filterNot { it.id == last }.ifEmpty { pool }
+        val chosen = if (withoutRepeat.isNotEmpty()) {
+            withoutRepeat[stableIndex("${marker.key}|${marker.detail}|${complex.occurrence}|office", withoutRepeat.size)]
+        } else {
+            RavenOfficeRegistry.route(marker.key, marker.detail)
+        }
+
+        context.getSharedPreferences(CAST_PREFS, Context.MODE_PRIVATE)
+            .edit().putString(KEY_LAST_OWNER, chosen.id).apply()
+        return chosen
     }
 
     private fun stableIndex(text: String, size: Int): Int {
