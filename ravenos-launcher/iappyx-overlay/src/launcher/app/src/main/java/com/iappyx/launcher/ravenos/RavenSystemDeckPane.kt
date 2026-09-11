@@ -20,6 +20,7 @@ class RavenSystemDeckPane(
     private lateinit var readinessView: TextView
     private lateinit var hauntView: TextView
     private lateinit var traceView: TextView
+    private lateinit var integrityView: TextView
 
     init {
         isFillViewport = true
@@ -43,10 +44,12 @@ class RavenSystemDeckPane(
             RavenOfficeBarService.enable(activity)
             RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "office-bar-wake")
             updateReadiness()
+            updateIntegrity()
         }, top(6))
         root.addView(button("SLEEP OFFICE BAR") {
             RavenOfficeBarService.disable(activity)
             updateReadiness()
+            updateIntegrity()
         }, top(6))
         root.addView(button("BACKGROUND / BATTERY SURVIVAL") {
             RavenPermissionDeck.openBatteryOptimization(activity)
@@ -55,6 +58,7 @@ class RavenSystemDeckPane(
             val snap = RavenAwarenessStatus.snapshot(activity)
             readinessView.text = readinessText(snap) + "\n\nLOCAL CANARY: ${snap.compact()}"
             RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "canary:${snap.passed}/${snap.total}")
+            updateIntegrity()
         }, top(6))
 
         root.addView(section("HAUNT INTENSITY"), top(28))
@@ -79,6 +83,7 @@ class RavenSystemDeckPane(
             val next = RavenHauntModeStore.cycle(activity)
             RavenOfficeBarService.setHaunt(activity, next)
             updateHaunt()
+            updateIntegrity()
         }, weight())
         root.addView(hauntRow2, top(6))
 
@@ -93,6 +98,16 @@ class RavenSystemDeckPane(
             RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "office-trace-cleared")
         }, top(6))
 
+        root.addView(section("SURFACE INTEGRITY"), top(28))
+        integrityView = text(RavenSurfaceIntegrity.compact(activity), 10f, 0xFFC8C8D4.toInt(), false)
+        root.addView(integrityView, top(8))
+        root.addView(text("RENDERED = RavenOS updated an owned native View. POSTED = Android accepted the Office Bar foreground notification. DISPATCHED = state was sent to a WebView/cross-process channel but is not yet device-acknowledged. No optimistic sync claims.", 10f, 0xFF9292A4.toInt(), false), top(4))
+        root.addView(button("REFRESH SURFACE INTEGRITY") { updateIntegrity() }, top(8))
+        root.addView(button("CLEAR SURFACE INTEGRITY") {
+            RavenSurfaceIntegrity.clear(activity)
+            updateIntegrity()
+        }, top(6))
+
         root.addView(section("AUDIO"), top(28))
         rebuildAudio()
 
@@ -102,9 +117,11 @@ class RavenSystemDeckPane(
             RavenPermissionDeck.ensureOfficeBarNotifications(activity)
             RavenOfficeBarService.enable(activity)
             RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "notification-permission-requested")
+            updateIntegrity()
         }, top(10))
         root.addView(button("PING SYSTEM DECK") {
             RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "manual-ping")
+            updateIntegrity()
         }, top(6))
 
         root.addView(section("MAX AWARENESS · EXPLICIT AND REVOCABLE"), top(28))
@@ -125,6 +142,7 @@ class RavenSystemDeckPane(
                 RavenOfficeBarService.enable(activity)
                 RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "follow-me-enabled")
                 updateReadiness()
+                updateIntegrity()
             } else {
                 RavenPermissionDeck.openOverlayAccess(activity)
             }
@@ -134,6 +152,7 @@ class RavenSystemDeckPane(
             RavenFollowMeOverlay.disable(activity)
             RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "follow-me-disabled")
             updateReadiness()
+            updateIntegrity()
         }, top(6))
         root.addView(button("APP PERMISSION DETAILS") {
             RavenPermissionDeck.openAppDetails(activity)
@@ -144,6 +163,7 @@ class RavenSystemDeckPane(
         updateReadiness()
         updateHaunt()
         updateTrace()
+        updateIntegrity()
         RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "refresh")
     }
 
@@ -151,6 +171,7 @@ class RavenSystemDeckPane(
         RavenOfficeBarService.setHaunt(activity, mode)
         updateHaunt()
         updateReadiness()
+        updateIntegrity()
     }
 
     private fun updateHaunt() {
@@ -159,6 +180,10 @@ class RavenSystemDeckPane(
 
     private fun updateTrace() {
         traceView.text = RavenOfficeTraceStore.compact(activity)
+    }
+
+    private fun updateIntegrity() {
+        integrityView.text = RavenSurfaceIntegrity.compact(activity)
     }
 
     private fun hauntText(): String {
