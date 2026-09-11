@@ -110,6 +110,7 @@ def main() -> None:
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeMember.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenForegroundAwarenessService.kt",
+        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenFollowMeOverlay.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenAwarenessStatus.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenBootReceiver.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenPermissionDeck.kt",
