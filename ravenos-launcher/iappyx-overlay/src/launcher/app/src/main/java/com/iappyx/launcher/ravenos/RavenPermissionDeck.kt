@@ -43,6 +43,16 @@ object RavenPermissionDeck {
         safeStart(activity, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
     }
 
+    /** Optional app-level foreground fallback. Android owns and can revoke this grant. */
+    fun openUsageAwareness(activity: Activity) {
+        safeStart(
+            activity,
+            Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+                data = Uri.parse("package:${activity.packageName}")
+            },
+        )
+    }
+
     fun openNotificationAwareness(activity: Activity) {
         safeStart(activity, Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
     }
