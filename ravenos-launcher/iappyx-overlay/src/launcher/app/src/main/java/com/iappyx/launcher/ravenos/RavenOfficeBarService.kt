@@ -77,10 +77,12 @@ class RavenOfficeBarService : Service() {
                 val detail = prefs.getString(KEY_DETAIL, "") ?: ""
                 val current = RavenOfficeRegistry.route(signal, detail, prefs.getString(KEY_MANUAL_OWNER, null))
                 val list = RavenOfficeRegistry.routableMembers
-                val idx = list.indexOfFirst { it.id == current.id }.let { if (it < 0) 0 else it }
-                val next = list[(idx + 1) % list.size]
-                prefs.edit().putBoolean(KEY_ENABLED, true).putBoolean(KEY_EXPLICIT_DISABLED, false)
-                    .putString(KEY_MANUAL_OWNER, next.id).putBoolean(KEY_QUIET, false).apply()
+                if (list.isNotEmpty()) {
+                    val idx = list.indexOfFirst { it.id == current.id }.let { if (it < 0) 0 else it }
+                    val next = list[(idx + 1) % list.size]
+                    prefs.edit().putBoolean(KEY_ENABLED, true).putBoolean(KEY_EXPLICIT_DISABLED, false)
+                        .putString(KEY_MANUAL_OWNER, next.id).putBoolean(KEY_QUIET, false).apply()
+                }
             }
             ACTION_AUTO -> prefs.edit().putBoolean(KEY_ENABLED, true).putBoolean(KEY_EXPLICIT_DISABLED, false)
                 .remove(KEY_MANUAL_OWNER).putBoolean(KEY_QUIET, false).apply()
@@ -120,12 +122,7 @@ class RavenOfficeBarService : Service() {
         )
         val member = brain.member
         val reaction = brain.packet
-        val body = reaction.dialogue.ifBlank { "Noted." }
-        val authorLine = reaction.authorNote.takeIf { it.isNotBlank() }?.let { "AUTHOR'S NOTE: $it" }.orEmpty()
-        val visibleLine = buildString {
-            append(body)
-            if (authorLine.isNotBlank()) append("\n").append(authorLine)
-        }
+        val body = reaction.dialogue.ifBlank { "${reaction.owner} is watching." }
 
         RavenReactionStateStore.write(this, reaction)
         RavenOfficeStateStore.write(
@@ -133,7 +130,7 @@ class RavenOfficeBarService : Service() {
             member = member,
             signal = signal,
             detail = detail,
-            note = visibleLine,
+            note = body,
             hauntMode = hauntMode,
             manual = manual != null,
             quiet = quiet,
@@ -143,12 +140,12 @@ class RavenOfficeBarService : Service() {
             member,
             signal,
             detail,
-            visibleLine,
+            body,
             hauntMode,
         )
 
         RavenHomeAura.render(member, hauntMode)
-        RavenHomeWhisper.render(member, visibleLine, "", "", hauntMode)
+        RavenHomeWhisper.render(member, body, signal, detail, hauntMode)
         RavenFollowMeOverlay.hide()
         RavenGoblinVisionOverlay.renderReaction(this, reaction, hauntMode)
 
@@ -164,8 +161,11 @@ class RavenOfficeBarService : Service() {
         val haunt = serviceAction(ACTION_HAUNT_CYCLE, 14)
 
         val title = reaction.ownerLine
-        val contextLine = authorLine.ifBlank { "RavenOS noticed a phone-state change." }
-        val big = visibleLine
+        val glyph = RavenEmployeePresentation.signalGlyph(signal, detail)
+        val contextLine = listOfNotNull(
+            glyph.takeIf { it.isNotBlank() },
+            shortContext(signal),
+        ).joinToString("  ")
 
         val custom = RemoteViews(packageName, R.layout.ravenos_office_bar).apply {
             val textColor = contrastText(reaction.accent)
@@ -183,7 +183,7 @@ class RavenOfficeBarService : Service() {
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(big))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setCustomContentView(custom)
             .setCustomBigContentView(custom)
             .setColor(reaction.accent)
@@ -199,6 +199,16 @@ class RavenOfficeBarService : Service() {
             .addAction(0, if (quiet) "WAKE" else "QUIET", quietAction)
             .addAction(0, "HAUNT", haunt)
             .build()
+    }
+
+    private fun shortContext(signal: String): String = when (signal.trim().uppercase()) {
+        "SCREEN_VISUAL" -> "screen moved"
+        "MEDIA_SESSION", "MEDIA_ACTIVE", "MEDIA_IDLE" -> "media"
+        "NOTIFICATION", "NOTIFICATION_POSTED", "NOTIFICATION_REMOVED" -> "notification"
+        "FOREGROUND_APP", "FOREGROUND_USAGE" -> "foreground"
+        "FOREGROUND_WINDOW" -> "window"
+        "HOME", "HOME_ENTER" -> "home"
+        else -> signal.replace('_', ' ').lowercase().take(28)
     }
 
     private fun contrastText(color: Int): Int {
@@ -256,7 +266,7 @@ class RavenOfficeBarService : Service() {
             val mode = RavenHauntModeStore.get(context)
             val normalizedSignal = signal.trim().uppercase()
             when (normalizedSignal) {
-                "FOREGROUND_APP" -> if (!mode.foregroundRouting) return
+                "FOREGROUND_APP", "FOREGROUND_USAGE", "FOREGROUND_WINDOW" -> if (!mode.foregroundRouting) return
                 "NOTIFICATION" -> if (!mode.notificationRouting) return
             }
             val enriched = enrichDetail(context, normalizedSignal, detail)
@@ -282,16 +292,16 @@ class RavenOfficeBarService : Service() {
             .setAction(ACTION_RESTORE).putExtra(EXTRA_DETAIL, reason))
 
         private fun enrichDetail(context: Context, signal: String, detail: String): String {
-            if (signal != "APP_LAUNCH" && signal != "FOREGROUND_APP" && signal != "NOTIFICATION") return detail
+            if (signal !in setOf("APP_LAUNCH", "FOREGROUND_APP", "FOREGROUND_USAGE", "FOREGROUND_WINDOW", "NOTIFICATION")) return detail
             val marker = "package:"
             val start = detail.indexOf(marker)
             if (start < 0) return detail
             val pkg = detail.substring(start + marker.length).substringBefore('|').trim()
-            if (pkg.isBlank()) return detail
+            if (pkg.isBlank() || detail.contains("app:")) return detail
             return try {
                 val info = context.packageManager.getApplicationInfo(pkg, 0)
                 val label = context.packageManager.getApplicationLabel(info).toString().trim()
-                if (label.isBlank()) detail else "app:${label.take(80)}|package:$pkg"
+                if (label.isBlank()) detail else "app:${label.take(80)}|$detail"
             } catch (_: Throwable) { detail }
         }
 
