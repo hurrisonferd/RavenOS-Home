@@ -71,6 +71,9 @@ object RavenOfficeStateStore {
             .putBoolean("quiet", snapshot.quiet)
             .putLong("updated_at", snapshot.updatedAt)
             .apply()
+
+        // Push only the safe/presentation subset to capability-granted generated widgets.
+        RavenWidgetOfficeModule.broadcast(context.applicationContext, snapshot)
         return snapshot
     }
 
