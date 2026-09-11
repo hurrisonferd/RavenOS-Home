@@ -96,18 +96,21 @@ On-device checks:
   8. Raven Search: haunt calm -> Home Whisper hides, Home Aura becomes minimal, Follow-Me disappears even if overlay permission remains granted.
   9. Raven Search: haunt lived-in -> compact Home presence returns while Follow-Me remains suppressed.
  10. Raven Search: haunt haunted / feral / apocalypse -> projections intensify without granting any new Android permission.
- 11. Enable Foreground Awareness; switch Spotify/browser/Settings and verify deterministic owner/note changes and human-readable app labels.
- 12. Grant overlay access; run `follow me` and verify the draggable Office chip follows across apps.
- 13. Tap Follow-Me -> RavenOS reopens; drag it -> position persists.
- 14. Turn screen off -> Office receipt routes NIGHT/screen:off. Unlock -> HOME/user:present receipt.
- 15. Plug power in/out -> POWER receipts include local battery percentage.
- 16. Raven Search: office trace -> bounded local routing history contains owner/signal/haunt/context receipts.
- 17. Raven Search: clear office trace -> trace clears; new activity starts a fresh history.
- 18. Raven Search: office sleep -> Office Bar, Home Aura, Home Whisper, Follow-Me all disappear and ordinary signals do not revive them. `office wake` restores presence.
- 19. While Office wallpaper is hidden behind another app, leave it for a minute; return Home and confirm it resumes current Office state rather than continuously burning visible animation work off-screen.
- 20. Reboot once awake and once asleep: awake restores after BOOT_COMPLETED; explicit sleep survives reboot.
+ 11. Raven Search: clear office cadence, then rapidly bounce Spotify -> browser -> Settings and trigger several notifications. `office cadence` must show accepted + suppressed counts; lower haunt levels should suppress more flapping.
+ 12. Repeat the same quick switching in APOCALYPSE. `office cadence` should show a much shorter hold/duplicate window and visibly faster resident changes.
+ 13. Confirm a higher-priority event (screen off / battery low / power transition) can interrupt ordinary app/notification dwell instead of waiting behind it.
+ 14. Enable Foreground Awareness; switch Spotify/browser/Settings and verify deterministic owner/note changes and human-readable app labels.
+ 15. Grant overlay access; run `follow me` and verify the draggable Office chip follows across apps.
+ 16. Tap Follow-Me -> RavenOS reopens; drag it -> position persists.
+ 17. Turn screen off -> Office receipt routes NIGHT/screen:off. Unlock -> HOME/user:present receipt.
+ 18. Plug power in/out -> POWER receipts include local battery percentage.
+ 19. Raven Search: office trace -> bounded local routing history contains owner/signal/haunt/context receipts.
+ 20. Raven Search: clear office trace -> trace clears; new activity starts a fresh history.
+ 21. Raven Search: office sleep -> Office Bar, Home Aura, Home Whisper, Follow-Me all disappear and ordinary signals do not revive them. `office wake` restores presence.
+ 22. While Office wallpaper is hidden behind another app, leave it for a minute; return Home and confirm it resumes current Office state rather than continuously burning visible animation work off-screen.
+ 23. Reboot once awake and once asleep: awake restores after BOOT_COMPLETED; explicit sleep survives reboot.
 EOF
 
 echo
 echo "DEVICE_CANARY_SOURCE_COMPLETE=true"
-echo "RUNTIME_RESULT=REQUIRES_HUMAN_OBSERVATION_FOR_HOME_WIDGET_WALLPAPER_OVERLAY_SCREEN_POWER_TRACE_AND_REBOOT_EDGES"
+echo "RUNTIME_RESULT=REQUIRES_HUMAN_OBSERVATION_FOR_HOME_WIDGET_WALLPAPER_OVERLAY_CADENCE_SCREEN_POWER_TRACE_AND_REBOOT_EDGES"
