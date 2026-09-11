@@ -71,6 +71,8 @@ jobs:
 
           # Core haunted runtime
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeMember.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenEmployeePresentation.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenGoblinVisionOverlay.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeGovernor.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenForegroundAwarenessService.kt"
@@ -97,6 +99,15 @@ jobs:
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenIntelligenceProvider.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenHomeActivity.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenAppCatalog.kt"
+
+          # Goblin Vision / EmojiOS / KaomojiOS projection law
+          grep -R 'RavenEmployeePresentation.packet' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
+          grep -R 'RavenGoblinVisionOverlay.render' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
+          grep -R 'RAVENOS ECOLOGY: unified employee presentation' "$ROOT/java/com/iappyx/launcher/ravenos/RavenHomeActivity.kt"
+          grep -R 'GOBLIN VISION' "$ROOT/java/com/iappyx/launcher/ravenos/RavenGoblinVisionOverlay.kt"
+          grep -R 'KaomojiOS' "$ROOT/java/com/iappyx/launcher/ravenos/RavenEmployeePresentation.kt"
+          grep -R 'no-op compatibility seam' "$ROOT/java/com/iappyx/launcher/ravenos/RavenMorphSurface.kt"
+          ! grep -q 'content.addView' "$ROOT/java/com/iappyx/launcher/ravenos/RavenMorphSurface.kt"
 
           # Haunted ecology wave
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenHauntRequirements.kt"
@@ -126,14 +137,13 @@ jobs:
           test -s 'ravenos-launcher/patch-ravenos-ergonomics.py'
           grep -R 'APOCALYPSE' "$ROOT/java/com/iappyx/launcher/ravenos/RavenHauntMode.kt"
           grep -R 'RavenOfficeGovernor.accept' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
-          grep -R 'RavenFollowMeOverlay.render' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           grep -R 'RavenHomeAura.render' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           grep -R 'RavenHomeWhisper.render' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           grep -R 'RavenOfficeTraceStore.record' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           grep -R 'RavenOfficeStateStore.write' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           grep -R 'RavenWidgetOfficeModule.broadcast' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeStateStore.kt"
           grep -R 'RavenSurfaceIntegrity.OFFICE_BAR' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
-          grep -R 'RavenSurfaceIntegrity.FOLLOW_ME' "$ROOT/java/com/iappyx/launcher/ravenos/RavenFollowMeOverlay.kt"
+          grep -R 'RavenSurfaceIntegrity.FOLLOW_ME' "$ROOT/java/com/iappyx/launcher/ravenos/RavenGoblinVisionOverlay.kt"
           grep -R 'markCrossProcess' "$ROOT/java/com/iappyx/launcher/ravenos/RavenSurfaceIntegrity.kt"
           grep -R 'fun acknowledge' "$ROOT/java/com/iappyx/launcher/ravenos/RavenWidgetOfficeBridge.kt"
           grep -R 'ravenOffice.acknowledge' "$ROOT/assets/widgets/ravenos_office.html"
