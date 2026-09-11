@@ -38,6 +38,9 @@ jobs:
       - name: Apply RavenOS Launcher overlay
         run: python3 ravenos-launcher/apply-ravenos-overlay.py
 
+      - name: Apply RavenOS ergonomics patch
+        run: python3 ravenos-launcher/patch-ravenos-ergonomics.py faeryware/house/iappyxOS-Launcher
+
       - name: Verify RavenOS identity and haunted runtime hooks
         run: |
           set -euo pipefail
@@ -51,6 +54,9 @@ jobs:
           grep -R 'RAVENOS AMBIENT SIGNALS' "$ROOT/AndroidManifest.xml"
           grep -R 'RAVENOS HOME AURA' "$ROOT/java/com/iappyx/launcher/LauncherActivity.kt"
           grep -R 'RAVENOS HOME WHISPER' "$ROOT/java/com/iappyx/launcher/LauncherActivity.kt"
+          grep -R 'RAVENOS ERGONOMICS: persistent Raven edge menu' "$ROOT/java/com/iappyx/launcher/LauncherActivity.kt"
+          grep -R 'RAVENOS ERGONOMICS: explicit navigation API' "$ROOT/java/com/iappyx/launcher/LauncherActivity.kt"
+          grep -R 'RavenGesturePrefs.fire' "$ROOT/java/com/iappyx/launcher/LauncherActivity.kt"
           grep -R 'RAVENOS OFFICE BAR: initial home signal' "$ROOT/java/com/iappyx/launcher/LauncherActivity.kt"
           grep -R 'RAVENOS OFFICE BAR: app launch signal' "$ROOT/java/com/iappyx/launcher/applock/AppLockManager.kt"
           grep -R 'RAVENOS WIDGET OFFICE BRIDGE' "$ROOT/java/com/iappyx/launcher/cells/GeneratedWidgetCell.kt"
@@ -66,6 +72,8 @@ jobs:
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenFollowMeOverlay.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenHomeAura.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenHomeWhisper.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenMenu.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenGesturePrefs.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenHauntMode.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeTraceStore.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeStateStore.kt"
@@ -83,6 +91,7 @@ jobs:
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenSurfaceModel.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenIntelligenceProvider.kt"
           test -s 'ravenos-launcher/patch-ravenos-wallpaper.py'
+          test -s 'ravenos-launcher/patch-ravenos-ergonomics.py'
           grep -R 'APOCALYPSE' "$ROOT/java/com/iappyx/launcher/ravenos/RavenHauntMode.kt"
           grep -R 'RavenOfficeGovernor.accept' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           grep -R 'RavenFollowMeOverlay.render' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
