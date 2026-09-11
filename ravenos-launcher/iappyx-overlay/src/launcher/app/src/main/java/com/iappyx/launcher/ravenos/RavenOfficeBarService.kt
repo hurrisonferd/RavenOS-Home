@@ -277,6 +277,7 @@ class RavenOfficeBarService : Service() {
                 "NOTIFICATION" -> if (!mode.notificationRouting) return
             }
             val enriched = enrichDetail(context, normalizedSignal, detail)
+            if (!RavenOfficeGovernor.accept(context, normalizedSignal, enriched, mode)) return
             start(context, Intent(context, RavenOfficeBarService::class.java)
                 .setAction(ACTION_SIGNAL).putExtra(EXTRA_SIGNAL, signal).putExtra(EXTRA_DETAIL, enriched))
         }
