@@ -21,7 +21,7 @@ import com.iappyx.launcher.R
  * It is intentionally an ongoing notification rather than an invisible monitor:
  * - silent / low-importance channel
  * - current owner, emoji, UI accent, signal and deterministic author's note
- * - NEXT / AUTO / QUIET controls are always available from the notification
+ * - NEXT / AUTO / QUIET / HAUNT controls are available from the notification
  * - no model call is required to update it
  * - explicit sleep survives ordinary launcher signals; explicit wake restores it
  */
@@ -111,6 +111,14 @@ class RavenOfficeBarService : Service() {
                 .putBoolean(KEY_EXPLICIT_DISABLED, false)
                 .putBoolean(KEY_QUIET, !prefs.getBoolean(KEY_QUIET, false))
                 .apply()
+            ACTION_HAUNT_CYCLE -> {
+                val next = RavenHauntModeStore.cycle(this)
+                prefs.edit()
+                    .putBoolean(KEY_ENABLED, true)
+                    .putBoolean(KEY_EXPLICIT_DISABLED, false)
+                    .putString(KEY_DETAIL, "haunt:${next.label}")
+                    .apply()
+            }
         }
 
         // Null intent can happen when Android recreates a sticky service. Restore only when enabled.
@@ -125,12 +133,13 @@ class RavenOfficeBarService : Service() {
         val detail = prefs.getString(KEY_DETAIL, "") ?: ""
         val manual = prefs.getString(KEY_MANUAL_OWNER, null)
         val quiet = prefs.getBoolean(KEY_QUIET, false)
+        val hauntMode = RavenHauntModeStore.get(this)
         val member = if (quiet) RavenOfficeRegistry.member("NYX")!! else RavenOfficeRegistry.route(signal, detail, manual)
         val note = if (quiet) "Quiet watch. The office is still here; only material signals break silence."
                    else RavenOfficeRegistry.authorNote(member, signal, detail)
 
-        // Follow-Me Office is the same deterministic presence projected onto an explicit overlay grant.
-        RavenFollowMeOverlay.render(this, member, signal, note, detail)
+        // Same deterministic office presence, projected only when the chosen haunt level and explicit overlay grant allow it.
+        RavenFollowMeOverlay.render(this, member, signal, note, detail, hauntMode)
 
         val openHome = PendingIntent.getActivity(
             this,
@@ -141,6 +150,7 @@ class RavenOfficeBarService : Service() {
         val next = serviceAction(ACTION_NEXT, 11)
         val auto = serviceAction(ACTION_AUTO, 12)
         val quietAction = serviceAction(ACTION_QUIET, 13)
+        val haunt = serviceAction(ACTION_HAUNT_CYCLE, 14)
 
         val mode = if (manual == null) "AUTO" else "PINNED"
         val title = "${member.emoji} ${member.id} · ${prettySignal(signal)}"
@@ -149,6 +159,8 @@ class RavenOfficeBarService : Service() {
             append(member.lane)
             append(" · ")
             append(mode)
+            append(" · ")
+            append(hauntMode.label)
             if (detail.isNotBlank()) {
                 append(" · ")
                 append(detail.take(120))
@@ -186,6 +198,7 @@ class RavenOfficeBarService : Service() {
             .addAction(0, "NEXT", next)
             .addAction(0, "AUTO", auto)
             .addAction(0, if (quiet) "WAKE" else "QUIET", quietAction)
+            .addAction(0, "HAUNT", haunt)
             .build()
     }
 
@@ -249,18 +262,26 @@ class RavenOfficeBarService : Service() {
         const val ACTION_ENABLE = "com.ravenos.launcher.office.ENABLE"
         const val ACTION_DISABLE = "com.ravenos.launcher.office.DISABLE"
         const val ACTION_RESTORE = "com.ravenos.launcher.office.RESTORE"
+        const val ACTION_HAUNT_CYCLE = "com.ravenos.launcher.office.HAUNT_CYCLE"
 
         fun isEnabled(context: Context): Boolean = context
             .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_ENABLED, false)
 
-        fun signal(context: Context, signal: String, detail: String = "") = start(
-            context,
-            Intent(context, RavenOfficeBarService::class.java)
-                .setAction(ACTION_SIGNAL)
-                .putExtra(EXTRA_SIGNAL, signal)
-                .putExtra(EXTRA_DETAIL, detail),
-        )
+        fun signal(context: Context, signal: String, detail: String = "") {
+            val mode = RavenHauntModeStore.get(context)
+            when (signal.trim().uppercase()) {
+                "FOREGROUND_APP" -> if (!mode.foregroundRouting) return
+                "NOTIFICATION" -> if (!mode.notificationRouting) return
+            }
+            start(
+                context,
+                Intent(context, RavenOfficeBarService::class.java)
+                    .setAction(ACTION_SIGNAL)
+                    .putExtra(EXTRA_SIGNAL, signal)
+                    .putExtra(EXTRA_DETAIL, detail),
+            )
+        }
 
         fun pin(context: Context, owner: String) = start(
             context,
@@ -274,6 +295,12 @@ class RavenOfficeBarService : Service() {
         fun toggleQuiet(context: Context) = start(context, Intent(context, RavenOfficeBarService::class.java).setAction(ACTION_QUIET))
         fun enable(context: Context) = start(context, Intent(context, RavenOfficeBarService::class.java).setAction(ACTION_ENABLE))
         fun disable(context: Context) = start(context, Intent(context, RavenOfficeBarService::class.java).setAction(ACTION_DISABLE))
+        fun cycleHaunt(context: Context) = start(context, Intent(context, RavenOfficeBarService::class.java).setAction(ACTION_HAUNT_CYCLE))
+        fun setHaunt(context: Context, mode: RavenHauntMode) {
+            RavenHauntModeStore.set(context, mode)
+            enable(context)
+            signal(context, "SYSTEM_DECK", "haunt:${mode.label}")
+        }
         fun restore(context: Context, reason: String) = start(
             context,
             Intent(context, RavenOfficeBarService::class.java)
