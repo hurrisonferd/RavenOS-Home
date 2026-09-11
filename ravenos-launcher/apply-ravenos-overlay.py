@@ -111,6 +111,7 @@ def main() -> None:
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenForegroundAwarenessService.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenFollowMeOverlay.kt",
+        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenHomeAura.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenHauntMode.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeTraceStore.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenAmbientReceiver.kt",
@@ -131,7 +132,6 @@ def main() -> None:
 
     rebrand_strings()
 
-    # RavenOS is a distinct installable launcher, not a skin that replaces upstream iappyx.
     build_gradle = UPSTREAM / "src/launcher/app/build.gradle"
     replace_once(
         build_gradle,
@@ -172,8 +172,12 @@ def main() -> None:
     )
 
     launcher = UPSTREAM / "src/launcher/app/src/main/java/com/iappyx/launcher/LauncherActivity.kt"
-    patch_after(launcher, "RAVENOS OFFICE BAR: initial home signal", "        setContentView(R.layout.activity_launcher)\n",
-                '''        // RAVENOS OFFICE BAR: initial home signal\n        com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(this, "HOME", "launcher:home")\n''')
+    patch_after(
+        launcher,
+        "RAVENOS OFFICE BAR: initial home signal",
+        "        setContentView(R.layout.activity_launcher)\n",
+        '''        // RAVENOS HOME AURA: zero-touch routed edge glow over Home.\n        com.iappyx.launcher.ravenos.RavenHomeAura.attach(this)\n        // RAVENOS OFFICE BAR: initial home signal\n        com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(this, "HOME", "launcher:home")\n''',
+    )
     patch_after(launcher, "RAVENOS OFFICE BAR: page context", "            override fun onPageSelected(position: Int) {\n",
                 '''                // RAVENOS OFFICE BAR: page context\n                com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(this@LauncherActivity, "ROOM", "page:$position")\n''')
     patch_after(launcher, "RAVENOS OFFICE BAR: app universe", "    private fun showAppDrawer() {\n",
