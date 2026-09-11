@@ -33,9 +33,9 @@ object RavenHomeWhisper {
         val density = activity.resources.displayMetrics.density
         content.addView(
             card,
-            FrameLayout.LayoutParams((270 * density).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply {
-                topMargin = (92 * density).toInt()
-                marginEnd = (14 * density).toInt()
+            FrameLayout.LayoutParams((220 * density).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply {
+                topMargin = (86 * density).toInt()
+                marginEnd = (12 * density).toInt()
             },
         )
         viewRef = WeakReference(card)
@@ -75,16 +75,16 @@ object RavenHomeWhisper {
 
         init {
             orientation = VERTICAL
-            setPadding(dp(14), dp(12), dp(14), dp(12))
+            setPadding(dp(12), dp(10), dp(12), dp(10))
             elevation = dp(7).toFloat()
-            owner.textSize = 16f
+            owner.textSize = 15f
             owner.setTypeface(owner.typeface, Typeface.BOLD)
             addView(owner, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
-            note.textSize = 13f
-            note.setPadding(0, dp(5), 0, 0)
+            note.textSize = 12f
+            note.setPadding(0, dp(4), 0, 0)
             addView(note, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
-            context.textSize = 10f
-            context.setPadding(0, dp(6), 0, 0)
+            context.textSize = 9f
+            context.setPadding(0, dp(5), 0, 0)
             addView(context, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         }
 
@@ -93,19 +93,20 @@ object RavenHomeWhisper {
                 visibility = View.GONE
                 return
             }
+            applyModeGeometry(mode)
             visibility = View.VISIBLE
             val textColor = contrastText(member.accent)
             val secondary = if (textColor == Color.BLACK) 0xA8000000.toInt() else 0xC8FFFFFF.toInt()
             background = GradientDrawable().apply {
-                cornerRadius = dp(if (mode == RavenHauntMode.APOCALYPSE) 24 else 18).toFloat()
+                cornerRadius = dp(if (mode == RavenHauntMode.APOCALYPSE) 24 else 16).toFloat()
                 setColor(withAlpha(member.accent, when (mode) {
-                    RavenHauntMode.LIVED_IN -> 168
-                    RavenHauntMode.HAUNTED -> 194
-                    RavenHauntMode.FERAL -> 216
+                    RavenHauntMode.LIVED_IN -> 150
+                    RavenHauntMode.HAUNTED -> 184
+                    RavenHauntMode.FERAL -> 212
                     RavenHauntMode.APOCALYPSE -> 232
                     RavenHauntMode.CALM -> 0
                 }))
-                setStroke(dp(if (mode.ordinal >= RavenHauntMode.FERAL.ordinal) 2 else 1), withAlpha(textColor, 62))
+                setStroke(dp(if (mode.ordinal >= RavenHauntMode.FERAL.ordinal) 2 else 1), withAlpha(textColor, 58))
             }
             owner.text = "${member.emoji} ${member.id}"
             owner.setTextColor(textColor)
@@ -126,6 +127,30 @@ object RavenHomeWhisper {
                     append("\n").append(detail.take(if (mode == RavenHauntMode.APOCALYPSE) 130 else 85))
                 }
             }
+        }
+
+        private fun applyModeGeometry(mode: RavenHauntMode) {
+            val lp = layoutParams as? FrameLayout.LayoutParams ?: return
+            lp.width = dp(when (mode) {
+                RavenHauntMode.CALM -> 180
+                RavenHauntMode.LIVED_IN -> 188
+                RavenHauntMode.HAUNTED -> 220
+                RavenHauntMode.FERAL -> 248
+                RavenHauntMode.APOCALYPSE -> 278
+            })
+            lp.topMargin = dp(when (mode) {
+                RavenHauntMode.APOCALYPSE -> 76
+                RavenHauntMode.FERAL -> 80
+                else -> 86
+            })
+            lp.marginEnd = dp(if (mode == RavenHauntMode.APOCALYPSE) 8 else 12)
+            layoutParams = lp
+            setPadding(
+                dp(if (mode.ordinal >= RavenHauntMode.FERAL.ordinal) 14 else 12),
+                dp(if (mode.ordinal >= RavenHauntMode.FERAL.ordinal) 12 else 10),
+                dp(if (mode.ordinal >= RavenHauntMode.FERAL.ordinal) 14 else 12),
+                dp(if (mode.ordinal >= RavenHauntMode.FERAL.ordinal) 12 else 10),
+            )
         }
 
         private fun withAlpha(color: Int, alpha: Int): Int = Color.argb(alpha.coerceIn(0, 255), Color.red(color), Color.green(color), Color.blue(color))
