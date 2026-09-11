@@ -60,7 +60,7 @@ object RavenWidgetOfficeModule {
         .put("ok", true)
         .put("owner", snapshot.owner)
         .put("emoji", snapshot.emoji)
-        .put("accent", String.format("#%08X", snapshot.accent))
+        .put("accent", RavenOfficeStateStore.accentCss(snapshot.accent))
         .put("lane", snapshot.lane)
         .put("signal", snapshot.signal)
         .put("note", snapshot.note)
