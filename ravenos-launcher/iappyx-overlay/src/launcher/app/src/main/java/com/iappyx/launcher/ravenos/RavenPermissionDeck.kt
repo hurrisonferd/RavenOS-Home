@@ -2,6 +2,7 @@ package com.iappyx.launcher.ravenos
 
 import android.Manifest
 import android.app.Activity
+import android.app.role.RoleManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -25,6 +26,19 @@ object RavenPermissionDeck {
         return false
     }
 
+    fun requestDefaultHome(activity: Activity) {
+        try {
+            val roles = activity.getSystemService(RoleManager::class.java)
+            if (roles != null && roles.isRoleAvailable(RoleManager.ROLE_HOME)) {
+                if (!roles.isRoleHeld(RoleManager.ROLE_HOME)) {
+                    activity.startActivity(roles.createRequestRoleIntent(RoleManager.ROLE_HOME))
+                }
+                return
+            }
+        } catch (_: Throwable) {}
+        safeStart(activity, Intent(Settings.ACTION_HOME_SETTINGS))
+    }
+
     fun openForegroundAwareness(activity: Activity) {
         safeStart(activity, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
     }
@@ -41,6 +55,11 @@ object RavenPermissionDeck {
                 Uri.parse("package:${activity.packageName}"),
             ),
         )
+    }
+
+    /** Opens the system battery-optimization surface; RavenOS never bypasses it silently. */
+    fun openBatteryOptimization(activity: Activity) {
+        safeStart(activity, Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
     }
 
     fun openAppDetails(activity: Activity) {
