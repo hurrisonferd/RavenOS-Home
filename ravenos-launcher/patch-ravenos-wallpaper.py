@@ -53,6 +53,12 @@ after(
 )
 
 after(
+    "RAVENOS OFFICE WALLPAPER: acknowledgement selection on change",
+    "                    activeId = newId\n",
+    '''                    // RAVENOS OFFICE WALLPAPER: acknowledgement selection on change.\n                    // Only the bundled Office wallpaper receives the callback interface.\n                    presentation?.setRavenOfficeAckEnabled(newId == "ravenos_office")\n''',
+)
+
+after(
     "RAVENOS OFFICE WALLPAPER: unregister state receiver",
     "            layoutChangedReceiver = null\n",
     '''            // RAVENOS OFFICE WALLPAPER: unregister state receiver.\n            ravenOfficeChangedReceiver?.let {\n                try { unregisterReceiver(it) } catch (_: Throwable) {}\n            }\n            ravenOfficeChangedReceiver = null\n''',
@@ -65,9 +71,21 @@ before(
 )
 
 after(
+    "RAVENOS OFFICE WALLPAPER: acknowledgement selection on build",
+    "                    it.show()\n",
+    '''                    // RAVENOS OFFICE WALLPAPER: acknowledgement selection on build.\n                    it.setRavenOfficeAckEnabled(activeId == "ravenos_office")\n''',
+)
+
+after(
     "RAVENOS OFFICE WALLPAPER: presentation state",
     "        private var widgetHost: WidgetHost? = null\n",
-    '''        // RAVENOS OFFICE WALLPAPER: presentation state. One-way JS event only;\n        // wallpaper HTML receives no new native-call authority.\n        private var ravenOfficeJson: String? = null\n''',
+    '''        // RAVENOS OFFICE WALLPAPER: presentation state.\n        private var ravenOfficeJson: String? = null\n''',
+)
+
+after(
+    "RAVENOS OFFICE WALLPAPER: acknowledgement bridge field",
+    "        private var widgetHost: WidgetHost? = null\n",
+    '''        // RAVENOS OFFICE WALLPAPER: acknowledgement bridge field.\n        // It exists only while the bundled ravenos_office payload is active.\n        private var ravenOfficeAckBridge:\n            com.iappyx.launcher.ravenos.RavenWallpaperOfficeAckBridge? = null\n''',
 )
 
 after(
@@ -77,13 +95,19 @@ after(
 )
 
 before(
+    "RAVENOS OFFICE WALLPAPER: acknowledgement capability API",
+    "        fun updateLayout(json: String) {\n",
+    '''        // RAVENOS OFFICE WALLPAPER: acknowledgement capability API.\n        // Arbitrary/user-generated wallpapers never receive this interface.\n        fun setRavenOfficeAckEnabled(enabled: Boolean) {\n            if (!::web.isInitialized) return\n            if (enabled) {\n                if (ravenOfficeAckBridge == null) {\n                    val ack = com.iappyx.launcher.ravenos.RavenWallpaperOfficeAckBridge(\n                        context.applicationContext,\n                    )\n                    ravenOfficeAckBridge = ack\n                    web.addJavascriptInterface(ack, "ravenOfficeAck")\n                }\n            } else if (ravenOfficeAckBridge != null) {\n                web.removeJavascriptInterface("ravenOfficeAck")\n                ravenOfficeAckBridge = null\n            }\n        }\n\n''',
+)
+
+before(
     "RAVENOS OFFICE WALLPAPER: one-way state API",
     "        fun updateLayout(json: String) {\n",
     '''        // RAVENOS OFFICE WALLPAPER: one-way state API.\n        fun seedRavenOffice(json: String) {\n            ravenOfficeJson = json\n        }\n\n        fun updateRavenOffice(json: String) {\n            ravenOfficeJson = json\n            if (::web.isInitialized) dispatchRavenOffice(json)\n        }\n\n        private fun dispatchRavenOffice(json: String) {\n            if (!::web.isInitialized) return\n            val quoted = org.json.JSONObject.quote(json)\n            try {\n                web.evaluateJavascript(\n                    "(()=>{const s=JSON.parse($quoted);window.ravenOfficeState=s;" +\n                        "window.dispatchEvent(new CustomEvent('ravenofficechange',{detail:s}));})()",\n                    null,\n                )\n            } catch (_: Throwable) {}\n        }\n\n''',
 )
 
 path.write_text(text, encoding="utf-8")
-print("RavenOS wallpaper Office-state patch applied")
+print("RavenOS wallpaper Office-state + acknowledgement patch applied")
 
 # Register the RavenOS Office proof widget in the donor's existing bundled-widget library.
 widget_library = root / "src/launcher/app/src/main/java/com/iappyx/launcher/widget/WidgetLibrary.kt"
