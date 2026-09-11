@@ -19,7 +19,7 @@ import kotlin.math.abs
 /**
  * Small visible Office presence that can follow Raven across apps.
  *
- * Requires the explicit SYSTEM_ALERT_WINDOW grant. It only occupies its own small bounds,
+ * Requires the explicit SYSTEM_ALERT_WINDOW grant. It only occupies its own bounds,
  * never reads the underlying app, and never intercepts touches outside those bounds.
  */
 object RavenFollowMeOverlay {
@@ -58,8 +58,9 @@ object RavenFollowMeOverlay {
         signal: String,
         note: String,
         detail: String,
+        hauntMode: RavenHauntMode = RavenHauntModeStore.get(context),
     ) {
-        if (!isEnabled(context) || !Settings.canDrawOverlays(context)) {
+        if (!hauntMode.followMe || !isEnabled(context) || !Settings.canDrawOverlays(context)) {
             hide()
             return
         }
@@ -67,29 +68,46 @@ object RavenFollowMeOverlay {
         val textColor = contrastText(member.accent)
         val secondary = if (textColor == Color.BLACK) 0xAA000000.toInt() else 0xCCFFFFFF.toInt()
         root?.background = GradientDrawable().apply {
-            cornerRadius = dp(context, 18).toFloat()
-            setColor(withAlpha(member.accent, 238))
-            setStroke(dp(context, 1), withAlpha(textColor, 70))
+            cornerRadius = dp(context, if (hauntMode == RavenHauntMode.APOCALYPSE) 24 else 18).toFloat()
+            setColor(withAlpha(member.accent, if (hauntMode == RavenHauntMode.APOCALYPSE) 248 else 238))
+            setStroke(dp(context, if (hauntMode.ordinal >= RavenHauntMode.FERAL.ordinal) 2 else 1), withAlpha(textColor, 82))
         }
         ownerView?.apply {
-            text = "${member.emoji} ${member.id}"
+            text = "${member.emoji} ${member.id} · ${hauntMode.label}"
             setTextColor(textColor)
+            textSize = if (hauntMode == RavenHauntMode.APOCALYPSE) 17f else 15f
         }
         noteView?.apply {
             text = note
             setTextColor(textColor)
+            maxLines = hauntMode.overlayDetailLines.coerceAtLeast(1)
         }
         contextView?.apply {
             text = buildString {
                 append(signal.replace('_', ' ').lowercase())
                 append(" · ")
                 append(member.lane)
-                if (detail.isNotBlank()) {
+                if (detail.isNotBlank() && hauntMode.overlayDetailLines >= 2) {
                     append("\n")
-                    append(detail.take(90))
+                    append(detail.take(if (hauntMode == RavenHauntMode.APOCALYPSE) 150 else 90))
                 }
             }
+            maxLines = if (hauntMode == RavenHauntMode.APOCALYPSE) 4 else 2
             setTextColor(secondary)
+        }
+
+        params?.let { lp ->
+            val desiredWidth = when (hauntMode) {
+                RavenHauntMode.HAUNTED -> 286
+                RavenHauntMode.FERAL -> 320
+                RavenHauntMode.APOCALYPSE -> 350
+                else -> 286
+            }
+            val pxWidth = dp(context, desiredWidth)
+            if (lp.width != pxWidth) {
+                lp.width = pxWidth
+                try { root?.let { manager?.updateViewLayout(it, lp) } } catch (_: Throwable) {}
+            }
         }
     }
 
