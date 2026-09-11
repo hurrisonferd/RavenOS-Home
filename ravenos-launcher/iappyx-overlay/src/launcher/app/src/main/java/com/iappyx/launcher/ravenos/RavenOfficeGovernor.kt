@@ -32,9 +32,14 @@ object RavenOfficeGovernor {
             return false
         }
 
-        val appEdges = setOf("APP_LAUNCH", "FOREGROUND_APP")
-        if (normalized in appEdges && previousSignal in appEdges && detail == previousDetail && age < dupWindow * 2L) {
+        val appEdges = setOf("APP_LAUNCH", "FOREGROUND_APP", "FOREGROUND_USAGE")
+        if (normalized in appEdges && previousSignal in appEdges && samePackage(detail, previousDetail) && age < dupWindow * 2L) {
             recordSuppressed(context, "semantic-app-edge:$previousSignal->$normalized:${age}ms")
+            return false
+        }
+
+        if (normalized == "FOREGROUND_WINDOW" && previousSignal == "FOREGROUND_WINDOW" && samePackage(detail, previousDetail) && age < dupWindow) {
+            recordSuppressed(context, "window-flap:${age}ms")
             return false
         }
 
@@ -71,6 +76,13 @@ object RavenOfficeGovernor {
             .remove(KEY_ACCEPTED).remove(KEY_SUPPRESSED).remove(KEY_LAST_SUPPRESSION).apply()
     }
 
+    private fun samePackage(a: String, b: String): Boolean {
+        fun pkg(s: String): String? = Regex("(?:^|\\|)package:([^|]+)").find(s)?.groupValues?.getOrNull(1)
+        val pa = pkg(a)
+        val pb = pkg(b)
+        return pa != null && pa == pb
+    }
+
     private fun recordSuppressed(context: Context, reason: String) {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         prefs.edit()
@@ -96,7 +108,8 @@ object RavenOfficeGovernor {
             RavenHauntMode.APOCALYPSE -> 350L
         }
         return when (previousSignal) {
-            "FOREGROUND_APP", "APP_LAUNCH" -> (base * 1.35).toLong()
+            "FOREGROUND_APP", "FOREGROUND_USAGE", "APP_LAUNCH" -> (base * 1.25).toLong()
+            "FOREGROUND_WINDOW" -> (base * 0.72).toLong()
             "SCREEN_VISUAL" -> (base * 0.85).toLong()
             else -> base
         }
@@ -111,6 +124,8 @@ object RavenOfficeGovernor {
         "SYSTEM_DECK", "AUDIO", "DEVICE" -> 68
         "APP_LAUNCH" -> 62
         "FOREGROUND_APP" -> 60
+        "FOREGROUND_USAGE" -> 57
+        "FOREGROUND_WINDOW" -> 44
         "MEDIA_SESSION" -> if (detail.contains("state:PLAYING")) 58 else 52
         "SEARCH", "STUDIO", "EDIT" -> 56
         "INCOMING", "CLIPPING", "SHARE" -> 52
