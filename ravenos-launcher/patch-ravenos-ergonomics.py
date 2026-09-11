@@ -6,6 +6,7 @@ explicit Raven Menu escape hatch and makes vertical gestures user-configurable s
 """
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -121,3 +122,8 @@ replace_once(
 
 path.write_text(text, encoding="utf-8")
 print("RavenOS ergonomics patch applied: edge menu + configurable vertical gestures")
+
+# Keep the native Home ecology in the same deterministic build path as ergonomics so CI and
+# local builds cannot accidentally produce different RavenOS launchers.
+ec = Path(__file__).resolve().with_name("patch-ravenos-ecology.py")
+subprocess.check_call(["python3", str(ec), str(root)])
