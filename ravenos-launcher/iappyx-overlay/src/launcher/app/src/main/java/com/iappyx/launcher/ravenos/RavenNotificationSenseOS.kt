@@ -3,15 +3,11 @@ package com.iappyx.launcher.ravenos
 import android.app.Notification
 import android.app.NotificationManager
 import android.content.Context
+import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 
-/**
- * Notification-awareness layer for RavenOS.
- *
- * Default SOURCE mode never routes title/body text. SEMANTIC may expose the title locally;
- * FULL_LOCAL may expose title/body locally. None of these modes upload data or grant effect authority.
- */
+/** Notification-awareness layer with owner-selected local privacy depth. */
 object RavenNotificationSenseOS {
     enum class PrivacyMode { SOURCE, SEMANTIC, FULL_LOCAL }
 
@@ -36,7 +32,7 @@ object RavenNotificationSenseOS {
     }
 
     fun cycle(context: Context): PrivacyMode {
-        val values = PrivacyMode.entries
+        val values = PrivacyMode.values()
         val next = values[(mode(context).ordinal + 1) % values.size]
         setMode(context, next)
         return next
@@ -53,7 +49,7 @@ object RavenNotificationSenseOS {
         val ranking = NotificationListenerService.Ranking()
         val ranked = runCatching { rankingMap?.getRanking(sbn.key, ranking) == true }.getOrDefault(false)
         val importance = if (ranked) ranking.importance else NotificationManager.IMPORTANCE_UNSPECIFIED
-        val conversation = ranked && ranking.isConversation
+        val conversation = ranked && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && ranking.isConversation
         val ambient = ranked && ranking.isAmbient
         val matchesFilter = !ranked || ranking.matchesInterruptionFilter()
         val channel = if (ranked) ranking.channel?.id.orEmpty() else ""
@@ -93,7 +89,6 @@ object RavenNotificationSenseOS {
             }
             append("|privacy:").append(privacy.name)
         }
-        // Dedicated signal avoids the legacy app-label enricher truncating notification metadata.
         RavenOfficeBarService.signal(context, "NOTIFICATION_SENSE", detail)
     }
 
