@@ -2,15 +2,9 @@ package com.iappyx.launcher.ravenos
 
 import android.content.Context
 
-/**
- * Deterministic short-form phone commentary.
- *
- * Raw telemetry stays in evidence stores. Visible prose gets one bounded natural-language
- * author's note selected deterministically from the same facts.
- */
+/** Deterministic short-form phone commentary. Raw telemetry stays in evidence stores. */
 object RavenMetaCommentaryOS {
     data class Commentary(val text: String, val family: String, val noveltyKey: String)
-
     private enum class SurfaceKind { APP, SYSTEM_UI, KEYBOARD, LAUNCHER_SURFACE }
 
     fun compose(
@@ -42,7 +36,7 @@ object RavenMetaCommentaryOS {
             ))
             "MEDIA_IDLE" -> pick(seed, listOf(
                 scene.activeApp?.let { "Music stopped while you're still in $it." } ?: "Music stopped.",
-                "Soundtrack paused out.",
+                "Soundtrack went quiet.",
                 "Audio went quiet.",
             ))
             "MEDIA_SESSION" -> mediaSessionCommentary(context, seed, marker.detail, scene.activeApp)
@@ -50,11 +44,7 @@ object RavenMetaCommentaryOS {
             "AUDIO" -> audioCommentary(seed, marker.detail)
             "NOTIFICATION_POSTED" -> notificationCommentary(context, seed, marker.detail)
             "NOTIFICATION_REMOVED" -> notificationRemovedCommentary(context, seed, marker.detail)
-            "SYSTEM_DECK_OPENED" -> pick(seed, listOf(
-                "System Deck is open.",
-                "Quick settings pit stop.",
-                "You're tuning RavenOS for a second.",
-            ))
+            "SYSTEM_DECK_OPENED" -> pick(seed, listOf("System Deck is open.", "Quick settings pit stop.", "You're tuning RavenOS for a second."))
             "SEARCH_OPENED" -> pick(seed, listOf("Search is open.", "Looking for something.", "Search mode."))
             "APP_UNIVERSE_OPENED" -> pick(seed, listOf("App drawer's open.", "Picking the next app.", "App universe time."))
             "ROOM_CHANGED" -> pick(seed, listOf("Home room changed.", "Different launcher room.", "Home shifted scenes."))
@@ -73,7 +63,6 @@ object RavenMetaCommentaryOS {
             surface == SurfaceKind.SYSTEM_UI && marker.key == "APP_ENTER" -> "META_SYSTEM_UI"
             surface == SurfaceKind.KEYBOARD && marker.key == "APP_ENTER" -> "META_INPUT"
             surface == SurfaceKind.LAUNCHER_SURFACE && marker.key == "APP_ENTER" -> "META_LAUNCHER"
-            marker.key == "MEDIA_SESSION" -> "META_MEDIA"
             marker.key.startsWith("MEDIA") -> "META_MEDIA"
             marker.key == "SCREEN_VISUAL" -> "META_VISION"
             marker.key.startsWith("NOTIFICATION") -> "META_NOTIFICATION"
@@ -82,8 +71,7 @@ object RavenMetaCommentaryOS {
             else -> "META_${marker.key}"
         }
         val short = shorten(text, 118)
-        val noveltyKey = listOf(member.id, family, short, complex.occurrence.toString()).joinToString("|")
-        return Commentary(short, family, noveltyKey)
+        return Commentary(short, family, listOf(member.id, family, short, complex.occurrence.toString()).joinToString("|"))
     }
 
     private fun appComment(
@@ -95,47 +83,45 @@ object RavenMetaCommentaryOS {
         fast: Boolean,
         mediaHot: Boolean,
         recentSwitches: Int,
-    ): String {
-        return when (surface) {
-            SurfaceKind.SYSTEM_UI -> when {
-                previousApp != null && previousApp != "System UI" -> pick(seed, listOf(
-                    "Quick System UI detour; $previousApp was underneath.",
-                    "System UI popped up over $previousApp.",
-                    "You pulled up System UI from $previousApp.",
-                ))
-                else -> pick(seed, listOf("System UI is up.", "Android's system panel is on top.", "System UI popped up."))
-            }
-            SurfaceKind.KEYBOARD -> when {
-                previousApp != null -> pick(seed, listOf(
-                    "Keyboard's up in $previousApp.",
-                    "Typing mode in $previousApp.",
-                    "Keyboard popped up; $previousApp is still the task.",
-                ))
-                else -> pick(seed, listOf("Keyboard's up.", "Typing mode.", "Input surface opened."))
-            }
-            SurfaceKind.LAUNCHER_SURFACE -> buildString {
-                append(pick(seed, listOf("Back on Home.", "Launcher popped up.", "Home screen pit stop.")))
-                if (mediaHot) append(" Music kept playing.")
-            }
-            SurfaceKind.APP -> when {
-                previousApp != null && app != null && previousApp != app && fast -> pick(seed, listOf(
-                    "$previousApp → $app in ${elapsed / 1000}s.",
-                    "Quick jump from $previousApp to $app.",
-                    "You switched from $previousApp to $app.",
-                ))
-                recentSwitches >= 4 && app != null -> pick(seed, listOf(
-                    "You've bounced through $recentSwitches apps pretty fast; $app is up now.",
-                    "$app is the latest stop in a fast app-hopping streak.",
-                    "Busy minute: $recentSwitches app changes, now $app.",
-                ))
-                app != null && mediaHot -> pick(seed, listOf(
-                    "$app is open and the music kept going.",
-                    "Opened $app without losing the soundtrack.",
-                    "$app is up; music is still rolling.",
-                ))
-                app != null -> pick(seed, listOf("$app is open.", "You're in $app now.", "$app is on screen."))
-                else -> "Foreground app changed."
-            }
+    ): String = when (surface) {
+        SurfaceKind.SYSTEM_UI -> when {
+            previousApp != null && previousApp != "System UI" -> pick(seed, listOf(
+                "Quick System UI detour; $previousApp was underneath.",
+                "System UI popped up over $previousApp.",
+                "You pulled up System UI from $previousApp.",
+            ))
+            else -> pick(seed, listOf("System UI is up.", "Android's system panel is on top.", "System UI popped up."))
+        }
+        SurfaceKind.KEYBOARD -> when {
+            previousApp != null -> pick(seed, listOf(
+                "Keyboard's up in $previousApp.",
+                "Typing mode in $previousApp.",
+                "Keyboard popped up; $previousApp is still the task.",
+            ))
+            else -> pick(seed, listOf("Keyboard's up.", "Typing mode.", "Input surface opened."))
+        }
+        SurfaceKind.LAUNCHER_SURFACE -> buildString {
+            append(pick(seed, listOf("Back on Home.", "Launcher popped up.", "Home screen pit stop.")))
+            if (mediaHot) append(" Music kept playing.")
+        }
+        SurfaceKind.APP -> when {
+            previousApp != null && app != null && previousApp != app && fast -> pick(seed, listOf(
+                "$previousApp → $app in ${elapsed / 1000}s.",
+                "Quick jump from $previousApp to $app.",
+                "You switched from $previousApp to $app.",
+            ))
+            recentSwitches >= 4 && app != null -> pick(seed, listOf(
+                "You've bounced through $recentSwitches apps pretty fast; $app is up now.",
+                "$app is the latest stop in a fast app-hopping streak.",
+                "Busy minute: $recentSwitches app changes, now $app.",
+            ))
+            app != null && mediaHot -> pick(seed, listOf(
+                "$app is open and the music kept going.",
+                "Opened $app without losing the soundtrack.",
+                "$app is up; music is still rolling.",
+            ))
+            app != null -> pick(seed, listOf("$app is open.", "You're in $app now.", "$app is on screen."))
+            else -> "Foreground app changed."
         }
     }
 
@@ -176,11 +162,7 @@ object RavenMetaCommentaryOS {
         val title = field(detail, "title")?.take(58)
         val privacy = field(detail, "privacy") ?: "SOURCE"
         return when {
-            burst >= 3 -> pick(seed, listOf(
-                "$source got noisy: $burst notifications together.",
-                "$source just dropped $burst notifications at once.",
-                "$burst pings from $source in one burst.",
-            ))
+            burst >= 3 -> pick(seed, listOf("$source got noisy: $burst notifications together.", "$source just dropped $burst notifications at once.", "$burst pings from $source in one burst."))
             conversation && alerting -> pick(seed, listOf("$source wants your attention.", "$source has an active conversation ping.", "Message alert from $source."))
             !title.isNullOrBlank() && privacy != "SOURCE" -> pick(seed, listOf("$source: “$title”.", "$source posted “$title”.", "New $source notification: “$title”."))
             else -> pick(seed, listOf("$source pinged.", "New notification from $source.", "$source dropped a notification."))
@@ -218,12 +200,10 @@ object RavenMetaCommentaryOS {
         fun value(name: String): Int? = field(detail, name)?.toIntOrNull()
         val media = value("media")
         val ring = value("ring")
-        val ringer = field(detail, "ringer")
-        return when {
-            ringer == "vibrate" -> pick(seed, listOf("Phone's on vibrate.", "Vibrate mode is on.", "Ringer switched to vibrate."))
-            ringer == "silent" -> pick(seed, listOf("Phone went silent.", "Silent mode is on.", "Ringer is muted."))
-            media != null && ring != null -> pick(seed, listOf("Media $media%, ring $ring%.", "Volume changed: media $media%, ring $ring%.", "Audio levels moved — media $media%, ring $ring%."))
-            else -> "Audio settings changed."
+        return when (field(detail, "ringer")) {
+            "vibrate" -> pick(seed, listOf("Phone's on vibrate.", "Vibrate mode is on.", "Ringer switched to vibrate."))
+            "silent" -> pick(seed, listOf("Phone went silent.", "Silent mode is on.", "Ringer is muted."))
+            else -> if (media != null && ring != null) pick(seed, listOf("Media $media%, ring $ring%.", "Volume changed: media $media%, ring $ring%.", "Audio levels moved — media $media%, ring $ring%.")) else "Audio settings changed."
         }
     }
 
@@ -273,16 +253,14 @@ object RavenMetaCommentaryOS {
         }
     }
 
-    private fun surfaceKind(pkg: String?, app: String?): SurfaceKind = when {
-        pkg {
-            "com.android.systemui" -> SurfaceKind.SYSTEM_UI
-            "com.samsung.android.honeyboard", "com.google.android.inputmethod.latin" -> SurfaceKind.KEYBOARD
-            "com.sec.android.app.launcher", "com.ravenos.launcher" -> SurfaceKind.LAUNCHER_SURFACE
-            else -> when {
-                app?.contains("keyboard", true) == true -> SurfaceKind.KEYBOARD
-                app?.contains("one ui home", true) == true || app?.contains("launcher", true) == true -> SurfaceKind.LAUNCHER_SURFACE
-                else -> SurfaceKind.APP
-            }
+    private fun surfaceKind(pkg: String?, app: String?): SurfaceKind = when (pkg) {
+        "com.android.systemui" -> SurfaceKind.SYSTEM_UI
+        "com.samsung.android.honeyboard", "com.google.android.inputmethod.latin" -> SurfaceKind.KEYBOARD
+        "com.sec.android.app.launcher", "com.ravenos.launcher" -> SurfaceKind.LAUNCHER_SURFACE
+        else -> when {
+            app?.contains("keyboard", true) == true -> SurfaceKind.KEYBOARD
+            app?.contains("one ui home", true) == true || app?.contains("launcher", true) == true -> SurfaceKind.LAUNCHER_SURFACE
+            else -> SurfaceKind.APP
         }
     }
 
