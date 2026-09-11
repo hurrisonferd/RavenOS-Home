@@ -23,9 +23,7 @@ import com.iappyx.launcher.R
  * - current owner, emoji, UI accent, signal and deterministic author's note
  * - NEXT / AUTO / QUIET controls are always available from the notification
  * - no model call is required to update it
- *
- * Deeper phone awareness is supplied by explicit RavenOS/Faeryware signals; this service
- * does not scrape other apps on its own.
+ * - explicit sleep survives ordinary launcher signals; explicit wake restores it
  */
 class RavenOfficeBarService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
@@ -37,9 +35,40 @@ class RavenOfficeBarService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
-        when (intent?.action) {
+        val action = intent?.action
+
+        if (action == ACTION_DISABLE) {
+            prefs.edit()
+                .putBoolean(KEY_ENABLED, false)
+                .putBoolean(KEY_EXPLICIT_DISABLED, true)
+                .apply()
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        // Ordinary context signals must not silently undo Raven's explicit sleep choice.
+        if (action == ACTION_SIGNAL && prefs.getBoolean(KEY_EXPLICIT_DISABLED, false)) {
+            return START_NOT_STICKY
+        }
+
+        when (action) {
+            ACTION_ENABLE -> {
+                prefs.edit()
+                    .putBoolean(KEY_ENABLED, true)
+                    .putBoolean(KEY_EXPLICIT_DISABLED, false)
+                    .apply()
+            }
+            ACTION_RESTORE -> {
+                if (!prefs.getBoolean(KEY_ENABLED, false)) return START_NOT_STICKY
+                val reason = intent.getStringExtra(EXTRA_DETAIL).orEmpty()
+                if (reason.isNotBlank()) {
+                    prefs.edit().putString(KEY_DETAIL, "restored:$reason").apply()
+                }
+            }
             ACTION_SIGNAL -> {
                 prefs.edit()
+                    .putBoolean(KEY_ENABLED, true)
                     .putString(KEY_SIGNAL, intent.getStringExtra(EXTRA_SIGNAL) ?: "HOME")
                     .putString(KEY_DETAIL, intent.getStringExtra(EXTRA_DETAIL) ?: "")
                     .apply()
@@ -48,7 +77,12 @@ class RavenOfficeBarService : Service() {
                 val requested = intent.getStringExtra(EXTRA_OWNER)
                 val member = RavenOfficeRegistry.member(requested)
                 if (member?.routable == true) {
-                    prefs.edit().putString(KEY_MANUAL_OWNER, member.id).putBoolean(KEY_QUIET, false).apply()
+                    prefs.edit()
+                        .putBoolean(KEY_ENABLED, true)
+                        .putBoolean(KEY_EXPLICIT_DISABLED, false)
+                        .putString(KEY_MANUAL_OWNER, member.id)
+                        .putBoolean(KEY_QUIET, false)
+                        .apply()
                 }
             }
             ACTION_NEXT -> {
@@ -58,12 +92,28 @@ class RavenOfficeBarService : Service() {
                 val list = RavenOfficeRegistry.routableMembers
                 val idx = list.indexOfFirst { it.id == current.id }.let { if (it < 0) 0 else it }
                 val next = list[(idx + 1) % list.size]
-                prefs.edit().putString(KEY_MANUAL_OWNER, next.id).putBoolean(KEY_QUIET, false).apply()
+                prefs.edit()
+                    .putBoolean(KEY_ENABLED, true)
+                    .putBoolean(KEY_EXPLICIT_DISABLED, false)
+                    .putString(KEY_MANUAL_OWNER, next.id)
+                    .putBoolean(KEY_QUIET, false)
+                    .apply()
             }
-            ACTION_AUTO -> prefs.edit().remove(KEY_MANUAL_OWNER).putBoolean(KEY_QUIET, false).apply()
-            ACTION_QUIET -> prefs.edit().putBoolean(KEY_QUIET, !prefs.getBoolean(KEY_QUIET, false)).apply()
+            ACTION_AUTO -> prefs.edit()
+                .putBoolean(KEY_ENABLED, true)
+                .putBoolean(KEY_EXPLICIT_DISABLED, false)
+                .remove(KEY_MANUAL_OWNER)
+                .putBoolean(KEY_QUIET, false)
+                .apply()
+            ACTION_QUIET -> prefs.edit()
+                .putBoolean(KEY_ENABLED, true)
+                .putBoolean(KEY_EXPLICIT_DISABLED, false)
+                .putBoolean(KEY_QUIET, !prefs.getBoolean(KEY_QUIET, false))
+                .apply()
         }
 
+        // Null intent can happen when Android recreates a sticky service. Restore only when enabled.
+        if (!prefs.getBoolean(KEY_ENABLED, false)) return START_NOT_STICKY
         startForeground(NOTIFICATION_ID, buildNotification())
         return START_STICKY
     }
@@ -179,6 +229,8 @@ class RavenOfficeBarService : Service() {
         private const val KEY_DETAIL = "detail"
         private const val KEY_MANUAL_OWNER = "manual_owner"
         private const val KEY_QUIET = "quiet"
+        private const val KEY_ENABLED = "enabled"
+        private const val KEY_EXPLICIT_DISABLED = "explicit_disabled"
         private const val EXTRA_SIGNAL = "signal"
         private const val EXTRA_DETAIL = "detail"
         private const val EXTRA_OWNER = "owner"
@@ -190,6 +242,13 @@ class RavenOfficeBarService : Service() {
         const val ACTION_NEXT = "com.ravenos.launcher.office.NEXT"
         const val ACTION_AUTO = "com.ravenos.launcher.office.AUTO"
         const val ACTION_QUIET = "com.ravenos.launcher.office.QUIET"
+        const val ACTION_ENABLE = "com.ravenos.launcher.office.ENABLE"
+        const val ACTION_DISABLE = "com.ravenos.launcher.office.DISABLE"
+        const val ACTION_RESTORE = "com.ravenos.launcher.office.RESTORE"
+
+        fun isEnabled(context: Context): Boolean = context
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_ENABLED, false)
 
         fun signal(context: Context, signal: String, detail: String = "") = start(
             context,
@@ -209,6 +268,14 @@ class RavenOfficeBarService : Service() {
         fun next(context: Context) = start(context, Intent(context, RavenOfficeBarService::class.java).setAction(ACTION_NEXT))
         fun auto(context: Context) = start(context, Intent(context, RavenOfficeBarService::class.java).setAction(ACTION_AUTO))
         fun toggleQuiet(context: Context) = start(context, Intent(context, RavenOfficeBarService::class.java).setAction(ACTION_QUIET))
+        fun enable(context: Context) = start(context, Intent(context, RavenOfficeBarService::class.java).setAction(ACTION_ENABLE))
+        fun disable(context: Context) = start(context, Intent(context, RavenOfficeBarService::class.java).setAction(ACTION_DISABLE))
+        fun restore(context: Context, reason: String) = start(
+            context,
+            Intent(context, RavenOfficeBarService::class.java)
+                .setAction(ACTION_RESTORE)
+                .putExtra(EXTRA_DETAIL, reason),
+        )
 
         private fun start(context: Context, intent: Intent) {
             try {
