@@ -61,11 +61,11 @@ object RavenWholePhonePanel {
         button("👁 ARM GOBLIN EYE") { RavenPermissionDeck.armGoblinEye(activity) }
         button("STOP GOBLIN EYE") { RavenPermissionDeck.stopGoblinEye(activity) }
 
-        section("CROSS-APP GOBLIN", "Appear-on-top permission lets Goblin Vision/Watchlet surfaces follow Raven across ordinary apps. It does not place app overlays above critical SystemUI surfaces.")
+        section("CROSS-APP GOBLIN", "ENABLE FOLLOW-ME remembers Raven's request. If Android asks for appear-on-top access, grant it and return; the next real phone event reconciles the grant and arms the overlay automatically. SystemUI remains outside the fake-overlay claim boundary.")
         button("OPEN APPEAR-ON-TOP ACCESS") { RavenPermissionDeck.openOverlayAccess(activity) }
         button("ENABLE FOLLOW-ME") {
             if (!RavenFollowMeOverlay.enable(activity)) RavenPermissionDeck.openOverlayAccess(activity)
-            else RavenOfficeBarService.enable(activity)
+            else RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "follow-me:enabled")
         }
         button("HIDE FOLLOW-ME") { RavenFollowMeOverlay.disable(activity) }
 
@@ -95,6 +95,7 @@ object RavenWholePhonePanel {
             append(awareness.compact())
             append("\n").append(RavenNotificationSenseOS.summary(activity))
             append("\n").append(media.compact())
+            append("\n").append(RavenFollowMeOverlay.status(activity))
             append("\n").append(galaxy.compact())
         }
     }
