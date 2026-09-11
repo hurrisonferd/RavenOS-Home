@@ -120,7 +120,12 @@ class RavenOfficeBarService : Service() {
         )
         val member = brain.member
         val reaction = brain.packet
-        val visibleLine = reaction.dialogue.ifBlank { reaction.authorNote }
+        val body = reaction.dialogue.ifBlank { "Noted." }
+        val authorLine = reaction.authorNote.takeIf { it.isNotBlank() }?.let { "AUTHOR'S NOTE: $it" }.orEmpty()
+        val visibleLine = buildString {
+            append(body)
+            if (authorLine.isNotBlank()) append("\n").append(authorLine)
+        }
 
         RavenReactionStateStore.write(this, reaction)
         RavenOfficeStateStore.write(
@@ -138,12 +143,12 @@ class RavenOfficeBarService : Service() {
             member,
             signal,
             detail,
-            "${reaction.visualState}:${reaction.dialogueFamily}:${visibleLine}",
+            visibleLine,
             hauntMode,
         )
 
         RavenHomeAura.render(member, hauntMode)
-        RavenHomeWhisper.render(member, visibleLine, signal, detail, hauntMode)
+        RavenHomeWhisper.render(member, visibleLine, "", "", hauntMode)
         RavenFollowMeOverlay.hide()
         RavenGoblinVisionOverlay.renderReaction(this, reaction, hauntMode)
 
@@ -158,28 +163,9 @@ class RavenOfficeBarService : Service() {
         val quietAction = serviceAction(ACTION_QUIET, 13)
         val haunt = serviceAction(ACTION_HAUNT_CYCLE, 14)
 
-        val mode = if (manual == null) "AUTO" else "PINNED"
-        val title = "${reaction.ownerLine} · ${reaction.visualState.replace('_', ' ')}"
-        val body = visibleLine.ifBlank { "${reaction.owner} is present." }
-        val contextLine = buildString {
-            append(reaction.lane)
-            append(" · ").append(reaction.zone)
-            append(" · #").append(reaction.occurrence)
-            append(" · ").append(mode)
-            append(" · ").append(hauntMode.label)
-            append(" · ").append(reaction.episode)
-            if (reaction.highlight != RavenHighlightOS.Class.NONE.name) {
-                append(" · ").append(reaction.highlight).append(':').append(reaction.highlightScore)
-            }
-        }
-        val big = buildString {
-            append(body)
-            if (reaction.dialogue.isNotBlank() && reaction.authorNote.isNotBlank()) {
-                append("\n\nAUTHOR'S NOTE: ").append(reaction.authorNote)
-            }
-            append("\n\n").append(contextLine)
-            append("\nPROOF: ").append(reaction.proof)
-        }
+        val title = reaction.ownerLine
+        val contextLine = authorLine.ifBlank { "RavenOS noticed a phone-state change." }
+        val big = visibleLine
 
         val custom = RemoteViews(packageName, R.layout.ravenos_office_bar).apply {
             val textColor = contrastText(reaction.accent)
