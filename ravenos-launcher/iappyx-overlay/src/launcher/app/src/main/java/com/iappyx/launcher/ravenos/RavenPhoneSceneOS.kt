@@ -8,18 +8,29 @@ object RavenPhoneSceneOS {
         val activeApp: String?,
         val screen: String,
         val mediaHot: Boolean,
+        val mediaTitle: String?,
+        val mediaArtist: String?,
         val recentSwitches: Int,
         val events60s: Int,
         val notificationSource: String?,
+        val notificationBurst: Int,
+        val notificationAlerting: Boolean,
+        val goblinEyeActive: Boolean,
+        val lastVisualMotion: Int?,
         val recentKeys: List<String>,
     ) {
         fun compact(): String = buildString {
             append("FOCUS=").append(activeApp ?: "?")
             append(" · SCREEN=").append(screen)
             append(" · MUSIC=").append(if (mediaHot) "HOT" else "QUIET")
+            mediaTitle?.let { append(" · TRACK=").append(it.take(34)) }
             append(" · SWITCHES30=").append(recentSwitches)
             append(" · EVENTS60=").append(events60s)
             notificationSource?.let { append(" · PING=").append(it) }
+            if (notificationBurst > 1) append("×").append(notificationBurst)
+            if (notificationAlerting) append("!")
+            append(" · EYE=").append(if (goblinEyeActive) "ON" else "OFF")
+            lastVisualMotion?.let { append(" · MOTION=").append(it).append('%') }
         }
     }
 
@@ -45,28 +56,46 @@ object RavenPhoneSceneOS {
             screenMarker?.detail?.contains("screen:on", true) == true -> "ON"
             else -> "?"
         }
-        val mediaMarker = recent.asReversed().firstOrNull { it.key == "MEDIA_ACTIVE" || it.key == "MEDIA_IDLE" }
-        val mediaHot = mediaMarker?.key == "MEDIA_ACTIVE" && now - mediaMarker.at <= 10 * 60_000L
+
+        val session = recent.asReversed().firstOrNull { it.key == "MEDIA_SESSION" }
+        val simpleMedia = recent.asReversed().firstOrNull { it.key == "MEDIA_ACTIVE" || it.key == "MEDIA_IDLE" }
+        val sessionState = session?.let { field(it.detail, "state") }
+        val mediaHot = when {
+            session != null && now - session.at <= 10 * 60_000L -> sessionState == "PLAYING" || sessionState == "BUFFERING"
+            else -> simpleMedia?.key == "MEDIA_ACTIVE" && now - (simpleMedia?.at ?: 0L) <= 10 * 60_000L
+        }
+
         val switches = recent.count { it.key == "APP_ENTER" && now - it.at <= 30_000L }
         val events = recent.count { now - it.at <= 60_000L }
-        val notif = recent.asReversed().firstOrNull {
+        val notifMarker = recent.asReversed().firstOrNull {
             it.key == "NOTIFICATION_POSTED" && now - it.at <= 2 * 60_000L
-        }?.let(::appLabel)
+        }
+        val visual = recent.asReversed().firstOrNull {
+            it.key == "SCREEN_VISUAL" && it.detail.contains("state:changed") && now - it.at <= 2 * 60_000L
+        }
         return Scene(
             activeApp = focus,
             screen = screen,
             mediaHot = mediaHot,
+            mediaTitle = session?.let { field(it.detail, "title") },
+            mediaArtist = session?.let { field(it.detail, "artist") },
             recentSwitches = switches,
             events60s = events,
-            notificationSource = notif,
-            recentKeys = recent.takeLast(6).map { it.key },
+            notificationSource = notifMarker?.let(::appLabel),
+            notificationBurst = notifMarker?.let { field(it.detail, "burst")?.toIntOrNull() } ?: 0,
+            notificationAlerting = notifMarker?.let { field(it.detail, "alerting") == "true" } ?: false,
+            goblinEyeActive = RavenScreenWatchService.isActive(context),
+            lastVisualMotion = visual?.let { field(it.detail, "motion")?.toIntOrNull() },
+            recentKeys = recent.takeLast(7).map { it.key },
         )
     }
 
     private fun appLabel(marker: RavenMarkerBus.Marker): String? {
-        val named = Regex("(?:^|\\|)app:([^|]+)").find(marker.detail)?.groupValues?.getOrNull(1)?.trim()
+        val named = field(marker.detail, "app")
         if (!named.isNullOrBlank()) return named.take(40)
-        val pkg = Regex("(?:^|\\|)package:([^|\\s]+)").find(marker.detail)?.groupValues?.getOrNull(1)?.trim()
-        return pkg?.substringAfterLast('.')?.take(40)?.takeIf { it.isNotBlank() }
+        return field(marker.detail, "package")?.substringAfterLast('.')?.take(40)?.takeIf { it.isNotBlank() }
     }
+
+    private fun field(detail: String, name: String): String? =
+        Regex("(?:^|\\|)${Regex.escape(name)}:([^|]*)").find(detail)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() }
 }
