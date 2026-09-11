@@ -93,6 +93,13 @@ object RavenCommandRouter {
                 RavenOfficeTraceStore.clear(context)
                 Result(true, "office trace cleared")
             }
+            "office cadence", "cadence office", "office governor" -> {
+                Result(true, RavenOfficeGovernor.compact(context))
+            }
+            "clear office cadence", "office cadence clear", "clear office governor" -> {
+                RavenOfficeGovernor.clearStats(context)
+                Result(true, "office cadence stats cleared")
+            }
             "follow me", "follow me on", "overlay on", "office overlay" -> {
                 val enabled = RavenFollowMeOverlay.enable(context)
                 if (enabled) {
