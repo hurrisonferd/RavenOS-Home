@@ -45,7 +45,15 @@ object RavenHomeAura {
 
     fun render(member: RavenOfficeMember, mode: RavenHauntMode) {
         val view = viewRef?.get() ?: return
-        view.post { view.setState(member.accent, mode) }
+        view.post {
+            view.visibility = View.VISIBLE
+            view.setState(member.accent, mode)
+        }
+    }
+
+    fun hide() {
+        val view = viewRef?.get() ?: return
+        view.post { view.visibility = View.GONE }
     }
 
     private const val TAG = "ravenos_home_aura"
