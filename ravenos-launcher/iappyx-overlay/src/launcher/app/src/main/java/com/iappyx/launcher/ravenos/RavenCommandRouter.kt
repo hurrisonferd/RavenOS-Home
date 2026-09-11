@@ -65,6 +65,25 @@ object RavenCommandRouter {
                 RavenOfficeBarService.disable(context)
                 Result(true, "office sleep")
             }
+            "follow me", "follow me on", "overlay on", "office overlay" -> {
+                val enabled = RavenFollowMeOverlay.enable(context)
+                if (enabled) {
+                    RavenOfficeBarService.enable(context)
+                    RavenOfficeBarService.signal(context, "SEARCH", "command:follow-me-on")
+                    Result(true, "follow-me on")
+                } else {
+                    val activity = context as? Activity
+                    if (activity != null) {
+                        RavenPermissionDeck.openOverlayAccess(activity)
+                        Result(true, "overlay permission requested")
+                    } else Result(false)
+                }
+            }
+            "follow me off", "overlay off", "hide office" -> {
+                RavenFollowMeOverlay.disable(context)
+                RavenOfficeBarService.signal(context, "SEARCH", "command:follow-me-off")
+                Result(true, "follow-me off")
+            }
             "raven status", "launcher status", "awareness status" -> {
                 Result(true, RavenAwarenessStatus.snapshot(context).compact())
             }
