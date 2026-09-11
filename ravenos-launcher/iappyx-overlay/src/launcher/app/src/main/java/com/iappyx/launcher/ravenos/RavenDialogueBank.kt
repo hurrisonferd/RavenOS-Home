@@ -121,7 +121,7 @@ object RavenDialogueBank {
                 vision -> listOf("The scene turns another circle.", "Another frame on the road.")
                 else -> emptyList()
             }
-            "ERIS", "EREBUS" -> emptyList()
+            "EREBUS" -> emptyList()
             else -> when {
                 error -> listOf("That one earned attention.")
                 payoff -> listOf("Useful change.")
