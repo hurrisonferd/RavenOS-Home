@@ -1,17 +1,16 @@
 package com.iappyx.launcher.ravenos
 
+import android.app.Activity
 import android.graphics.Color
-import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
-import com.iappyx.launcher.LauncherActivity
 
 /** Owner-facing controls for RavenOS whole-phone awareness. */
 object RavenWholePhonePanel {
-    fun show(activity: LauncherActivity) {
+    fun show(activity: Activity) {
         val density = activity.resources.displayMetrics.density
         fun px(v: Int) = (v * density).toInt()
         val root = LinearLayout(activity).apply {
@@ -62,7 +61,7 @@ object RavenWholePhonePanel {
         button("👁 ARM GOBLIN EYE") { RavenPermissionDeck.armGoblinEye(activity) }
         button("STOP GOBLIN EYE") { RavenPermissionDeck.stopGoblinEye(activity) }
 
-        section("CROSS-APP GOBLIN", "Appear-on-top permission lets the existing Goblin Vision/Watchlet surfaces follow Raven across ordinary apps. It does not place app overlays above critical SystemUI surfaces.")
+        section("CROSS-APP GOBLIN", "Appear-on-top permission lets Goblin Vision/Watchlet surfaces follow Raven across ordinary apps. It does not place app overlays above critical SystemUI surfaces.")
         button("OPEN APPEAR-ON-TOP ACCESS") { RavenPermissionDeck.openOverlayAccess(activity) }
         button("ENABLE FOLLOW-ME") {
             if (!RavenFollowMeOverlay.enable(activity)) RavenPermissionDeck.openOverlayAccess(activity)
@@ -88,7 +87,7 @@ object RavenWholePhonePanel {
         RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "whole-phone-senses")
     }
 
-    private fun refresh(activity: LauncherActivity, view: TextView) {
+    private fun refresh(activity: Activity, view: TextView) {
         val awareness = RavenAwarenessStatus.snapshot(activity)
         val media = RavenMediaSessionSenseOS.snapshot(activity)
         val galaxy = RavenGalaxyHauntOS.snapshot(activity)
