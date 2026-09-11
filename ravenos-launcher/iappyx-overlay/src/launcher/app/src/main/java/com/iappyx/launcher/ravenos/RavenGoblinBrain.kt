@@ -6,7 +6,8 @@ import android.content.Context
  * Android vertical slice of the private Goblin Vision stack.
  *
  * MarkerBus -> LocalSenseOS -> ComplexEventOS -> CompanionDirectorLite -> InterruptibilityOS ->
- * Bit/dialogue -> Episode/Highlight -> VisualAtlas -> OfficeGeography -> ReactionPacket -> EvidenceBoard.
+ * MetaCommentary/Bit dialogue -> Episode/Highlight -> VisualAtlas -> OfficeGeography ->
+ * ReactionPacket -> EvidenceBoard.
  *
  * No model call is required. No output gains effect authority.
  */
@@ -26,16 +27,28 @@ object RavenGoblinBrain {
         val complex = RavenComplexEventOS.analyze(context, marker)
         val episode = RavenEpisodeOS.phase(context, marker, complex)
         val member = cast(marker, complex, manualOwner, quiet)
+        val meta = RavenMetaCommentaryOS.compose(context, member, marker, complex, episode)
         val authorNote = if (quiet) {
-            "Quiet watch. The office is still here; only material signals break silence."
+            "Quiet watch. ${meta.text}"
         } else {
-            RavenOfficeRegistry.authorNote(member, signal, detail)
+            meta.text
         }
         val presentation = RavenEmployeePresentation.packet(member, signal, detail, authorNote)
         val visual = RavenVisualAtlas.resolve(member.id, marker, complex)
         val allowed = RavenInterruptibilityOS.allow(context, marker, complex, hauntMode, quiet)
-        val dialogue = if (allowed) RavenDialogueBank.select(member, marker, complex, visual, episode)
-            else RavenDialogueBank.Line("", "SILENCE")
+        val character = RavenDialogueBank.select(member, marker, complex, visual, episode)
+        val dialogue = if (!allowed) {
+            RavenDialogueBank.Line("", "SILENCE")
+        } else {
+            val characterEarned = "RUNNING_BIT" in complex.tags || "PAYOFF" in complex.tags ||
+                "RECOVERY_ARC" in complex.tags || "ERROR" in marker.tags || "BOUNDARY" in marker.tags
+            val text = when {
+                characterEarned && character.text.isNotBlank() && character.text != meta.text ->
+                    "${character.text} ${meta.text}".take(280)
+                else -> meta.text
+            }
+            RavenDialogueBank.Line(text, if (characterEarned) "${character.family}+${meta.family}" else meta.family)
+        }
         val zone = RavenOfficeGeography.zone(member.id, marker, complex)
         val highlight = RavenHighlightOS.score(marker, complex, episode)
         val now = System.currentTimeMillis()
