@@ -28,14 +28,14 @@ object RavenGoblinBrain {
         val episode = RavenEpisodeOS.phase(context, marker, complex)
         val member = cast(marker, complex, manualOwner, quiet)
         val meta = RavenMetaCommentaryOS.compose(context, member, marker, complex, episode)
-        val authorNote = if (quiet) {
-            "Quiet watch. ${meta.text}"
+        val allowed = RavenInterruptibilityOS.allow(context, marker, complex, hauntMode, quiet)
+        val authorNote = if (allowed) {
+            if (quiet) "Quiet watch. ${meta.text}" else meta.text
         } else {
-            meta.text
+            ""
         }
         val presentation = RavenEmployeePresentation.packet(member, signal, detail, authorNote)
         val visual = RavenVisualAtlas.resolve(member.id, marker, complex)
-        val allowed = RavenInterruptibilityOS.allow(context, marker, complex, hauntMode, quiet)
         val character = RavenDialogueBank.select(member, marker, complex, visual, episode)
         val dialogue = if (!allowed) {
             RavenDialogueBank.Line("", "SILENCE")
