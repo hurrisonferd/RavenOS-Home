@@ -22,7 +22,7 @@ object RavenCommandPalette {
             setPadding(dp(16), dp(8), dp(16), dp(8))
         }
         val input = EditText(activity).apply {
-            hint = "> command · / app · #feed · #tasker · ♡ KYU · ⚛ ATOM · = math"
+            hint = "> command · / app · #goblin · #feed · #tasker · ♡ KYU · ⚛ ATOM · = math"
             setTextColor(Color.WHITE)
             setHintTextColor(0xFF918A99.toInt())
             setSingleLine(true)
@@ -39,9 +39,10 @@ object RavenCommandPalette {
         fun updatePreview(raw: String) {
             val q = raw.trim()
             preview.text = when {
-                q.isBlank() -> "Prefixes: > local command · / app · #feed · #wheel · #tasker · ♡ KYU · ⚛ ATOM · 🌙 NYX · = 54*1.07"
+                q.isBlank() -> "Prefixes: > local command · / app · #goblin · #feed · #wheel · #tasker · ♡ KYU · ⚛ ATOM · 🌙 NYX · = 54*1.07"
                 q.startsWith("=") -> calculate(q.removePrefix("=")) ?: "Simple math: number + - * / number"
                 q.startsWith(">") -> "LOCAL COMMAND · ${q.removePrefix(">").trim()}"
+                q == "#goblin" -> "Goblin Vision WHY / replay / telemetry / capture recipes"
                 q == "#feed" -> "Open bounded Office Feed"
                 q == "#wheel" -> "Open Raven Summoning Wheel"
                 q == "#tasker" -> RavenTaskerBridge.summary(activity)
@@ -87,6 +88,10 @@ object RavenCommandPalette {
     private fun execute(activity: Activity, raw: String): ExecResult {
         val q = raw.trim()
         if (q.isBlank()) return ExecResult(false, "Type a command or app.")
+        if (q == "#goblin") {
+            RavenGoblinControlPanel.show(activity)
+            return ExecResult(true, "Goblin Vision")
+        }
         if (q == "#feed") {
             RavenOfficeFeed.show(activity)
             return ExecResult(true, "Office Feed")
