@@ -138,6 +138,8 @@ class RavenOfficeBarService : Service() {
         val note = if (quiet) "Quiet watch. The office is still here; only material signals break silence."
                    else RavenOfficeRegistry.authorNote(member, signal, detail)
 
+        RavenOfficeTraceStore.record(this, member, signal, detail, note, hauntMode)
+
         // Same deterministic office presence, projected only when the chosen haunt level and explicit overlay grant allow it.
         RavenFollowMeOverlay.render(this, member, signal, note, detail, hauntMode)
 
@@ -270,16 +272,18 @@ class RavenOfficeBarService : Service() {
 
         fun signal(context: Context, signal: String, detail: String = "") {
             val mode = RavenHauntModeStore.get(context)
-            when (signal.trim().uppercase()) {
+            val normalizedSignal = signal.trim().uppercase()
+            when (normalizedSignal) {
                 "FOREGROUND_APP" -> if (!mode.foregroundRouting) return
                 "NOTIFICATION" -> if (!mode.notificationRouting) return
             }
+            val enriched = enrichDetail(context, normalizedSignal, detail)
             start(
                 context,
                 Intent(context, RavenOfficeBarService::class.java)
                     .setAction(ACTION_SIGNAL)
                     .putExtra(EXTRA_SIGNAL, signal)
-                    .putExtra(EXTRA_DETAIL, detail),
+                    .putExtra(EXTRA_DETAIL, enriched),
             )
         }
 
@@ -307,6 +311,22 @@ class RavenOfficeBarService : Service() {
                 .setAction(ACTION_RESTORE)
                 .putExtra(EXTRA_DETAIL, reason),
         )
+
+        private fun enrichDetail(context: Context, signal: String, detail: String): String {
+            if (signal != "APP_LAUNCH" && signal != "FOREGROUND_APP" && signal != "NOTIFICATION") return detail
+            val marker = "package:"
+            val start = detail.indexOf(marker)
+            if (start < 0) return detail
+            val pkg = detail.substring(start + marker.length).substringBefore('|').trim()
+            if (pkg.isBlank()) return detail
+            return try {
+                val info = context.packageManager.getApplicationInfo(pkg, 0)
+                val label = context.packageManager.getApplicationLabel(info).toString().trim()
+                if (label.isBlank()) detail else "app:${label.take(80)}|package:$pkg"
+            } catch (_: Throwable) {
+                detail
+            }
+        }
 
         private fun start(context: Context, intent: Intent) {
             try {
