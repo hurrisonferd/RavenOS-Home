@@ -44,15 +44,16 @@ object RavenHomeWhisper {
 
     fun render(member: RavenOfficeMember, note: String, signal: String, detail: String, mode: RavenHauntMode) {
         val view = viewRef?.get() ?: return
+        val presentation = RavenEmployeePresentation.packet(member, signal, detail, note)
         view.post {
-            view.render(member, note, mode)
+            view.render(member, presentation.ownerLine, note, mode)
             val stateAt = RavenOfficeStateStore.read(view.context)?.updatedAt ?: 0L
             RavenSurfaceIntegrity.mark(
                 view.context,
                 RavenSurfaceIntegrity.HOME_WHISPER,
                 if (mode == RavenHauntMode.CALM) "INACTIVE" else "RENDERED",
                 stateAt,
-                "${mode.label}:author_note_v3",
+                "${mode.label}:integrated_expression_v4",
             )
         }
     }
@@ -78,9 +79,9 @@ object RavenHomeWhisper {
             setPadding(dp(15), dp(12), dp(15), dp(13))
             elevation = dp(10).toFloat()
 
-            owner.textSize = 16f
+            owner.textSize = 15f
             owner.setTypeface(owner.typeface, Typeface.BOLD)
-            owner.maxLines = 1
+            owner.maxLines = 2
             owner.ellipsize = TextUtils.TruncateAt.END
             addView(owner, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
 
@@ -90,7 +91,7 @@ object RavenHomeWhisper {
             addView(note, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         }
 
-        fun render(member: RavenOfficeMember, message: String, mode: RavenHauntMode) {
+        fun render(member: RavenOfficeMember, ownerLine: String, message: String, mode: RavenHauntMode) {
             if (mode == RavenHauntMode.CALM) {
                 visibility = View.GONE
                 return
@@ -105,7 +106,7 @@ object RavenHomeWhisper {
                 setStroke(dp(if (mode.ordinal >= RavenHauntMode.FERAL.ordinal) 2 else 1), withAlpha(accent, 225))
             }
 
-            owner.text = "${member.emoji} ${member.id}"
+            owner.text = ownerLine
             owner.setTextColor(accent)
 
             note.text = message
@@ -113,8 +114,8 @@ object RavenHomeWhisper {
             note.maxLines = when (mode) {
                 RavenHauntMode.LIVED_IN -> 3
                 RavenHauntMode.HAUNTED -> 4
-                RavenHauntMode.FERAL -> 5
-                RavenHauntMode.APOCALYPSE -> 6
+                RavenHauntMode.FERAL -> 4
+                RavenHauntMode.APOCALYPSE -> 5
                 RavenHauntMode.CALM -> 1
             }
             note.ellipsize = TextUtils.TruncateAt.END
@@ -124,10 +125,10 @@ object RavenHomeWhisper {
             val lp = layoutParams as? FrameLayout.LayoutParams ?: return
             lp.width = dp(when (mode) {
                 RavenHauntMode.CALM -> 220
-                RavenHauntMode.LIVED_IN -> 248
-                RavenHauntMode.HAUNTED -> 286
-                RavenHauntMode.FERAL -> 312
-                RavenHauntMode.APOCALYPSE -> 336
+                RavenHauntMode.LIVED_IN -> 256
+                RavenHauntMode.HAUNTED -> 292
+                RavenHauntMode.FERAL -> 318
+                RavenHauntMode.APOCALYPSE -> 340
             })
             lp.topMargin = dp(when (mode) {
                 RavenHauntMode.APOCALYPSE -> 72
