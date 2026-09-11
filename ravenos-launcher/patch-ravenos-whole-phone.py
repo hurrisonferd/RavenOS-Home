@@ -11,7 +11,8 @@ if len(sys.argv) != 2:
 root = Path(sys.argv[1]).resolve()
 manifest = root / "src/launcher/app/src/main/AndroidManifest.xml"
 listener = root / "src/launcher/app/src/main/java/com/iappyx/launcher/notify/NotificationBadgeListener.kt"
-if not manifest.is_file() or not listener.is_file():
+home = root / "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenHomeActivity.kt"
+if not manifest.is_file() or not listener.is_file() or not home.is_file():
     raise SystemExit("whole-phone donor paths missing")
 
 
@@ -54,6 +55,20 @@ replace_once(
     "RAVENOS WHOLE PHONE: notification removal payoff",
     '''    override fun onNotificationRemoved(sbn: StatusBarNotification?) {\n        scheduleRecount()\n    }''',
     '''    override fun onNotificationRemoved(sbn: StatusBarNotification?) {\n        scheduleRecount()\n        // RAVENOS WHOLE PHONE: notification removal payoff.\n        if (sbn != null) com.iappyx.launcher.ravenos.RavenNotificationSenseOS.onRemoved(this, sbn)\n    }''',
+)
+
+replace_once(
+    home,
+    "RAVENOS WHOLE PHONE: native Home senses menu",
+    '''        val items = arrayOf(\n            "Summoning Wheel",\n            "Command Palette",\n            "Apps",\n            "Sound Deck",\n            "Office Feed",\n            "Ghost Hotspots",\n            "Tasker / Automation",\n            "RavenOS Studio",\n            "Office Auto",\n            "Cycle Haunt",\n            "Sleep Office",\n        ) // RAVENOS ECOLOGY: menu entries''',
+    '''        val items = arrayOf(\n            "👁 Whole-phone senses",\n            "Summoning Wheel",\n            "Command Palette",\n            "Apps",\n            "Sound Deck",\n            "Office Feed",\n            "Ghost Hotspots",\n            "Tasker / Automation",\n            "RavenOS Studio",\n            "Office Auto",\n            "Cycle Haunt",\n            "Sleep Office",\n        ) // RAVENOS ECOLOGY: menu entries\n          // RAVENOS WHOLE PHONE: native Home senses menu''',
+)
+
+replace_once(
+    home,
+    "RAVENOS WHOLE PHONE: native Home senses routing",
+    '''                when (which) {\n                    0 -> RavenSummoningWheel.show(this)\n                    1 -> RavenCommandPalette.show(this)\n                    2 -> showAppUniverse(false)\n                    3 -> showSoundDeck()\n                    4 -> RavenOfficeFeed.show(this)\n                    5 -> RavenGhostHotspots.toggle(this)\n                    6 -> RavenTaskerBridge.showSetup(this)\n                    7 -> openStudio()\n                    8 -> RavenOfficeBarService.auto(this)\n                    9 -> RavenOfficeBarService.cycleHaunt(this)\n                    10 -> RavenOfficeBarService.disable(this)\n                } // RAVENOS ECOLOGY: menu routing''',
+    '''                when (which) {\n                    0 -> RavenWholePhonePanel.show(this)\n                    1 -> RavenSummoningWheel.show(this)\n                    2 -> RavenCommandPalette.show(this)\n                    3 -> showAppUniverse(false)\n                    4 -> showSoundDeck()\n                    5 -> RavenOfficeFeed.show(this)\n                    6 -> RavenGhostHotspots.toggle(this)\n                    7 -> RavenTaskerBridge.showSetup(this)\n                    8 -> openStudio()\n                    9 -> RavenOfficeBarService.auto(this)\n                    10 -> RavenOfficeBarService.cycleHaunt(this)\n                    11 -> RavenOfficeBarService.disable(this)\n                } // RAVENOS ECOLOGY: menu routing\n                  // RAVENOS WHOLE PHONE: native Home senses routing''',
 )
 
 print("RAVENOS_WHOLE_PHONE=true")
