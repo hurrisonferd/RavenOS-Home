@@ -224,6 +224,8 @@ def main() -> None:
     subprocess.check_call(["python3", str(RAVEN / "patch-ravenos-wallpaper.py"), str(UPSTREAM)])
     # Navigation ergonomics are part of the canonical RavenOS build too, not CI-only magic.
     subprocess.check_call(["python3", str(RAVEN / "patch-ravenos-ergonomics.py"), str(UPSTREAM)])
+    # Android HOME now lands on RavenOS-native shell; donor workspace becomes Studio.
+    subprocess.check_call(["python3", str(RAVEN / "patch-ravenos-home.py"), str(UPSTREAM)])
 
     print(f"RavenOS Launcher overlay applied over pinned iappyx {actual} as com.ravenos.launcher")
 
