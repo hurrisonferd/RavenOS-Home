@@ -4,10 +4,7 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 
-/**
- * Android Goblin Vision MarkerBus.
- * Raw callbacks become typed local markers before comedy, casting, vision, or deliberation.
- */
+/** Raw Android callbacks become typed local markers before comedy, casting, or presentation. */
 object RavenMarkerBus {
     private const val PREFS = "ravenos_marker_bus_v1"
     private const val KEY_RING = "ring"
@@ -87,7 +84,8 @@ object RavenMarkerBus {
     }
 
     private fun normalizeKey(raw: String, detail: String): String = when (raw.trim().uppercase()) {
-        "FOREGROUND_APP", "APP_LAUNCH" -> "APP_ENTER"
+        "FOREGROUND_APP", "FOREGROUND_USAGE", "APP_LAUNCH" -> "APP_ENTER"
+        "FOREGROUND_WINDOW" -> "WINDOW_CHANGE"
         "NOTIFICATION", "NOTIFICATION_SENSE" -> if (detail.contains("state:removed", true)) "NOTIFICATION_REMOVED" else "NOTIFICATION_POSTED"
         "MEDIA", "MUSIC" -> if (detail.contains("inactive", true) || detail.contains("stopped", true)) "MEDIA_IDLE" else "MEDIA_ACTIVE"
         "MEDIA_SESSION" -> "MEDIA_SESSION"
@@ -106,6 +104,10 @@ object RavenMarkerBus {
         val tags = linkedSetOf<String>()
         when {
             key.startsWith("APP_") -> tags += "APP"
+            key == "WINDOW_CHANGE" -> {
+                tags += "APP"
+                tags += "WINDOW"
+            }
             key.startsWith("NOTIFICATION") -> tags += "NOTIFICATION"
             key.startsWith("MEDIA") -> tags += "MEDIA"
             key == "SCREEN_VISUAL" -> tags += "VISION"
@@ -114,7 +116,7 @@ object RavenMarkerBus {
             key.contains("HOME") -> tags += "HOME"
         }
         val d = detail.lowercase()
-        if (listOf("spotify", "music", "soundcloud", "youtube.music", "audio", "state:playing").any(d::contains)) tags += "MUSIC"
+        if (listOf("spotify", "music", "soundcloud", "youtube.music", "audio", "state:playing", "track:").any(d::contains)) tags += "MUSIC"
         if (key == "MEDIA_IDLE" || d.contains("state:paused") || d.contains("state:stopped")) tags += "MEDIA_STOP"
         if (d.contains("state:changed") && key == "SCREEN_VISUAL") tags += "VISUAL_CHANGE"
         if (listOf("github", "gitlab", "termux", "studio", "code", "build").any(d::contains)) tags += "BUILD"
@@ -134,6 +136,7 @@ object RavenMarkerBus {
         if ("SUCCESS" in tags) score += 2
         if ("BOUNDARY" in tags) score += 2
         if ("VISION" in tags) score += 1
+        if (key == "WINDOW_CHANGE") score -= 1
         if (key == "HOME_ENTER" || key == "ROOM_CHANGED" || key == "MEDIA_IDLE") score -= 1
         return score.coerceIn(0, 10)
     }
