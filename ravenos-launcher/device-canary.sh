@@ -19,22 +19,40 @@ echo "RAVENOS DEVICE CANARY"
 echo "device=$SERIAL"
 echo "apk=$APK"
 
-printf '\n[1/7] install distinct RavenOS package\n'
+printf '\n[1/8] inspect packaged haunted surfaces\n'
+if command -v unzip >/dev/null 2>&1; then
+  unzip -l "$APK" | grep -F 'assets/widgets/ravenos_office.html' >/dev/null \
+    || { echo "FAIL: bundled RavenOS Office widget missing from APK" >&2; exit 1; }
+  unzip -l "$APK" | grep -F 'assets/wallpapers/ravenos_office.html' >/dev/null \
+    || { echo "FAIL: bundled RavenOS Office wallpaper missing from APK" >&2; exit 1; }
+  echo "PASS: bundled Office widget + Office wallpaper packaged"
+else
+  echo "PENDING: unzip unavailable; packaged asset inspection skipped"
+fi
+
+printf '\n[2/8] install distinct RavenOS package\n'
 adb install -r "$APK"
 PATH_RESULT="$(adb shell pm path "$PKG" | tr -d '\r')"
 [[ "$PATH_RESULT" == package:* ]] || { echo "FAIL: $PKG not installed" >&2; exit 1; }
 echo "PASS: $PATH_RESULT"
 
-printf '\n[2/7] verify package identity\n'
-adb shell dumpsys package "$PKG" | grep -m1 -E 'versionName=|versionCode=' || true
+printf '\n[3/8] verify package identity + wallpaper service\n'
+PACKAGE_DUMP="$(adb shell dumpsys package "$PKG" 2>/dev/null | tr -d '\r')"
+grep -m1 -E 'versionName=|versionCode=' <<<"$PACKAGE_DUMP" || true
+if grep -q 'IappyxWallpaperService' <<<"$PACKAGE_DUMP"; then
+  echo "PASS: RavenOS live-wallpaper service registered"
+else
+  echo "FAIL: RavenOS live-wallpaper service not registered" >&2
+  exit 1
+fi
 echo "PASS: package=$PKG"
 
-printf '\n[3/7] launch RavenOS\n'
+printf '\n[4/8] launch RavenOS\n'
 adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 >/dev/null
 sleep 2
 echo "PASS: launch intent sent"
 
-printf '\n[4/7] HOME role\n'
+printf '\n[5/8] HOME role\n'
 HOME_HOLDERS="$(adb shell cmd role get-role-holders android.app.role.HOME 2>/dev/null | tr -d '\r' || true)"
 if grep -qx "$PKG" <<<"$HOME_HOLDERS"; then
   echo "PASS: RavenOS owns HOME"
@@ -43,7 +61,7 @@ else
   echo "Action: System Deck -> MAKE RAVENOS DEFAULT HOME"
 fi
 
-printf '\n[5/7] Office Bar notification channel\n'
+printf '\n[6/8] Office Bar notification channel\n'
 if adb shell dumpsys notification 2>/dev/null | grep -q 'ravenos_office_bar'; then
   echo "PASS: RavenOS Office Bar channel observed"
 else
@@ -51,7 +69,7 @@ else
   echo "Action: open System Deck -> WAKE OFFICE BAR"
 fi
 
-printf '\n[6/7] awareness grants\n'
+printf '\n[7/8] awareness grants\n'
 NOTIF_LISTENERS="$(adb shell settings get secure enabled_notification_listeners 2>/dev/null | tr -d '\r' || true)"
 ACCESSIBILITY="$(adb shell settings get secure enabled_accessibility_services 2>/dev/null | tr -d '\r' || true)"
 if grep -q "$PKG" <<<"$NOTIF_LISTENERS"; then
@@ -65,30 +83,31 @@ else
   echo "PENDING: foreground awareness disabled"
 fi
 
-printf '\n[7/7] deterministic command / reactive-presence manual canary\n'
+printf '\n[8/8] deterministic / cross-surface live canary\n'
 cat <<'EOF'
 On-device checks:
   1. Swipe into SYSTEM Deck and confirm APP = com.ravenos.launcher.
-  2. Run LOCAL RAVENOS CANARY and record readiness X/7.
+  2. Run LOCAL RAVENOS CANARY and record readiness.
   3. Raven Search: media 37 -> media volume should become 37%.
-  4. Raven Search: office kyu -> Office Bar, Home Whisper, and Home Aura should all switch to 💗 KYU / KYU accent / KYU note.
-  5. Raven Search: office auto -> context routing resumes across all three projections.
-  6. Raven Search: haunt status -> confirm the current deterministic haunt mode.
-  7. Raven Search: haunt calm -> Home Whisper hides, Home Aura becomes minimal, and Follow-Me disappears even if overlay permission remains granted.
-  8. Raven Search: haunt lived-in -> Home Whisper returns compact, Home Aura grows slightly, foreground routing is active, Follow-Me stays suppressed.
-  9. Raven Search: haunt haunted -> foreground + notification routing resume; Home Whisper is fuller; Follow-Me may project if separately enabled.
- 10. Raven Search: haunt feral / haunt apocalypse -> Home Aura and Home Whisper visibly intensify; APOCALYPSE is highest-detail without granting new permission.
- 11. Enable Foreground Awareness; switch Spotify/browser/Settings and verify owner/note changes and human-readable app labels.
+  4. Raven Search: office kyu -> Office Bar, Home Whisper, and Home Aura all switch to 💗 KYU / KYU accent / KYU note.
+  5. In Studio -> Widgets, place bundled "RavenOS Office". It must show the same current owner/note/accent as Home and update live on `office atom`, `office yori`, then `office auto`.
+  6. In Studio -> Wallpapers, select bundled "RavenOS Office". It must receive the same owner/accent/note and react to later office changes without reloading the launcher.
+  7. Raven Search: office auto -> deterministic context routing resumes across Home, Office Bar, Follow-Me, widget, and wallpaper.
+  8. Raven Search: haunt calm -> Home Whisper hides, Home Aura becomes minimal, Follow-Me disappears even if overlay permission remains granted.
+  9. Raven Search: haunt lived-in -> compact Home presence returns while Follow-Me remains suppressed.
+ 10. Raven Search: haunt haunted / feral / apocalypse -> projections intensify without granting any new Android permission.
+ 11. Enable Foreground Awareness; switch Spotify/browser/Settings and verify deterministic owner/note changes and human-readable app labels.
  12. Grant overlay access; run `follow me` and verify the draggable Office chip follows across apps.
- 13. Tap the Follow-Me chip -> RavenOS should reopen; drag it -> position should persist.
- 14. Turn screen off -> Office receipt should route NIGHT/screen:off (normally NYX/LUMA/EREBUS/AYRE lane). Unlock -> HOME/user:present receipt.
- 15. Plug power in/out and verify POWER receipts include local battery percentage. Trigger battery-low if practical and verify BATTERY receipt.
- 16. Raven Search: office trace -> confirm bounded local routing history contains recent owner/signal/haunt/context entries.
- 17. Raven Search: clear office trace -> trace clears, then new activity begins a fresh bounded history.
- 18. Raven Search: office sleep -> Office Bar, Home Aura, Home Whisper, and Follow-Me all disappear; ordinary launcher/device signals do not revive them. `office wake` restores presence.
- 19. Reboot once awake and once asleep: awake state should restore after BOOT_COMPLETED; explicit sleep must survive reboot.
+ 13. Tap Follow-Me -> RavenOS reopens; drag it -> position persists.
+ 14. Turn screen off -> Office receipt routes NIGHT/screen:off. Unlock -> HOME/user:present receipt.
+ 15. Plug power in/out -> POWER receipts include local battery percentage.
+ 16. Raven Search: office trace -> bounded local routing history contains owner/signal/haunt/context receipts.
+ 17. Raven Search: clear office trace -> trace clears; new activity starts a fresh history.
+ 18. Raven Search: office sleep -> Office Bar, Home Aura, Home Whisper, Follow-Me all disappear and ordinary signals do not revive them. `office wake` restores presence.
+ 19. While Office wallpaper is hidden behind another app, leave it for a minute; return Home and confirm it resumes current Office state rather than continuously burning visible animation work off-screen.
+ 20. Reboot once awake and once asleep: awake restores after BOOT_COMPLETED; explicit sleep survives reboot.
 EOF
 
 echo
 echo "DEVICE_CANARY_SOURCE_COMPLETE=true"
-echo "RUNTIME_RESULT=REQUIRES_HUMAN_OBSERVATION_FOR_HOME_AURA_WHISPER_OVERLAY_SCREEN_POWER_TRACE_AND_REBOOT_EDGES"
+echo "RUNTIME_RESULT=REQUIRES_HUMAN_OBSERVATION_FOR_HOME_WIDGET_WALLPAPER_OVERLAY_SCREEN_POWER_TRACE_AND_REBOOT_EDGES"
