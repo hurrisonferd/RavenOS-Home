@@ -18,6 +18,7 @@ class RavenSystemDeckPane(
     private val root = LinearLayout(activity)
     private val dp = resources.displayMetrics.density
     private lateinit var readinessView: TextView
+    private lateinit var hauntView: TextView
 
     init {
         isFillViewport = true
@@ -54,6 +55,31 @@ class RavenSystemDeckPane(
             readinessView.text = readinessText(snap) + "\n\nLOCAL CANARY: ${snap.compact()}"
             RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "canary:${snap.passed}/${snap.total}")
         }, top(6))
+
+        root.addView(section("HAUNT INTENSITY"), top(28))
+        hauntView = text(hauntText(), 13f, 0xFFD5D5DF.toInt(), true)
+        root.addView(hauntView, top(8))
+        root.addView(text("Presentation intensity never grants permissions. CALM/LIVED-IN suppress Follow-Me; HAUNTED and above may project it only if Raven separately enabled overlay access and Follow-Me Office.", 11f, 0xFFAAAABA.toInt(), false), top(4))
+        val hauntRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        hauntRow.addView(button("CALM") { setHaunt(RavenHauntMode.CALM) }, weight())
+        hauntRow.addView(button("HAUNTED") { setHaunt(RavenHauntMode.HAUNTED) }, weight())
+        hauntRow.addView(button("FERAL") { setHaunt(RavenHauntMode.FERAL) }, weight())
+        root.addView(hauntRow, top(10))
+        val hauntRow2 = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        hauntRow2.addView(button("LIVED-IN") { setHaunt(RavenHauntMode.LIVED_IN) }, weight())
+        hauntRow2.addView(button("APOCALYPSE") { setHaunt(RavenHauntMode.APOCALYPSE) }, weight())
+        hauntRow2.addView(button("CYCLE") {
+            val next = RavenHauntModeStore.cycle(activity)
+            RavenOfficeBarService.setHaunt(activity, next)
+            updateHaunt()
+        }, weight())
+        root.addView(hauntRow2, top(6))
 
         root.addView(section("AUDIO"), top(28))
         rebuildAudio()
@@ -104,7 +130,23 @@ class RavenSystemDeckPane(
 
     fun refresh() {
         updateReadiness()
+        updateHaunt()
         RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "refresh")
+    }
+
+    private fun setHaunt(mode: RavenHauntMode) {
+        RavenOfficeBarService.setHaunt(activity, mode)
+        updateHaunt()
+        updateReadiness()
+    }
+
+    private fun updateHaunt() {
+        hauntView.text = hauntText()
+    }
+
+    private fun hauntText(): String {
+        val mode = RavenHauntModeStore.get(activity)
+        return "CURRENT  ${mode.label} · FOREGROUND=${onOff(mode.foregroundRouting)} · NOTIFICATION=${onOff(mode.notificationRouting)} · FOLLOW=${onOff(mode.followMe)}"
     }
 
     private fun updateReadiness() {
@@ -120,7 +162,8 @@ class RavenSystemDeckPane(
         append("FOREGROUND AWARENESS  ").append(onOff(snapshot.foregroundAwareness)).append('\n')
         append("NOTIFICATION AWARENESS  ").append(onOff(snapshot.notificationAwareness)).append('\n')
         append("OVERLAY ACCESS  ").append(onOff(snapshot.overlayAccess)).append('\n')
-        append("FOLLOW-ME OFFICE  ").append(onOff(snapshot.followMeEnabled))
+        append("FOLLOW-ME OFFICE  ").append(onOff(snapshot.followMeEnabled)).append('\n')
+        append("HAUNT MODE  ").append(RavenHauntModeStore.get(activity).label)
     }
 
     private fun onOff(value: Boolean): String = if (value) "ON" else "OFF"
