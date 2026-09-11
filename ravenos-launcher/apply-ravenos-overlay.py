@@ -110,10 +110,12 @@ def main() -> None:
     files = [
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeMember.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt",
+        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenForegroundAwarenessService.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenSystemDeck.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenSystemDeckPane.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenSurfaceModel.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenIntelligenceProvider.kt",
+        "src/launcher/app/src/main/res/xml/ravenos_foreground_awareness.xml",
     ]
     for rel in files:
         copy(rel)
@@ -125,7 +127,7 @@ def main() -> None:
         manifest,
         "RAVENOS OFFICE BAR: persistent visible presence",
         "        <!-- Push (FCM) messaging service.",
-        '''        <!-- RAVENOS OFFICE BAR: persistent visible presence; no hidden scraping. -->\n        <service\n            android:name=".ravenos.RavenOfficeBarService"\n            android:exported="false"\n            android:foregroundServiceType="specialUse">\n            <property\n                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"\n                android:value="Persistent user-visible RavenOS office-member status and deterministic author notes" />\n        </service>\n\n''',
+        '''        <!-- RAVENOS OFFICE BAR: persistent visible presence; no hidden scraping. -->\n        <service\n            android:name=".ravenos.RavenOfficeBarService"\n            android:exported="false"\n            android:foregroundServiceType="specialUse">\n            <property\n                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"\n                android:value="Persistent user-visible RavenOS office-member status and deterministic author notes" />\n        </service>\n\n        <!-- RAVENOS FOREGROUND AWARENESS: opt-in package-only Accessibility lane. -->\n        <service\n            android:name=".ravenos.RavenForegroundAwarenessService"\n            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"\n            android:exported="true"\n            android:label="RavenOS Foreground Awareness">\n            <intent-filter>\n                <action android:name="android.accessibilityservice.AccessibilityService" />\n            </intent-filter>\n            <meta-data\n                android:name="android.accessibilityservice"\n                android:resource="@xml/ravenos_foreground_awareness" />\n        </service>\n\n''',
     )
     text = manifest.read_text(encoding="utf-8")
     text = text.replace('android:label="iappyxOS notification badges"', 'android:label="RavenOS notification awareness"')
