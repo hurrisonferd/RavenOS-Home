@@ -57,9 +57,23 @@ object RavenPermissionDeck {
         )
     }
 
+    /** Opens Android's owner-controlled MediaProjection consent surface. Each session requires consent. */
+    fun armGoblinEye(activity: Activity) {
+        safeStart(activity, Intent(activity, RavenScreenWatchActivity::class.java))
+    }
+
+    fun stopGoblinEye(activity: Activity) {
+        RavenScreenWatchService.stop(activity)
+    }
+
     /** Opens the system battery-optimization surface; RavenOS never bypasses it silently. */
     fun openBatteryOptimization(activity: Activity) {
         safeStart(activity, Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+    }
+
+    /** Best-effort standard battery settings entry; Samsung's Never Sleeping list remains owner-managed. */
+    fun openBatterySettings(activity: Activity) {
+        safeStart(activity, Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
     }
 
     fun openAppDetails(activity: Activity) {
