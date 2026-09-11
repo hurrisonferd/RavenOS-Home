@@ -60,6 +60,7 @@ object RavenMenu {
 
     fun open(activity: LauncherActivity) {
         val items = arrayOf(
+            "⚡  Quick Deck",
             "⌂  Home",
             "▦  Apps",
             "⌕  Search",
@@ -74,14 +75,15 @@ object RavenMenu {
             .setMessage(RavenGesturePrefs.summary(activity))
             .setItems(items) { _, which ->
                 when (which) {
-                    0 -> activity.ravenOpenHome()
-                    1 -> activity.ravenOpenApps()
-                    2 -> activity.ravenOpenSearch()
-                    3 -> activity.ravenOpenSystemDeck()
-                    4 -> RavenGesturePrefs.showDialog(activity)
-                    5 -> RavenOfficeBarService.cycleHaunt(activity)
-                    6 -> RavenOfficeBarService.auto(activity)
-                    7 -> RavenOfficeBarService.disable(activity)
+                    0 -> RavenQuickControls.show(activity)
+                    1 -> activity.ravenOpenHome()
+                    2 -> activity.ravenOpenApps()
+                    3 -> activity.ravenOpenSearch()
+                    4 -> activity.ravenOpenSystemDeck()
+                    5 -> RavenGesturePrefs.showDialog(activity)
+                    6 -> RavenOfficeBarService.cycleHaunt(activity)
+                    7 -> RavenOfficeBarService.auto(activity)
+                    8 -> RavenOfficeBarService.disable(activity)
                 }
             }
             .setNegativeButton("Close", null)
