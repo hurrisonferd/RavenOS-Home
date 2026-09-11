@@ -86,6 +86,13 @@ object RavenCommandRouter {
                 RavenOfficeBarService.disable(context)
                 Result(true, "office sleep")
             }
+            "office trace", "trace office", "routing trace" -> {
+                Result(true, RavenOfficeTraceStore.compact(context, 8))
+            }
+            "clear office trace", "office trace clear" -> {
+                RavenOfficeTraceStore.clear(context)
+                Result(true, "office trace cleared")
+            }
             "follow me", "follow me on", "overlay on", "office overlay" -> {
                 val enabled = RavenFollowMeOverlay.enable(context)
                 if (enabled) {
