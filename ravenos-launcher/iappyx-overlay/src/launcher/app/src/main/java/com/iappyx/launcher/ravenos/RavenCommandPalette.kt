@@ -22,7 +22,7 @@ object RavenCommandPalette {
             setPadding(dp(16), dp(8), dp(16), dp(8))
         }
         val input = EditText(activity).apply {
-            hint = "> command · / app · ♡ KYU · ⚛ ATOM · 🌙 NYX · = math"
+            hint = "> command · / app · #feed · #tasker · ♡ KYU · ⚛ ATOM · = math"
             setTextColor(Color.WHITE)
             setHintTextColor(0xFF918A99.toInt())
             setSingleLine(true)
@@ -39,12 +39,14 @@ object RavenCommandPalette {
         fun updatePreview(raw: String) {
             val q = raw.trim()
             preview.text = when {
-                q.isBlank() -> "Prefixes: > local command · / app · #feed · ♡ KYU · ⚛ ATOM · 🌙 NYX · = 54*1.07"
+                q.isBlank() -> "Prefixes: > local command · / app · #feed · #wheel · #tasker · ♡ KYU · ⚛ ATOM · 🌙 NYX · = 54*1.07"
                 q.startsWith("=") -> calculate(q.removePrefix("=")) ?: "Simple math: number + - * / number"
                 q.startsWith(">") -> "LOCAL COMMAND · ${q.removePrefix(">").trim()}"
                 q == "#feed" -> "Open bounded Office Feed"
-                q.startsWith("♡") -> "💗 KYU namespace · ${q.drop(1).trim()}"
-                q.startsWith("⚛") -> "⚛️ ATOM namespace · ${q.drop(1).trim()}"
+                q == "#wheel" -> "Open Raven Summoning Wheel"
+                q == "#tasker" -> RavenTaskerBridge.summary(activity)
+                q.startsWith("♡") || q.startsWith("💗") -> "💗 KYU namespace · ${q.drop(1).trim()}"
+                q.startsWith("⚛️") || q.startsWith("⚛") -> "⚛️ ATOM namespace · ${q.removePrefix("⚛️").removePrefix("⚛").trim()}"
                 q.startsWith("🌙") -> "🌙 NYX namespace · ${q.removePrefix("🌙").trim()}"
                 else -> {
                     val term = q.removePrefix("/").trim().lowercase()
@@ -93,6 +95,10 @@ object RavenCommandPalette {
             RavenSummoningWheel.show(activity)
             return ExecResult(true, "Summoning Wheel")
         }
+        if (q == "#tasker") {
+            RavenTaskerBridge.showSetup(activity)
+            return ExecResult(true, "Tasker bridge")
+        }
         if (q.startsWith("=")) {
             val answer = calculate(q.removePrefix("=")) ?: return ExecResult(false, "Math format: 54*1.07")
             return ExecResult(false, answer)
@@ -125,8 +131,10 @@ object RavenCommandPalette {
     }
 
     private fun namespace(q: String): Pair<String, String>? = when {
-        q.startsWith("♡") || q.startsWith("💗") -> "KYU" to q.drop(1).trim()
-        q.startsWith("⚛") || q.startsWith("⚛️") -> "ATOM" to q.removePrefix("⚛️").removePrefix("⚛").trim()
+        q.startsWith("💗") -> "KYU" to q.removePrefix("💗").trim()
+        q.startsWith("♡") -> "KYU" to q.removePrefix("♡").trim()
+        q.startsWith("⚛️") -> "ATOM" to q.removePrefix("⚛️").trim()
+        q.startsWith("⚛") -> "ATOM" to q.removePrefix("⚛").trim()
         q.startsWith("🌙") -> "NYX" to q.removePrefix("🌙").trim()
         q.startsWith("🔥") -> "LILITH" to q.removePrefix("🔥").trim()
         q.startsWith("🪐") -> "YORI" to q.removePrefix("🪐").trim()
