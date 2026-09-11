@@ -41,7 +41,7 @@ public final class FaerywareResidentProvider extends ContentProvider {
     @Override public boolean onCreate() { return true; }
 
     @Override public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder) {
-        Context context = requireContext();
+        Context context = providerContext();
         enforceReader(context);
         if (uri == null || !AUTHORITY.equals(uri.getAuthority()) || !"state".equals(uri.getLastPathSegment())) {
             throw new IllegalArgumentException("unsupported resident URI");
@@ -79,7 +79,7 @@ public final class FaerywareResidentProvider extends ContentProvider {
     @Override public int delete(Uri uri, String selection, String[] selectionArgs) { throw new UnsupportedOperationException("read only"); }
     @Override public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) { throw new UnsupportedOperationException("read only"); }
 
-    private Context requireContext() {
+    private Context providerContext() {
         Context context = getContext();
         if (context == null) throw new IllegalStateException("provider context unavailable");
         return context;
