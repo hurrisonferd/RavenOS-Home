@@ -6,8 +6,10 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.os.Build
 import android.os.IBinder
+import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.iappyx.launcher.LauncherActivity
@@ -89,16 +91,27 @@ class RavenOfficeBarService : Service() {
         val mode = if (manual == null) "AUTO" else "PINNED"
         val title = "${member.emoji} ${member.id} · ${prettySignal(signal)}"
         val body = "AUTHOR'S NOTE: $note"
-        val big = buildString {
-            append(body)
-            append("\n\n")
+        val contextLine = buildString {
             append(member.lane)
             append(" · ")
             append(mode)
             if (detail.isNotBlank()) {
-                append("\n")
-                append(detail.take(180))
+                append(" · ")
+                append(detail.take(120))
             }
+        }
+        val big = "$body\n\n$contextLine"
+
+        val custom = RemoteViews(packageName, R.layout.ravenos_office_bar).apply {
+            val textColor = contrastText(member.accent)
+            val secondary = if (textColor == Color.BLACK) 0xCC000000.toInt() else 0xDDFFFFFF.toInt()
+            setInt(R.id.raven_office_root, "setBackgroundColor", member.accent)
+            setTextViewText(R.id.raven_office_owner, title)
+            setTextViewText(R.id.raven_office_note, body)
+            setTextViewText(R.id.raven_office_context, contextLine)
+            setTextColor(R.id.raven_office_owner, textColor)
+            setTextColor(R.id.raven_office_note, textColor)
+            setTextColor(R.id.raven_office_context, secondary)
         }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
@@ -106,6 +119,8 @@ class RavenOfficeBarService : Service() {
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(big))
+            .setCustomContentView(custom)
+            .setCustomBigContentView(custom)
             .setColor(member.accent)
             .setColorized(true)
             .setContentIntent(openHome)
@@ -118,6 +133,14 @@ class RavenOfficeBarService : Service() {
             .addAction(0, "AUTO", auto)
             .addAction(0, if (quiet) "WAKE" else "QUIET", quietAction)
             .build()
+    }
+
+    private fun contrastText(color: Int): Int {
+        val r = Color.red(color)
+        val g = Color.green(color)
+        val b = Color.blue(color)
+        val perceived = (r * 299 + g * 587 + b * 114) / 1000
+        return if (perceived >= 175) Color.BLACK else Color.WHITE
     }
 
     private fun serviceAction(action: String, requestCode: Int): PendingIntent = PendingIntent.getService(
