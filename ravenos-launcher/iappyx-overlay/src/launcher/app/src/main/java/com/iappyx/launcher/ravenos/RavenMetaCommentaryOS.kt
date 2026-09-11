@@ -2,13 +2,7 @@ package com.iappyx.launcher.ravenos
 
 import android.content.Context
 
-/**
- * Deterministic whole-phone meta commentary.
- *
- * Converts current marker + bounded local history into concise observations about what Raven is
- * actually doing on the phone. No model call, screen scraping, notification-body access, or effect
- * authority is involved.
- */
+/** Deterministic whole-phone meta commentary compiled from bounded local evidence. */
 object RavenMetaCommentaryOS {
     data class Commentary(val text: String, val family: String, val noveltyKey: String)
 
@@ -60,11 +54,13 @@ object RavenMetaCommentaryOS {
                 scene.activeApp != null -> "Music stopped while ${scene.activeApp} still owns focus. Soundtrack lane released."
                 else -> "Music stopped. Drop the performance layer; keep only useful state."
             }
+            "MEDIA_SESSION" -> mediaSessionCommentary(marker.detail, scene.activeApp)
+            "SCREEN_VISUAL" -> visualCommentary(marker.detail, scene.activeApp)
             "AUDIO" -> audioCommentary(marker.detail)
-            "NOTIFICATION_POSTED" -> when {
-                app != null -> "$app pinged from the notification lane. Source noted; body stays private."
-                previousApp != null -> "A notification landed during the $previousApp work loop. Source-only awareness; no message-body peeking."
-                else -> "Notification source changed. Metadata only."
+            "NOTIFICATION_POSTED" -> notificationCommentary(marker.detail, previousApp)
+            "NOTIFICATION_REMOVED" -> {
+                val source = app ?: field(marker.detail, "package")?.substringAfterLast('.') ?: "A notification"
+                "$source left the notification lane. One open loop just closed."
             }
             "SYSTEM_DECK_OPENED" -> when {
                 scene.mediaHot -> "System Deck opened with music hot. Raven is tuning the machine without leaving the vibe."
@@ -110,21 +106,78 @@ object RavenMetaCommentaryOS {
             "RETURN_LOOP" in complex.tags -> "META_RETURN_LOOP"
             "PAYOFF" in complex.tags -> "META_PAYOFF"
             marker.key == "APP_ENTER" -> "META_APP"
+            marker.key == "MEDIA_SESSION" -> "META_MEDIA_SESSION"
             marker.key.startsWith("MEDIA_") -> "META_MEDIA"
+            marker.key == "SCREEN_VISUAL" -> "META_VISION"
+            marker.key.startsWith("NOTIFICATION") -> "META_NOTIFICATION"
             marker.key == "AUDIO" -> "META_AUDIO"
             marker.key == "HOME_ENTER" -> "META_HOME"
             else -> "META_${marker.key}"
         }
-        val noveltyKey = listOf(member.id, family, app ?: "", previousApp ?: "", mythBand(n), marker.detail.substringBefore('|')).joinToString("|")
+        val noveltyKey = listOf(member.id, family, app ?: "", previousApp ?: "", mythBand(n), semanticDetail(marker)).joinToString("|")
         return Commentary(text, family, noveltyKey)
     }
 
+    private fun notificationCommentary(detail: String, previousApp: String?): String {
+        val source = field(detail, "app") ?: field(detail, "package")?.substringAfterLast('.') ?: "An app"
+        val burst = field(detail, "burst")?.toIntOrNull() ?: 1
+        val conversation = field(detail, "conversation") == "true"
+        val alerting = field(detail, "alerting") == "true"
+        val matches = field(detail, "matches_filter") != "false"
+        val title = field(detail, "title")
+        val privacy = field(detail, "privacy") ?: "SOURCE"
+        return when {
+            burst >= 3 -> "$source posted $burst notifications inside one burst. This is a notification weather system now."
+            conversation && alerting -> "$source posted an alerting conversation notification. Communication lane just earned the floor."
+            !matches -> "$source posted, but the current interruption filter blocked it. Phone noticed; Raven did not need the interruption."
+            !title.isNullOrBlank() && privacy != "SOURCE" -> "$source posted “${title.take(70)}”. Semantic notification awareness is active; body stays out of this commentary."
+            previousApp != null -> "$source pinged during the $previousApp work loop. Ranking noted; notification body stays private in $privacy mode."
+            else -> "$source pinged from the notification lane. Ranking noted; privacy mode is $privacy."
+        }
+    }
+
+    private fun mediaSessionCommentary(detail: String, activeApp: String?): String {
+        val source = field(detail, "package")?.substringAfterLast('.') ?: "Media"
+        val state = field(detail, "state") ?: "UNKNOWN"
+        val title = field(detail, "title")
+        val artist = field(detail, "artist")
+        return when (state) {
+            "PLAYING" -> buildString {
+                append(source).append(" is playing")
+                if (!title.isNullOrBlank()) append(" “").append(title.take(70)).append('”')
+                if (!artist.isNullOrBlank()) append(" by ").append(artist.take(50))
+                append('.')
+                if (!activeApp.isNullOrBlank() && !activeApp.equals(source, true)) append(" Soundtrack continues under $activeApp.")
+            }
+            "PAUSED" -> "$source paused${title?.let { " “${it.take(60)}”" } ?: ""}. The soundtrack lane is holding position."
+            "SKIP_NEXT", "SKIP_PREVIOUS" -> "$source changed tracks. Music context moved without changing the foreground task."
+            "BUFFERING", "CONNECTING" -> "$source is $state. Soundtrack lane is waiting on transport."
+            else -> "$source media session changed to $state."
+        }
+    }
+
+    private fun visualCommentary(detail: String, activeApp: String?): String {
+        val state = field(detail, "state") ?: "unknown"
+        if (state == "armed") return "Goblin Eye armed. Raven explicitly opened a local visual session; raw frames are not being persisted."
+        if (state.startsWith("stopped")) return "Goblin Eye closed. Pixel awareness ended with the capture session."
+        val motion = field(detail, "motion")?.toIntOrNull()
+        val delta = field(detail, "delta")?.toIntOrNull()
+        val luma = field(detail, "luma")?.toIntOrNull()
+        return when {
+            motion != null && motion >= 60 -> "Large screen transition${activeApp?.let { " inside $it" } ?: ""}: $motion% of sampled regions moved. Hard visual context change."
+            motion != null && motion >= 30 -> "Screen changed materially${activeApp?.let { " under $it" } ?: ""}. Motion field $motion%; Goblin Eye confirms the scene actually moved."
+            delta != null && delta >= 20 -> "Visual state shifted without a major app transition. Average sampled delta $delta."
+            luma != null -> "Screen appearance changed; sampled luminance is $luma. No OCR or semantic pixel claim attached."
+            else -> "Goblin Eye observed a visual change."
+        }
+    }
+
     private fun audioCommentary(detail: String): String {
-        fun value(name: String): Int? = Regex("(?:^|\\|)$name:(-?\\d+)").find(detail)?.groupValues?.getOrNull(1)?.toIntOrNull()
+        fun value(name: String): Int? = field(detail, name)?.toIntOrNull()
         val media = value("media")
         val ring = value("ring")
         val alarm = value("alarm")
-        val ringer = Regex("(?:^|\\|)ringer:([^|]+)").find(detail)?.groupValues?.getOrNull(1)
+        val ringer = field(detail, "ringer")
         return when {
             media != null && media >= 80 && ring == 0 -> "Media $media%, ring 0%. The phone is in studio mode whether it admits it or not."
             media == 0 && ring == 0 -> "Media and ring are both at zero. The phone just chose monastery mode."
@@ -135,14 +188,24 @@ object RavenMetaCommentaryOS {
     }
 
     private fun appLabel(marker: RavenMarkerBus.Marker): String? {
-        val detail = marker.detail
-        val named = Regex("(?:^|\\|)app:([^|]+)").find(detail)?.groupValues?.getOrNull(1)?.trim()
+        val named = field(marker.detail, "app")
         if (!named.isNullOrBlank()) return named.take(48)
-        val pkg = Regex("(?:^|\\|)package:([^|\\s]+)").find(detail)?.groupValues?.getOrNull(1)?.trim()
-        return pkg?.substringAfterLast('.')?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }?.takeIf { it.isNotBlank() }
+        return field(marker.detail, "package")?.substringAfterLast('.')
+            ?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+            ?.takeIf { it.isNotBlank() }
     }
 
+    private fun field(detail: String, name: String): String? =
+        Regex("(?:^|\\|)${Regex.escape(name)}:([^|]*)").find(detail)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() }
+
     private fun percentIn(detail: String): String? = Regex("(\\d{1,3})%").find(detail)?.groupValues?.getOrNull(1)
+
+    private fun semanticDetail(marker: RavenMarkerBus.Marker): String = when (marker.key) {
+        "SCREEN_VISUAL" -> listOf(field(marker.detail, "state"), field(marker.detail, "motion"), field(marker.detail, "delta")).joinToString(":")
+        "MEDIA_SESSION" -> listOf(field(marker.detail, "package"), field(marker.detail, "state"), field(marker.detail, "title")).joinToString(":")
+        "NOTIFICATION_POSTED" -> listOf(field(marker.detail, "package"), field(marker.detail, "burst"), field(marker.detail, "alerting"), field(marker.detail, "conversation")).joinToString(":")
+        else -> marker.detail.substringBefore('|')
+    }
 
     private fun mythLine(n: Int): String = when {
         n >= 34 -> "Historic landmark #$n."
