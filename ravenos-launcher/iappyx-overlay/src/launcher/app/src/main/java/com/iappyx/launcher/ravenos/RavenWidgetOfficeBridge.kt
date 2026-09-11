@@ -9,7 +9,7 @@ import org.json.JSONObject
 
 /**
  * Read-only RavenOS Office capability for generated widgets.
- * Default deny; presentation state only, no write authority or private-content bridge.
+ * Default deny; presentation state + exact-timestamp proof acknowledgement only.
  */
 object RavenWidgetOfficeModule {
     private const val PREFS = "ravenos_widget_capabilities_v1"
@@ -17,7 +17,10 @@ object RavenWidgetOfficeModule {
 
     fun attach(context: Context, webView: WebView, widgetId: String) {
         if (!hasOfficeCapability(context, widgetId)) return
-        webView.addJavascriptInterface(OfficeBridge(context.applicationContext), "ravenOffice")
+        webView.addJavascriptInterface(
+            OfficeBridge(context.applicationContext, widgetId.trim()),
+            "ravenOffice",
+        )
     }
 
     fun grantOffice(context: Context, widgetId: String) {
@@ -38,10 +41,7 @@ object RavenWidgetOfficeModule {
             .getBoolean(key(widgetId, CAP_OFFICE), false)
     }
 
-    /**
-     * Push canonical state to live authorized WidgetHosts.
-     * Integrity records DISPATCHED only; JavaScript consumption remains device-proof territory.
-     */
+    /** Push canonical state to live authorized WidgetHosts; JS must ack consumption separately. */
     fun broadcast(context: Context, snapshot: RavenOfficeStateStore.Snapshot) {
         val payload = safeJson(snapshot).toString()
         val quoted = JSONObject.quote(payload)
@@ -79,7 +79,10 @@ object RavenWidgetOfficeModule {
         .put("updatedAt", snapshot.updatedAt)
 
     @Keep
-    private class OfficeBridge(private val context: Context) {
+    private class OfficeBridge(
+        private val context: Context,
+        private val widgetId: String,
+    ) {
         @JavascriptInterface
         fun state(): String {
             val snapshot = RavenOfficeStateStore.read(context)
@@ -87,7 +90,26 @@ object RavenWidgetOfficeModule {
             return safeJson(snapshot).toString()
         }
 
+        /**
+         * Receipt only. The widget cannot select residents, mutate state, grant capabilities,
+         * or acknowledge a timestamp newer than the canonical state currently owned by RavenOS.
+         */
         @JavascriptInterface
-        fun version(): Int = 1
+        fun acknowledge(updatedAt: String) {
+            val at = updatedAt.toLongOrNull() ?: return
+            if (at <= 0L) return
+            val current = RavenOfficeStateStore.read(context)?.updatedAt ?: return
+            if (at > current) return
+            RavenSurfaceIntegrity.mark(
+                context,
+                RavenSurfaceIntegrity.WIDGETS,
+                "CONSUMED",
+                at,
+                "widget=${widgetId.take(80)}",
+            )
+        }
+
+        @JavascriptInterface
+        fun version(): Int = 2
     }
 }
