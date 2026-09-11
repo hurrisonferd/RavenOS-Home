@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Patch the pinned iappyx live-wallpaper engine with RavenOS Office state events.
+"""Patch pinned iappyx donor seams used by RavenOS reactive surfaces.
 
-The donor already has the right expensive plumbing: separate :wallpaper process,
-VirtualDisplay/Presentation/WebView, visibility pausing, render-process recovery, and
-same-package broadcasts for cross-process state. RavenOS adds only a safe one-way
-Office presentation-state channel. Exact anchors fail closed on donor drift.
+The donor already has the expensive plumbing: a separate :wallpaper process,
+VirtualDisplay/Presentation/WebView, visibility pausing, render-process recovery,
+same-package broadcasts, and a bundled-widget catalogue. RavenOS adds only narrow,
+fail-closed hooks on exact reviewed anchors.
 """
 from __future__ import annotations
 
@@ -86,3 +86,18 @@ before(
 
 path.write_text(text, encoding="utf-8")
 print("RavenOS wallpaper Office-state patch applied")
+
+# Register the RavenOS Office proof widget in the donor's existing bundled-widget library.
+widget_library = root / "src/launcher/app/src/main/java/com/iappyx/launcher/widget/WidgetLibrary.kt"
+if not widget_library.is_file():
+    raise SystemExit(f"widget library missing: {widget_library}")
+widget_text = widget_library.read_text(encoding="utf-8")
+widget_marker = "RAVENOS BUNDLED OFFICE WIDGET"
+widget_anchor = "    private val BUNDLED = listOf(\n"
+if widget_marker not in widget_text:
+    if widget_anchor not in widget_text:
+        raise SystemExit(f"widget donor drift: missing anchor {widget_anchor!r}")
+    insertion = '''        // RAVENOS BUNDLED OFFICE WIDGET: canonical Office-state proof surface.\n        BundledMeta(\n            "ravenos_office", "RavenOS Office",\n            "Live resident card for the canonical RavenOS Office member, note, lane, signal, and haunt mode.",\n            "widgets/ravenos_office.html",\n        ),\n'''
+    widget_text = widget_text.replace(widget_anchor, widget_anchor + insertion, 1)
+    widget_library.write_text(widget_text, encoding="utf-8")
+    print("RavenOS bundled Office widget registered")
