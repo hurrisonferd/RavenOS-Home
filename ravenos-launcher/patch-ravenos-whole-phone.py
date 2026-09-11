@@ -42,7 +42,7 @@ replace_once(
     manifest,
     "RAVENOS WHOLE PHONE: MediaProjection permission",
     "<application",
-    '''<!-- RAVENOS WHOLE PHONE: MediaProjection permission; each capture session still requires Android's owner consent UI. -->\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />\n\n    <application''',
+    '''<!-- RAVENOS WHOLE PHONE: MediaProjection permission; each capture session still requires Android's owner consent UI. -->\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />\n    <!-- RAVENOS WHOLE PHONE: owner-granted app-resume ledger; special access remains revocable in Android Settings. -->\n    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />\n\n    <application''',
 )
 
 replace_once(
@@ -88,7 +88,8 @@ require_file("RavenMediaSessionSenseOS.kt", ("getActiveSessions", "PlaybackState
 require_file("RavenScreenWatchActivity.kt", ("createScreenCaptureIntent", "RavenScreenWatchService"))
 require_file("RavenScreenWatchService.kt", ("FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION", "raw_persist:false", "state:changed"))
 require_file("RavenGalaxyHauntOS.kt", ("Never sleeping apps", "isIgnoringBatteryOptimizations"))
-require_file("RavenWholePhonePanel.kt", ("ARM GOBLIN EYE", "FULL LOCAL", "MEDIA SESSION SENSE"))
+require_file("RavenWholePhonePanel.kt", ("ARM GOBLIN EYE", "FULL LOCAL", "FOREGROUND LEDGER"))
+require_file("RavenUsageSenseOS.kt", ("UsageStatsManager", "OPSTR_GET_USAGE_STATS", "FOREGROUND_USAGE"))
 require_file("RavenPhoneSceneOS.kt", ("goblinEyeActive", "notificationBurst", "mediaTitle"))
 require_file("RavenTelemetryPackOS.kt", ("GOBLIN_EYE", "MEDIA_SESSION", "BATTERY_SURVIVAL"))
 
@@ -97,6 +98,7 @@ listener_text = listener.read_text(encoding="utf-8")
 home_text = home.read_text(encoding="utf-8")
 for needle in (
     "FOREGROUND_SERVICE_MEDIA_PROJECTION",
+    "PACKAGE_USAGE_STATS",
     '.ravenos.RavenScreenWatchActivity',
     '.ravenos.RavenScreenWatchService',
     'android:foregroundServiceType="mediaProjection"',
