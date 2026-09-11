@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import androidx.core.content.ContextCompat
 
 /** Dynamic screen/user-presence monitor owned by the visible Office Bar service. */
 object RavenScreenMonitor {
@@ -30,7 +31,7 @@ object RavenScreenMonitor {
             addAction(Intent.ACTION_USER_PRESENT)
         }
         try {
-            app.registerReceiver(r, filter)
+            ContextCompat.registerReceiver(app, r, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
             receiver = r
         } catch (_: Throwable) {
             receiver = null
