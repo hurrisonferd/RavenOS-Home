@@ -37,7 +37,7 @@ object RavenMarkerBus {
 
     @Synchronized
     fun emit(context: Context, rawKey: String, detail: String, source: String = "ANDROID"): Marker {
-        val key = normalizeKey(rawKey)
+        val key = normalizeKey(rawKey, detail)
         val at = System.currentTimeMillis()
         val tags = deriveTags(key, detail)
         val marker = Marker(
@@ -89,10 +89,10 @@ object RavenMarkerBus {
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
     }
 
-    private fun normalizeKey(raw: String): String = when (raw.trim().uppercase()) {
+    private fun normalizeKey(raw: String, detail: String): String = when (raw.trim().uppercase()) {
         "FOREGROUND_APP", "APP_LAUNCH" -> "APP_ENTER"
         "NOTIFICATION" -> "NOTIFICATION_POSTED"
-        "MEDIA", "MUSIC" -> "MEDIA_ACTIVE"
+        "MEDIA", "MUSIC" -> if (detail.contains("inactive", true) || detail.contains("stopped", true)) "MEDIA_IDLE" else "MEDIA_ACTIVE"
         "POWER" -> "POWER_CHANGED"
         "BATTERY" -> "BATTERY_CHANGED"
         "HOME" -> "HOME_ENTER"
@@ -115,6 +115,7 @@ object RavenMarkerBus {
         }
         val d = detail.lowercase()
         if (listOf("spotify", "music", "soundcloud", "youtube.music", "audio").any(d::contains)) tags += "MUSIC"
+        if (key == "MEDIA_IDLE") tags += "MEDIA_STOP"
         if (listOf("github", "gitlab", "termux", "studio", "code", "build").any(d::contains)) tags += "BUILD"
         if (listOf("chrome", "firefox", "browser", "opera", "reddit", "wikipedia").any(d::contains)) tags += "DISCOVERY"
         if (listOf("permission", "settings", "auth", "security", "wallet", "bank").any(d::contains)) tags += "BOUNDARY"
@@ -131,7 +132,7 @@ object RavenMarkerBus {
         if ("ATTENTION" in tags) score += 3
         if ("SUCCESS" in tags) score += 2
         if ("BOUNDARY" in tags) score += 2
-        if (key == "HOME_ENTER" || key == "ROOM_CHANGED") score -= 1
+        if (key == "HOME_ENTER" || key == "ROOM_CHANGED" || key == "MEDIA_IDLE") score -= 1
         return score.coerceIn(0, 10)
     }
 
