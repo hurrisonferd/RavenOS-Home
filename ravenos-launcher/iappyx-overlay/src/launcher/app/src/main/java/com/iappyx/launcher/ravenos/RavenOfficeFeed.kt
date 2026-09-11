@@ -29,7 +29,23 @@ object RavenOfficeFeed {
             setPadding(dp(16), dp(10), dp(16), dp(16))
         }
         root.addView(t("OFFICE FEED", 20f, true, 0xFFFF64B4.toInt()))
-        root.addView(t("bounded local context · newest first", 10f, false, 0xFFBDB7C7.toInt()))
+        root.addView(t("deterministic phone commentary · newest meaningful state first", 10f, false, 0xFFBDB7C7.toInt()))
+
+        val scene = RavenPhoneSceneOS.snapshot(activity)
+        root.addView(t("LIVE PHONE SCENE", 11f, true, 0xFFD8D8E4.toInt()))
+        root.addView(t(scene.compact(), 12f))
+        if (scene.recentKeys.isNotEmpty()) {
+            root.addView(t("FLOW  ${scene.recentKeys.joinToString(" → ") { it.replace('_', ' ') }}", 10f, false, 0xFFBDB7C7.toInt()))
+        }
+
+        RavenEvidenceBoard.last(activity)?.let { latest ->
+            val spoken = latest.optString("dialogue").ifBlank { latest.optString("authorNote") }
+            val owner = latest.optString("owner", "?")
+            val visual = latest.optString("visualState", "")
+            val zone = latest.optString("zone", "")
+            root.addView(t("CURRENT META COMMENTARY", 11f, true, 0xFFD8D8E4.toInt()))
+            root.addView(t("$owner · $visual · $zone\n$spoken", 12f))
+        }
 
         val requirements = RavenHauntRequirements.evaluate(activity).take(4)
         if (requirements.isNotEmpty()) {
@@ -45,14 +61,16 @@ object RavenOfficeFeed {
         root.addView(t(RavenTaskerBridge.summary(activity), 11f, false, 0xFFBDB7C7.toInt()))
 
         val trace = RavenOfficeTraceStore.recent(activity, 10)
-        root.addView(t("RECENT OFFICE", 11f, true, 0xFFD8D8E4.toInt()))
+        root.addView(t("RECENT REACTIONS", 11f, true, 0xFFD8D8E4.toInt()))
         if (trace.isEmpty()) {
-            root.addView(t("No routing receipts yet.", 12f))
+            root.addView(t("No reactive receipts yet.", 12f))
         } else {
             trace.forEach { entry ->
                 val time = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(entry.at))
                 val detail = if (entry.detail.isBlank()) "" else "\n${entry.detail.take(110)}"
-                root.addView(t("$time · ${entry.owner} · ${entry.signal} · ${entry.haunt}$detail\n${entry.note.take(140)}", 11f))
+                val repeated = if (entry.repeats > 1) " · ×${entry.repeats} coalesced" else ""
+                val visual = if (entry.visual.isBlank()) "" else " · ${entry.visual.replace('_', ' ')}"
+                root.addView(t("$time · ${entry.owner} · ${entry.signal}$visual · ${entry.haunt}$repeated$detail\n${entry.note.take(180)}", 11f))
             }
         }
 
