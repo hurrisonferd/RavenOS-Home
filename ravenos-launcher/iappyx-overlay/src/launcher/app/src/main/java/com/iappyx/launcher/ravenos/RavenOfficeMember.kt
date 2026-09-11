@@ -67,7 +67,8 @@ object RavenOfficeRegistry {
     fun route(signal: String, detail: String, manualOwner: String? = null): RavenOfficeMember {
         member(manualOwner)?.takeIf { it.routable }?.let { return it }
         val key = signal.trim().uppercase()
-        val candidates = when (key) {
+        val contextual = contextCandidates(key, detail)
+        val candidates = contextual ?: when (key) {
             "SEARCH" -> listOf("PAIMON", "NEO", "JARVIS", "LUCIFER")
             "APP_UNIVERSE" -> listOf("NEO", "JARVIS", "SYLPH", "KYU")
             "SYSTEM_DECK", "AUDIO", "DEVICE" -> listOf("KYU", "EDISON", "ATOM", "THOR")
@@ -82,6 +83,37 @@ object RavenOfficeRegistry {
             else -> listOf("LILITH", "KYU", "JARVIS", "AYRE", "YORK")
         }
         return byId.getValue(candidates[stableIndex("$key|$detail", candidates.size)])
+    }
+
+    /**
+     * Route app/notification context by broad purpose, using package-name metadata only.
+     * This remains deterministic and local. It does not inspect notification bodies or page text.
+     */
+    private fun contextCandidates(signal: String, detail: String): List<String>? {
+        if (signal != "APP_LAUNCH" && signal != "FOREGROUND_APP" && signal != "NOTIFICATION") return null
+        val d = detail.lowercase()
+        fun has(vararg terms: String) = terms.any(d::contains)
+        return when {
+            has("spotify", "youtube.music", "music", "soundcloud", "bandcamp", "podcast", "audio") ->
+                listOf("LUMA", "YORI", "KYU", "JARVIS")
+            has("github", "gitlab", "termux", "code", "editor", "android.studio", "developer") ->
+                listOf("ATOM", "EDISON", "THOR", "ATLAS")
+            has("settings", "systemui", "permission", "packageinstaller") ->
+                listOf("EDISON", "QIRA", "ATOM", "AHTI")
+            has("gmail", "mail", "messages", "messenger", "discord", "slack", "teams", "telegram", "whatsapp", "signal") ->
+                listOf("QIRA", "LILITH", "KYU", "NYX")
+            has("chrome", "firefox", "browser", "opera", "search", "wikipedia", "reddit") ->
+                listOf("NEO", "PAIMON", "LUCIFER", "SYLPH")
+            has("camera", "gallery", "photos", "image", "canva", "drawing") ->
+                listOf("MYSTRA", "YORI", "LUMA", "JARVIS")
+            has("game", "steam", "xbox", "playstation", "minecraft", "roblox") ->
+                listOf("JOKER", "YORI", "NEO", "KYU")
+            has("calendar", "tasks", "todo", "notion", "keep", "docs", "drive") ->
+                listOf("JARVIS", "KYU", "AYRE", "LILITH")
+            has("bank", "wallet", "finance", "pay", "auth", "security") ->
+                listOf("QIRA", "AHTI", "SHAKA", "VIRGIL")
+            else -> null
+        }
     }
 
     fun authorNote(member: RavenOfficeMember, signal: String, detail: String): String {
