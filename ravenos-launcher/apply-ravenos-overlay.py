@@ -59,6 +59,17 @@ def patch_before(path: Path, marker: str, anchor: str, insertion: str) -> None:
     print(f"RavenOS patch: {path.relative_to(UPSTREAM)}")
 
 
+def replace_once(path: Path, marker: str, old: str, new: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    if marker in text:
+        print(f"RavenOS already present: {path.relative_to(UPSTREAM)}")
+        return
+    if old not in text:
+        raise SystemExit(f"upstream drift: replacement anchor missing in {path}")
+    path.write_text(text.replace(old, new, 1), encoding="utf-8")
+    print(f"RavenOS replace: {path.relative_to(UPSTREAM)}")
+
+
 def rebrand_strings() -> None:
     res = UPSTREAM / "src/launcher/app/src/main/res"
     touched = 0
@@ -100,6 +111,7 @@ def main() -> None:
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeMember.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenSystemDeck.kt",
+        "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenSystemDeckPane.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenSurfaceModel.kt",
         "src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenIntelligenceProvider.kt",
     ]
@@ -159,6 +171,56 @@ def main() -> None:
         "RAVENOS OFFICE BAR: notification-source signal",
         "    override fun onNotificationPosted(sbn: StatusBarNotification?) {\n        scheduleRecount()\n",
         '''        // RAVENOS OFFICE BAR: notification-source signal. Metadata only here; no body/text routing.\n        if (sbn != null) {\n            com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(\n                this, "NOTIFICATION", "package:${sbn.packageName}",\n            )\n        }\n''',
+    )
+
+    command = UPSTREAM / "src/launcher/app/src/main/java/com/iappyx/launcher/widget/CommandPanelHost.kt"
+    patch_after(
+        command,
+        "private val systemDeckPane: com.iappyx.launcher.ravenos.RavenSystemDeckPane",
+        "    private val iconsPane: ManageIconFiltersTab\n",
+        "    private val systemDeckPane: com.iappyx.launcher.ravenos.RavenSystemDeckPane\n",
+    )
+    patch_after(
+        command,
+        'newTab().setText("SYSTEM")',
+        "            addTab(newTab().setText(activity.getString(com.iappyx.launcher.R.string.tab_icons)))\n",
+        '            addTab(newTab().setText("SYSTEM"))\n',
+    )
+    patch_after(
+        command,
+        "systemDeckPane = com.iappyx.launcher.ravenos.RavenSystemDeckPane(activity)",
+        "        iconsPane = ManageIconFiltersTab(activity, host = this)\n",
+        "        systemDeckPane = com.iappyx.launcher.ravenos.RavenSystemDeckPane(activity)\n",
+    )
+    patch_after(
+        command,
+        "contentFrame.addView(systemDeckPane, frameMatch())",
+        "        contentFrame.addView(iconsPane, frameMatch())\n",
+        "        contentFrame.addView(systemDeckPane, frameMatch())\n",
+    )
+    patch_after(
+        command,
+        "systemDeckPane.visibility = if (index == 5)",
+        "        iconsPane.visibility = if (index == 4) View.VISIBLE else View.GONE\n",
+        "        systemDeckPane.visibility = if (index == 5) View.VISIBLE else View.GONE\n",
+    )
+    patch_after(
+        command,
+        "5 -> systemDeckPane.refresh()",
+        "            4 -> iconsPane.refresh()\n",
+        "            5 -> systemDeckPane.refresh()\n",
+    )
+    patch_before(
+        command,
+        "RAVENOS SYSTEM DECK: default command-page tab",
+        "    }\n\n    private fun frameMatch()",
+        '''        // RAVENOS SYSTEM DECK: default command-page tab\n        tabLayout.getTabAt(5)?.select()\n''',
+    )
+    replace_once(
+        command,
+        "RAVENOS SYSTEM DECK: return default",
+        '''    fun resetToAi() {\n        if (tabLayout.selectedTabPosition != 0) tabLayout.getTabAt(0)?.select()\n    }''',
+        '''    fun resetToAi() {\n        // RAVENOS SYSTEM DECK: return default. Name retained for upstream API compatibility.\n        if (tabLayout.selectedTabPosition != 5) tabLayout.getTabAt(5)?.select()\n    }''',
     )
 
     print(f"RavenOS Launcher overlay applied over pinned iappyx {actual}")
