@@ -50,6 +50,7 @@ jobs:
           grep -R 'RAVENOS BOOT RESTORE' "$ROOT/AndroidManifest.xml"
           grep -R 'RAVENOS AMBIENT SIGNALS' "$ROOT/AndroidManifest.xml"
           grep -R 'RAVENOS HOME AURA' "$ROOT/java/com/iappyx/launcher/LauncherActivity.kt"
+          grep -R 'RAVENOS HOME WHISPER' "$ROOT/java/com/iappyx/launcher/LauncherActivity.kt"
           grep -R 'RAVENOS OFFICE BAR: initial home signal' "$ROOT/java/com/iappyx/launcher/LauncherActivity.kt"
           grep -R 'RAVENOS OFFICE BAR: app launch signal' "$ROOT/java/com/iappyx/launcher/applock/AppLockManager.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeMember.kt"
@@ -57,6 +58,7 @@ jobs:
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenForegroundAwarenessService.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenFollowMeOverlay.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenHomeAura.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenHomeWhisper.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenHauntMode.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeTraceStore.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenAmbientReceiver.kt"
@@ -72,6 +74,7 @@ jobs:
           grep -R 'APOCALYPSE' "$ROOT/java/com/iappyx/launcher/ravenos/RavenHauntMode.kt"
           grep -R 'RavenFollowMeOverlay.render' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           grep -R 'RavenHomeAura.render' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
+          grep -R 'RavenHomeWhisper.render' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           grep -R 'RavenOfficeTraceStore.record' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           grep -R 'RavenScreenMonitor.start' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           test -s 'ravenos-launcher/device-canary.sh'
