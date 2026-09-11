@@ -33,9 +33,30 @@ class RavenSystemDeckPane(
 
         root.addView(section("OFFICE BAR"), top(28))
         root.addView(text("The always-on Office Bar changes owner, emoji, accent and deterministic author's note as RavenOS context changes.", 13f, 0xFFD5D5DF.toInt(), false), top(8))
+        root.addView(button("ENABLE OFFICE BAR NOTIFICATIONS") {
+            RavenPermissionDeck.ensureOfficeBarNotifications(activity)
+            RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "notification-permission-requested")
+        }, top(10))
         root.addView(button("PING SYSTEM DECK") {
             RavenOfficeBarService.signal(activity, "SYSTEM_DECK", "manual-ping")
+        }, top(6))
+
+        root.addView(section("MAX AWARENESS · EXPLICIT AND REVOCABLE"), top(28))
+        root.addView(text("RavenOS can become aggressively context-aware without hiding what it can see. Each Android special-access lane is granted separately and can be revoked in Settings.", 13f, 0xFFD5D5DF.toInt(), false), top(8))
+        root.addView(button("FOREGROUND APP AWARENESS") {
+            RavenPermissionDeck.openForegroundAwareness(activity)
         }, top(10))
+        root.addView(text("Package/window transitions only. The RavenOS service is configured with canRetrieveWindowContent=false; it does not read page text or typed input.", 11f, 0xFFAAAAba.toInt(), false), top(3))
+        root.addView(button("NOTIFICATION SOURCE AWARENESS") {
+            RavenPermissionDeck.openNotificationAwareness(activity)
+        }, top(8))
+        root.addView(text("Lets RavenOS route from notification source metadata. Office Bar does not consume title/body text in this path.", 11f, 0xFFAAAAba.toInt(), false), top(3))
+        root.addView(button("OVERLAY / FOLLOW-ME ACCESS") {
+            RavenPermissionDeck.openOverlayAccess(activity)
+        }, top(8))
+        root.addView(button("APP PERMISSION DETAILS") {
+            RavenPermissionDeck.openAppDetails(activity)
+        }, top(8))
     }
 
     fun refresh() {
