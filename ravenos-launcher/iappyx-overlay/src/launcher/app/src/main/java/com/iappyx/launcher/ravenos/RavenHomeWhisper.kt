@@ -45,14 +45,14 @@ object RavenHomeWhisper {
     fun render(member: RavenOfficeMember, note: String, signal: String, detail: String, mode: RavenHauntMode) {
         val view = viewRef?.get() ?: return
         view.post {
-            view.render(member, note, signal, detail, mode)
+            view.render(member, note, mode)
             val stateAt = RavenOfficeStateStore.read(view.context)?.updatedAt ?: 0L
             RavenSurfaceIntegrity.mark(
                 view.context,
                 RavenSurfaceIntegrity.HOME_WHISPER,
                 if (mode == RavenHauntMode.CALM) "INACTIVE" else "RENDERED",
                 stateAt,
-                "${mode.label}:readable_glass_v2",
+                "${mode.label}:author_note_v3",
             )
         }
     }
@@ -71,7 +71,6 @@ object RavenHomeWhisper {
     private class WhisperView(activity: Activity) : LinearLayout(activity) {
         private val owner = TextView(activity)
         private val note = TextView(activity)
-        private val context = TextView(activity)
         private val density = resources.displayMetrics.density
 
         init {
@@ -89,15 +88,9 @@ object RavenHomeWhisper {
             note.setLineSpacing(dp(1).toFloat(), 1.03f)
             note.setPadding(0, dp(5), 0, 0)
             addView(note, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
-
-            context.textSize = 10f
-            context.setLineSpacing(dp(1).toFloat(), 1.0f)
-            context.setPadding(0, dp(7), 0, 0)
-            context.ellipsize = TextUtils.TruncateAt.END
-            addView(context, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         }
 
-        fun render(member: RavenOfficeMember, authorNote: String, signal: String, detail: String, mode: RavenHauntMode) {
+        fun render(member: RavenOfficeMember, message: String, mode: RavenHauntMode) {
             if (mode == RavenHauntMode.CALM) {
                 visibility = View.GONE
                 return
@@ -105,8 +98,6 @@ object RavenHomeWhisper {
             applyModeGeometry(mode)
             visibility = View.VISIBLE
 
-            // Raven feedback: employee colors are identity accents, not the reading surface.
-            // Keep the card dark/opaque enough for deterministic readability over any wallpaper.
             val accent = readableAccent(member.accent)
             background = GradientDrawable().apply {
                 cornerRadius = dp(if (mode == RavenHauntMode.APOCALYPSE) 24 else 18).toFloat()
@@ -117,26 +108,16 @@ object RavenHomeWhisper {
             owner.text = "${member.emoji} ${member.id}"
             owner.setTextColor(accent)
 
-            note.text = authorNote
+            note.text = message
             note.setTextColor(0xFFF8F8FC.toInt())
             note.maxLines = when (mode) {
-                RavenHauntMode.LIVED_IN -> 2
-                RavenHauntMode.HAUNTED -> 5
-                RavenHauntMode.FERAL -> 8
-                RavenHauntMode.APOCALYPSE -> 10
+                RavenHauntMode.LIVED_IN -> 3
+                RavenHauntMode.HAUNTED -> 4
+                RavenHauntMode.FERAL -> 5
+                RavenHauntMode.APOCALYPSE -> 6
                 RavenHauntMode.CALM -> 1
             }
-            note.ellipsize = if (mode.ordinal >= RavenHauntMode.FERAL.ordinal) null else TextUtils.TruncateAt.END
-
-            context.visibility = if (mode.ordinal >= RavenHauntMode.HAUNTED.ordinal) View.VISIBLE else View.GONE
-            context.setTextColor(0xFFD4D4DE.toInt())
-            context.maxLines = if (mode == RavenHauntMode.APOCALYPSE) 4 else 3
-            context.text = buildString {
-                append(signal.replace('_', ' ').lowercase()).append(" · ").append(member.lane)
-                if (detail.isNotBlank() && mode.ordinal >= RavenHauntMode.FERAL.ordinal) {
-                    append("\n").append(detail.take(if (mode == RavenHauntMode.APOCALYPSE) 190 else 140))
-                }
-            }
+            note.ellipsize = TextUtils.TruncateAt.END
         }
 
         private fun applyModeGeometry(mode: RavenHauntMode) {
