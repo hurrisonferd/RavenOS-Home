@@ -27,6 +27,14 @@ object RavenReactionStateStore {
         try {
             app.sendBroadcast(Intent(ACTION_CHANGED).setPackage(app.packageName).putExtra(EXTRA_JSON, json))
         } catch (_: Throwable) {}
+
+        // Canonical outbound automation event. This is deliberately a small semantic envelope,
+        // not a private-state dump and not an action grant.
+        RavenTaskerBridge.emit(
+            app,
+            "office_reaction",
+            "${packet.owner}|${packet.signal}|${packet.visualState}|${packet.zone}|${packet.occurrence}",
+        )
     }
 
     fun readJson(context: Context): String? = try {
