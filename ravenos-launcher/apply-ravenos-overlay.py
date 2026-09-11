@@ -153,6 +153,14 @@ def main() -> None:
         '''        // RAVENOS OFFICE BAR: app launch signal\n        com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(activity, "APP_LAUNCH", "package:$packageName")\n''',
     )
 
+    notification_listener = UPSTREAM / "src/launcher/app/src/main/java/com/iappyx/launcher/notify/NotificationBadgeListener.kt"
+    patch_after(
+        notification_listener,
+        "RAVENOS OFFICE BAR: notification-source signal",
+        "    override fun onNotificationPosted(sbn: StatusBarNotification?) {\n        scheduleRecount()\n",
+        '''        // RAVENOS OFFICE BAR: notification-source signal. Metadata only here; no body/text routing.\n        if (sbn != null) {\n            com.iappyx.launcher.ravenos.RavenOfficeBarService.signal(\n                this, "NOTIFICATION", "package:${sbn.packageName}",\n            )\n        }\n''',
+    )
+
     print(f"RavenOS Launcher overlay applied over pinned iappyx {actual}")
 
 
