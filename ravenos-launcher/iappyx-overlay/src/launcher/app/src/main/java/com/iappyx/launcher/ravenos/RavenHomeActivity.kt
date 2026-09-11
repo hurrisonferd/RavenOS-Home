@@ -1,11 +1,11 @@
 package com.iappyx.launcher.ravenos
 
 import android.app.Dialog
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.BroadcastReceiver
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
@@ -19,19 +19,22 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
+import android.widget.BaseAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.GridLayout
+import android.widget.GridView
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.iappyx.launcher.LauncherActivity
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -39,12 +42,19 @@ import java.time.format.DateTimeFormatter
 /**
  * RavenOS-native HOME surface.
  *
- * This intentionally does NOT inherit the donor workspace UI. The mature iappyx machinery
- * remains reachable as RavenOS Studio, while Android HOME lands on this utility-first shell.
+ * PERFORMANCE LAW:
+ * - first frame does not query every installed application
+ * - Office UI is event-driven, not polled every second
+ * - app inventory is process-cached and discovered off the UI thread
+ * - App Universe virtualizes tiles instead of inflating the whole device at once
+ *
+ * The mature donor workspace remains RavenOS Studio and is never needed for normal HOME use.
  */
 class RavenHomeActivity : AppCompatActivity() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val density by lazy { resources.displayMetrics.density }
+    private val clockFormat = DateTimeFormatter.ofPattern("H:mm")
+    private val dateFormat = DateTimeFormatter.ofPattern("EEE · MMM d")
 
     private lateinit var clockView: TextView
     private lateinit var dateView: TextView
@@ -55,17 +65,19 @@ class RavenHomeActivity : AppCompatActivity() {
     private lateinit var mediaLabel: TextView
     private lateinit var mediaSeek: SeekBar
 
+    private var lastResidentAt = Long.MIN_VALUE
+    private var favoritesFingerprint = ""
+
     private val officeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            renderResident()
+            renderResident(force = false)
         }
     }
 
-    private val tick = object : Runnable {
+    private val clockTick = object : Runnable {
         override fun run() {
             renderClock()
-            renderResident()
-            mainHandler.postDelayed(this, 1000L)
+            scheduleClockTick()
         }
     }
 
@@ -77,27 +89,45 @@ class RavenHomeActivity : AppCompatActivity() {
         window.navigationBarColor = Color.TRANSPARENT
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(buildHome())
+
         RavenHomeAura.attach(this)
-        RavenOfficeBarService.signal(this, "HOME", "raven-native-home")
         ContextCompat.registerReceiver(
             this,
             officeReceiver,
             IntentFilter(RavenOfficeStateStore.ACTION_CHANGED),
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
-        mainHandler.post(tick)
+
+        // First paint is intentionally cheap. Expensive app discovery happens afterward.
+        renderClock()
+        renderResident(force = true)
+        refreshAudio()
+        requestAppCatalog()
+        mainHandler.post { signalHomeIfNeeded() }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        scheduleClockTick()
     }
 
     override fun onResume() {
         super.onResume()
-        RavenOfficeBarService.signal(this, "HOME", "raven-native-home")
-        rebuildFavorites()
+        renderClock()
+        renderResident(force = false)
         refreshAudio()
-        renderResident()
+        requestAppCatalog()
+        // Let the HOME frame win the race; Office service work is never on the critical first draw.
+        mainHandler.post { signalHomeIfNeeded() }
+    }
+
+    override fun onStop() {
+        mainHandler.removeCallbacks(clockTick)
+        super.onStop()
     }
 
     override fun onDestroy() {
-        mainHandler.removeCallbacks(tick)
+        mainHandler.removeCallbacks(clockTick)
         try { unregisterReceiver(officeReceiver) } catch (_: Throwable) {}
         super.onDestroy()
     }
@@ -106,9 +136,17 @@ class RavenHomeActivity : AppCompatActivity() {
         val root = FrameLayout(this).apply { setBackgroundColor(Color.TRANSPARENT) }
         val column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(50), dp(18), dp(20))
+            setPadding(dp(18), dp(16), dp(18), dp(12))
         }
-        root.addView(column, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        root.addView(
+            column,
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
+        )
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            column.setPadding(dp(18), bars.top + dp(12), dp(18), bars.bottom + dp(8))
+            insets
+        }
 
         val top = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -144,7 +182,10 @@ class RavenHomeActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        utilityTitle.addView(text("RAVEN DECK", 13f, 0xFFFF64B4.toInt(), true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        utilityTitle.addView(
+            text("RAVEN DECK", 13f, 0xFFFF64B4.toInt(), true),
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+        )
         utilityTitle.addView(smallButton("Apps") { showAppUniverse(true) })
         utilityTitle.addView(smallButton("Studio") { openStudio() }, left(6))
         utility.addView(utilityTitle)
@@ -190,7 +231,10 @@ class RavenHomeActivity : AppCompatActivity() {
             background = rounded(0xC6282730.toInt(), 28, 0x55FFFFFF)
             setOnClickListener { showAppUniverse(true) }
         }
-        column.addView(search, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(58)).apply { topMargin = dp(10) })
+        column.addView(
+            search,
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(58)).apply { topMargin = dp(10) },
+        )
 
         val nav = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -207,36 +251,68 @@ class RavenHomeActivity : AppCompatActivity() {
 
     private fun renderClock() {
         val now = LocalDateTime.now()
-        clockView.text = now.format(DateTimeFormatter.ofPattern("H:mm"))
-        dateView.text = now.format(DateTimeFormatter.ofPattern("EEE · MMM d"))
+        val nextClock = now.format(clockFormat)
+        val nextDate = now.format(dateFormat)
+        if (clockView.text.toString() != nextClock) clockView.text = nextClock
+        if (dateView.text.toString() != nextDate) dateView.text = nextDate
     }
 
-    private fun renderResident() {
+    private fun scheduleClockTick() {
+        mainHandler.removeCallbacks(clockTick)
+        val now = System.currentTimeMillis()
+        val delay = (60_000L - (now % 60_000L)).coerceAtLeast(500L)
+        mainHandler.postDelayed(clockTick, delay)
+    }
+
+    private fun renderResident(force: Boolean) {
         val snapshot = RavenOfficeStateStore.read(this)
         if (snapshot == null) {
+            if (!force && lastResidentAt == -1L) return
+            lastResidentAt = -1L
             residentOwner.text = "♡ RAVENOS"
             residentNote.text = "office waking…"
             residentCard.background = rounded(0xB3241A2A.toInt(), 22, 0x55FFFFFF)
             return
         }
+        if (!force && snapshot.updatedAt == lastResidentAt) return
+        lastResidentAt = snapshot.updatedAt
         residentOwner.text = "${snapshot.emoji} ${snapshot.owner}"
         residentNote.text = snapshot.note
-        val color = Color.argb(205, Color.red(snapshot.accent), Color.green(snapshot.accent), Color.blue(snapshot.accent))
+        val color = Color.argb(
+            205,
+            Color.red(snapshot.accent),
+            Color.green(snapshot.accent),
+            Color.blue(snapshot.accent),
+        )
         residentCard.background = rounded(color, 22, 0x66FFFFFF)
         val textColor = contrastText(snapshot.accent)
         residentOwner.setTextColor(textColor)
         residentNote.setTextColor(textColor)
     }
 
+    private fun signalHomeIfNeeded() {
+        val snapshot = RavenOfficeStateStore.read(this)
+        if (snapshot?.signal == "HOME" && snapshot.detail == "raven-native-home") return
+        RavenOfficeBarService.signal(this, "HOME", "raven-native-home")
+    }
+
     private fun refreshAudio() {
         val state = RavenSystemDeck.snapshot(this)
-        mediaSeek.progress = state.media.percent
+        if (mediaSeek.progress != state.media.percent) mediaSeek.progress = state.media.percent
         mediaLabel.text = "MEDIA  ${state.media.percent}%"
     }
 
-    private fun rebuildFavorites() {
-        favoritesGrid.removeAllViews()
-        val apps = launchableApps()
+    private fun requestAppCatalog() {
+        RavenAppCatalog.current()?.let {
+            rebuildFavorites(it)
+            return
+        }
+        RavenAppCatalog.load(this) { apps ->
+            if (!isFinishing && !isDestroyed) rebuildFavorites(apps)
+        }
+    }
+
+    private fun rebuildFavorites(apps: List<RavenAppCatalog.Entry>) {
         val preferredPackages = listOf(
             "com.openai.chatgpt",
             "com.android.chrome",
@@ -251,10 +327,21 @@ class RavenHomeActivity : AppCompatActivity() {
             "com.sec.android.app.camera",
             "com.google.android.GoogleCamera",
         )
-        val picked = mutableListOf<AppEntry>()
-        preferredPackages.forEach { pkg -> apps.firstOrNull { it.packageName == pkg }?.let { if (picked.none { p -> p.packageName == pkg }) picked.add(it) } }
-        apps.forEach { if (picked.size < 8 && picked.none { p -> p.packageName == it.packageName }) picked.add(it) }
-        picked.take(8).forEach { favoritesGrid.addView(appTile(it, compact = true), gridParams()) }
+        val picked = mutableListOf<RavenAppCatalog.Entry>()
+        preferredPackages.forEach { pkg ->
+            apps.firstOrNull { it.packageName == pkg }?.let { candidate ->
+                if (picked.none { it.packageName == candidate.packageName }) picked += candidate
+            }
+        }
+        apps.forEach { candidate ->
+            if (picked.size < 8 && picked.none { it.packageName == candidate.packageName }) picked += candidate
+        }
+        val chosen = picked.take(8)
+        val fingerprint = chosen.joinToString("|") { it.key }
+        if (fingerprint == favoritesFingerprint) return
+        favoritesFingerprint = fingerprint
+        favoritesGrid.removeAllViews()
+        chosen.forEach { favoritesGrid.addView(appTile(it, compact = true), gridParams()) }
     }
 
     private fun showAppUniverse(focusSearch: Boolean) {
@@ -265,10 +352,17 @@ class RavenHomeActivity : AppCompatActivity() {
             setPadding(dp(18), dp(42), dp(18), dp(18))
             setBackgroundColor(0xF515141A.toInt())
         }
-        val titleRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        titleRow.addView(text("APP UNIVERSE", 28f, Color.WHITE, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val titleRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        titleRow.addView(
+            text("APP UNIVERSE", 28f, Color.WHITE, true),
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+        )
         titleRow.addView(smallButton("×") { dialog.dismiss() })
         shell.addView(titleRow)
+
         val search = EditText(this).apply {
             hint = "Search apps"
             setHintTextColor(0xFF8F8F9D.toInt())
@@ -278,36 +372,73 @@ class RavenHomeActivity : AppCompatActivity() {
             setPadding(dp(16), 0, dp(16), 0)
             background = rounded(0xFF2A2931.toInt(), 22, 0x55FFFFFF)
         }
-        shell.addView(search, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52)).apply { topMargin = dp(14) })
-        val scroll = ScrollView(this)
-        val grid = GridLayout(this).apply { columnCount = 4; alignmentMode = GridLayout.ALIGN_BOUNDS }
-        scroll.addView(grid)
-        shell.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply { topMargin = dp(12) })
-        val apps = launchableApps()
-        fun render(query: String) {
-            grid.removeAllViews()
-            val q = query.trim().lowercase()
-            apps.asSequence()
-                .filter { q.isBlank() || it.label.lowercase().contains(q) || it.packageName.lowercase().contains(q) }
-                .take(240)
-                .forEach { grid.addView(appTile(it, compact = false) { dialog.dismiss() }, gridParams()) }
+        shell.addView(
+            search,
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52)).apply { topMargin = dp(14) },
+        )
+
+        val grid = GridView(this).apply {
+            numColumns = 4
+            verticalSpacing = dp(4)
+            horizontalSpacing = dp(2)
+            stretchMode = GridView.STRETCH_COLUMN_WIDTH
+            clipToPadding = false
+            setPadding(0, dp(8), 0, dp(12))
         }
+        shell.addView(
+            grid,
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply { topMargin = dp(6) },
+        )
+
+        var catalog = RavenAppCatalog.current().orEmpty()
+        var visible = catalog
+        val adapter = object : BaseAdapter() {
+            override fun getCount(): Int = visible.size
+            override fun getItem(position: Int): RavenAppCatalog.Entry = visible[position]
+            override fun getItemId(position: Int): Long = visible[position].key.hashCode().toLong()
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View =
+                appTile(visible[position], compact = false) { dialog.dismiss() }
+        }
+        grid.adapter = adapter
+
+        fun render(query: String) {
+            val q = query.trim().lowercase()
+            visible = catalog.asSequence()
+                .filter { q.isBlank() || it.label.lowercase().contains(q) || it.packageName.lowercase().contains(q) }
+                .take(320)
+                .toList()
+            adapter.notifyDataSetChanged()
+        }
+
         search.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { render(s?.toString().orEmpty()) }
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                render(s?.toString().orEmpty())
+            }
             override fun afterTextChanged(s: android.text.Editable?) {}
         })
         render("")
-        dialog.setContentView(shell)
-        dialog.window?.apply {
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+
+        if (catalog.isEmpty()) {
+            RavenAppCatalog.load(this) { apps ->
+                if (!dialog.isShowing && isFinishing) return@load
+                catalog = apps
+                render(search.text?.toString().orEmpty())
+            }
         }
+
+        dialog.setContentView(shell)
         dialog.setOnShowListener {
-            dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            dialog.window?.apply {
+                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            }
             if (focusSearch) {
                 search.requestFocus()
-                search.post { getSystemService(InputMethodManager::class.java)?.showSoftInput(search, InputMethodManager.SHOW_IMPLICIT) }
+                search.post {
+                    getSystemService(InputMethodManager::class.java)
+                        ?.showSoftInput(search, InputMethodManager.SHOW_IMPLICIT)
+                }
             }
         }
         dialog.show()
@@ -326,7 +457,9 @@ class RavenHomeActivity : AppCompatActivity() {
                 max = 100
                 progress = value
                 setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                    override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) { t.text = "$label  $progress%" }
+                    override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                        t.text = "$label  $progress%"
+                    }
                     override fun onStartTrackingTouch(seekBar: SeekBar?) {}
                     override fun onStopTrackingTouch(seekBar: SeekBar?) { setter(progress) }
                 })
@@ -376,7 +509,7 @@ class RavenHomeActivity : AppCompatActivity() {
         )
     }
 
-    private fun launch(entry: AppEntry) {
+    private fun launch(entry: RavenAppCatalog.Entry) {
         RavenOfficeBarService.signal(this, "APP_LAUNCH", "package:${entry.packageName}")
         try {
             startActivity(Intent(Intent.ACTION_MAIN).apply {
@@ -387,36 +520,31 @@ class RavenHomeActivity : AppCompatActivity() {
         } catch (_: Throwable) {}
     }
 
-    private fun launchableApps(): List<AppEntry> {
-        val query = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        return packageManager.queryIntentActivities(query, 0)
-            .asSequence()
-            .mapNotNull { info ->
-                val ai = info.activityInfo ?: return@mapNotNull null
-                if (ai.packageName == packageName && ai.name.contains("RavenHomeActivity")) return@mapNotNull null
-                val label = info.loadLabel(packageManager)?.toString()?.trim().orEmpty().ifBlank { ai.packageName }
-                AppEntry(label, ai.packageName, ai.name, info.loadIcon(packageManager))
-            }
-            .distinctBy { "${it.packageName}/${it.activityName}" }
-            .sortedBy { it.label.lowercase() }
-            .toList()
-    }
-
-    private fun appTile(entry: AppEntry, compact: Boolean, afterLaunch: (() -> Unit)? = null): View {
+    private fun appTile(
+        entry: RavenAppCatalog.Entry,
+        compact: Boolean,
+        afterLaunch: (() -> Unit)? = null,
+    ): View {
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setPadding(dp(4), dp(if (compact) 4 else 10), dp(4), dp(if (compact) 4 else 10))
             val icon = ImageView(this@RavenHomeActivity).apply {
-                setImageDrawable(entry.icon)
+                setImageDrawable(RavenAppCatalog.icon(this@RavenHomeActivity, entry))
                 scaleType = ImageView.ScaleType.FIT_CENTER
             }
             addView(icon, LinearLayout.LayoutParams(dp(if (compact) 48 else 54), dp(if (compact) 48 else 54)))
-            addView(text(entry.label, if (compact) 10f else 11f, Color.WHITE, false).apply {
-                gravity = Gravity.CENTER
-                maxLines = 1
-            }, top(4))
-            setOnClickListener { launch(entry); afterLaunch?.invoke() }
+            addView(
+                text(entry.label, if (compact) 10f else 11f, Color.WHITE, false).apply {
+                    gravity = Gravity.CENTER
+                    maxLines = 1
+                },
+                top(4),
+            )
+            setOnClickListener {
+                launch(entry)
+                afterLaunch?.invoke()
+            }
         }
     }
 
@@ -466,22 +594,28 @@ class RavenHomeActivity : AppCompatActivity() {
         setMargins(dp(2), dp(2), dp(2), dp(2))
     }
 
-    private fun top(value: Int): LinearLayout.LayoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(value) }
-    private fun left(value: Int): LinearLayout.LayoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42)).apply { marginStart = dp(value) }
-    private fun weight(startMargin: Int = 0): LinearLayout.LayoutParams = LinearLayout.LayoutParams(0, dp(42), 1f).apply { marginStart = dp(startMargin) }
+    private fun top(value: Int): LinearLayout.LayoutParams = LinearLayout.LayoutParams(
+        ViewGroup.LayoutParams.MATCH_PARENT,
+        ViewGroup.LayoutParams.WRAP_CONTENT,
+    ).apply { topMargin = dp(value) }
+
+    private fun left(value: Int): LinearLayout.LayoutParams = LinearLayout.LayoutParams(
+        ViewGroup.LayoutParams.WRAP_CONTENT,
+        dp(42),
+    ).apply { marginStart = dp(value) }
+
+    private fun weight(startMargin: Int = 0): LinearLayout.LayoutParams = LinearLayout.LayoutParams(
+        0,
+        dp(42),
+        1f,
+    ).apply { marginStart = dp(startMargin) }
+
     private fun dp(value: Int): Int = (value * density).toInt()
 
     private fun contrastText(color: Int): Int {
         val perceived = (Color.red(color) * 299 + Color.green(color) * 587 + Color.blue(color) * 114) / 1000
         return if (perceived >= 175) Color.BLACK else Color.WHITE
     }
-
-    private data class AppEntry(
-        val label: String,
-        val packageName: String,
-        val activityName: String,
-        val icon: android.graphics.drawable.Drawable,
-    )
 
     companion object {
         const val EXTRA_OPEN_STUDIO = "RAVEN_OPEN_STUDIO"
