@@ -88,7 +88,7 @@ object RavenMarkerBus {
 
     private fun normalizeKey(raw: String, detail: String): String = when (raw.trim().uppercase()) {
         "FOREGROUND_APP", "APP_LAUNCH" -> "APP_ENTER"
-        "NOTIFICATION" -> if (detail.contains("state:removed", true)) "NOTIFICATION_REMOVED" else "NOTIFICATION_POSTED"
+        "NOTIFICATION", "NOTIFICATION_SENSE" -> if (detail.contains("state:removed", true)) "NOTIFICATION_REMOVED" else "NOTIFICATION_POSTED"
         "MEDIA", "MUSIC" -> if (detail.contains("inactive", true) || detail.contains("stopped", true)) "MEDIA_IDLE" else "MEDIA_ACTIVE"
         "MEDIA_SESSION" -> "MEDIA_SESSION"
         "SCREEN_VISUAL" -> "SCREEN_VISUAL"
