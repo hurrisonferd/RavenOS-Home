@@ -49,6 +49,13 @@ object RavenFollowMeOverlay {
     fun disable(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putBoolean(KEY_ENABLED, false).apply()
+        RavenSurfaceIntegrity.mark(
+            context,
+            RavenSurfaceIntegrity.FOLLOW_ME,
+            "INACTIVE",
+            RavenOfficeStateStore.read(context)?.updatedAt ?: 0L,
+            "disabled_by_raven",
+        )
         hide()
     }
 
@@ -60,11 +67,38 @@ object RavenFollowMeOverlay {
         detail: String,
         hauntMode: RavenHauntMode = RavenHauntModeStore.get(context),
     ) {
-        if (!hauntMode.followMe || !isEnabled(context) || !Settings.canDrawOverlays(context)) {
+        val stateAt = RavenOfficeStateStore.read(context)?.updatedAt ?: 0L
+        val enabled = isEnabled(context)
+        val permitted = Settings.canDrawOverlays(context)
+        if (!hauntMode.followMe || !enabled || !permitted) {
+            val reason = when {
+                !hauntMode.followMe -> "suppressed:${hauntMode.label}"
+                !enabled -> "disabled"
+                else -> "overlay_permission_missing"
+            }
+            RavenSurfaceIntegrity.mark(
+                context,
+                RavenSurfaceIntegrity.FOLLOW_ME,
+                "INACTIVE",
+                stateAt,
+                reason,
+            )
             hide()
             return
         }
+
         ensureView(context.applicationContext)
+        if (root == null) {
+            RavenSurfaceIntegrity.mark(
+                context,
+                RavenSurfaceIntegrity.FOLLOW_ME,
+                "BLOCKED",
+                stateAt,
+                "overlay_view_unavailable",
+            )
+            return
+        }
+
         val textColor = contrastText(member.accent)
         val secondary = if (textColor == Color.BLACK) 0xAA000000.toInt() else 0xCCFFFFFF.toInt()
         root?.background = GradientDrawable().apply {
@@ -109,6 +143,14 @@ object RavenFollowMeOverlay {
                 try { root?.let { manager?.updateViewLayout(it, lp) } } catch (_: Throwable) {}
             }
         }
+
+        RavenSurfaceIntegrity.mark(
+            context,
+            RavenSurfaceIntegrity.FOLLOW_ME,
+            "RENDERED",
+            stateAt,
+            "overlay_view",
+        )
     }
 
     fun hide() {
