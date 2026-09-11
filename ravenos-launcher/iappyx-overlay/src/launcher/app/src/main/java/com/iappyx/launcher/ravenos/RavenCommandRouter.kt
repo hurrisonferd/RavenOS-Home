@@ -3,6 +3,7 @@ package com.iappyx.launcher.ravenos
 import android.app.Activity
 import android.content.Context
 import android.media.AudioManager
+import com.iappyx.launcher.LauncherActivity
 
 /** Deterministic Raven Search command grammar; exact/local commands run before any AI path. */
 object RavenCommandRouter {
@@ -26,6 +27,11 @@ object RavenCommandRouter {
             return Result(RavenSystemDeck.setNotificationPercent(context, it), "notifications $it%")
         }
 
+        parseGestureAssignment(normalized)?.let { (direction, target) ->
+            RavenGesturePrefs.set(context, direction, target)
+            return Result(true, "gesture ${direction.name.lowercase()} → ${target.label}")
+        }
+
         if (normalized.startsWith("haunt ")) {
             val requested = normalized.removePrefix("haunt ").trim()
             if (requested == "next" || requested == "cycle") {
@@ -40,6 +46,22 @@ object RavenCommandRouter {
         }
 
         return when (normalized) {
+            "menu", "raven menu", "launcher menu" -> {
+                val activity = context as? LauncherActivity ?: return Result(false)
+                RavenMenu.open(activity)
+                Result(true, "Raven Menu")
+            }
+            "gestures", "gesture status", "gesture controls", "swipe controls" ->
+                Result(true, RavenGesturePrefs.summary(context))
+            "gestures off", "gesture off", "disable gestures", "disable vertical gestures" -> {
+                RavenGesturePrefs.set(context, RavenGestureDirection.UP, RavenGestureTarget.NONE)
+                RavenGesturePrefs.set(context, RavenGestureDirection.DOWN, RavenGestureTarget.NONE)
+                Result(true, RavenGesturePrefs.summary(context))
+            }
+            "gesture reset", "gestures reset", "reset gestures" -> {
+                RavenGesturePrefs.reset(context)
+                Result(true, RavenGesturePrefs.summary(context))
+            }
             "haunt", "haunt next", "next haunt" -> {
                 val next = RavenHauntModeStore.cycle(context)
                 RavenOfficeBarService.setHaunt(context, next)
@@ -113,6 +135,20 @@ object RavenCommandRouter {
                 } else Result(false)
             }
         }
+    }
+
+    private fun parseGestureAssignment(input: String): Pair<RavenGestureDirection, RavenGestureTarget>? {
+        val match = Regex("^(?:gesture|swipe)\\s+(up|down)\\s+(apps?|search|menu|none|off)$").matchEntire(input)
+            ?: return null
+        val direction = if (match.groupValues[1] == "up") RavenGestureDirection.UP else RavenGestureDirection.DOWN
+        val target = when (match.groupValues[2]) {
+            "app", "apps" -> RavenGestureTarget.APPS
+            "search" -> RavenGestureTarget.SEARCH
+            "menu" -> RavenGestureTarget.MENU
+            "none", "off" -> RavenGestureTarget.NONE
+            else -> return null
+        }
+        return direction to target
     }
 
     private fun parsePercent(input: String, vararg labels: String): Int? {
