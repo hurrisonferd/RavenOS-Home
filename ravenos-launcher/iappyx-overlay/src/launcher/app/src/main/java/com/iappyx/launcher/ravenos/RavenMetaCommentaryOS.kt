@@ -28,16 +28,17 @@ object RavenMetaCommentaryOS {
 
         val text = when (marker.key) {
             "APP_ENTER" -> appComment(seed, surface, app, previousApp, elapsed, fast, scene.mediaHot, complex.recentSwitches)
+            "WINDOW_CHANGE" -> windowCommentary(context, seed, marker.detail, previousApp)
             "HOME_ENTER" -> homeComment(seed, previousApp, elapsed, fast, scene.mediaHot)
             "MEDIA_ACTIVE" -> pick(seed, listOf(
                 scene.activeApp?.let { "Music started while you're in $it." } ?: "Music started.",
                 scene.activeApp?.let { "Soundtrack's on under $it." } ?: "Soundtrack's on.",
-                "Audio woke up. Music is active now.",
+                "Music just woke up.",
             ))
             "MEDIA_IDLE" -> pick(seed, listOf(
                 scene.activeApp?.let { "Music stopped while you're still in $it." } ?: "Music stopped.",
                 "Soundtrack went quiet.",
-                "Audio went quiet.",
+                "The music lane went dark.",
             ))
             "MEDIA_SESSION" -> mediaSessionCommentary(context, seed, marker.detail, scene.activeApp)
             "SCREEN_VISUAL" -> visualCommentary(seed, marker.detail, scene.activeApp)
@@ -54,12 +55,13 @@ object RavenMetaCommentaryOS {
             "DEVICE" -> when {
                 marker.detail.contains("screen:on", true) -> pick(seed, listOf("Screen woke up.", "Phone's awake.", "Display is back on."))
                 marker.detail.contains("screen:off", true) -> pick(seed, listOf("Screen went to sleep.", "Display is off.", "Phone screen went dark."))
-                else -> "Device state changed."
+                else -> pick(seed, listOf("Device state shifted.", "The phone changed state.", "Something on the device moved."))
             }
             else -> fallback(seed, marker)
         }
 
         val family = when {
+            marker.key == "WINDOW_CHANGE" -> "META_WINDOW"
             surface == SurfaceKind.SYSTEM_UI && marker.key == "APP_ENTER" -> "META_SYSTEM_UI"
             surface == SurfaceKind.KEYBOARD && marker.key == "APP_ENTER" -> "META_INPUT"
             surface == SurfaceKind.LAUNCHER_SURFACE && marker.key == "APP_ENTER" -> "META_LAUNCHER"
@@ -70,7 +72,7 @@ object RavenMetaCommentaryOS {
             marker.key == "HOME_ENTER" -> "META_HOME"
             else -> "META_${marker.key}"
         }
-        val short = shorten(text, 118)
+        val short = shorten(text, 128)
         return Commentary(short, family, listOf(member.id, family, short, complex.occurrence.toString()).joinToString("|"))
     }
 
@@ -121,7 +123,23 @@ object RavenMetaCommentaryOS {
                 "$app is up; music is still rolling.",
             ))
             app != null -> pick(seed, listOf("$app is open.", "You're in $app now.", "$app is on screen."))
-            else -> "Foreground app changed."
+            else -> pick(seed, listOf("Foreground app changed.", "Another app took the screen.", "Foreground changed hands."))
+        }
+    }
+
+    private fun windowCommentary(context: Context, seed: String, detail: String, previousApp: String?): String {
+        val pkg = field(detail, "package")
+        val app = pkg?.let { packageLabel(context, it) } ?: previousApp ?: "This app"
+        val clazz = field(detail, "class").orEmpty()
+        return when {
+            pkg == "com.android.systemui" -> pick(seed, listOf("System UI changed panels.", "Android chrome shifted again.", "System UI swapped surfaces."))
+            pkg?.contains("honeyboard", true) == true || clazz.contains("InputMethod", true) -> pick(seed, listOf(
+                "Keyboard surface changed; $previousApp is still the task.",
+                "Typing surface shifted without changing the app underneath.",
+                "Keyboard changed windows; task context stayed put.",
+            ))
+            clazz.contains("Dialog", true) -> pick(seed, listOf("$app opened a dialog.", "$app put a dialog on top.", "A $app dialog took the front layer."))
+            else -> pick(seed, listOf("$app changed screens.", "$app swapped windows.", "New surface inside $app."))
         }
     }
 
@@ -224,9 +242,9 @@ object RavenMetaCommentaryOS {
     }
 
     private fun fallback(seed: String, marker: RavenMarkerBus.Marker): String = when {
-        "PAYOFF" in marker.tags -> pick(seed, listOf("That finally changed.", "There it goes.", "That loop paid off."))
-        "RECOVERY" in marker.tags -> pick(seed, listOf("Back to normal.", "Recovered.", "That settled down."))
-        else -> pick(seed, listOf("Phone state changed.", "Something changed.", "Noted."))
+        "RECOVERY" in marker.tags -> pick(seed, listOf("Back to normal.", "That recovered.", "The noisy bit settled down."))
+        "ERROR" in marker.tags -> pick(seed, listOf("That fault is real.", "Something actually broke state.", "The phone hit a real anomaly."))
+        else -> pick(seed, listOf("Phone state shifted.", "Something on the phone changed.", "The scene moved a little."))
     }
 
     private fun markerAppLabel(context: Context, marker: RavenMarkerBus.Marker): String? {
