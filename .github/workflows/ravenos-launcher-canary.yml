@@ -53,6 +53,8 @@ jobs:
           grep -R 'RAVENOS HOME WHISPER' "$ROOT/java/com/iappyx/launcher/LauncherActivity.kt"
           grep -R 'RAVENOS OFFICE BAR: initial home signal' "$ROOT/java/com/iappyx/launcher/LauncherActivity.kt"
           grep -R 'RAVENOS OFFICE BAR: app launch signal' "$ROOT/java/com/iappyx/launcher/applock/AppLockManager.kt"
+          grep -R 'RAVENOS WIDGET OFFICE BRIDGE' "$ROOT/java/com/iappyx/launcher/cells/GeneratedWidgetCell.kt"
+          grep -R 'RavenWidgetOfficeModule.attach' "$ROOT/java/com/iappyx/launcher/cells/GeneratedWidgetCell.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeMember.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenForegroundAwarenessService.kt"
@@ -61,6 +63,8 @@ jobs:
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenHomeWhisper.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenHauntMode.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeTraceStore.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeStateStore.kt"
+          test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenWidgetOfficeBridge.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenAmbientReceiver.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenScreenMonitor.kt"
           test -s "$ROOT/java/com/iappyx/launcher/ravenos/RavenAwarenessStatus.kt"
@@ -76,6 +80,8 @@ jobs:
           grep -R 'RavenHomeAura.render' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           grep -R 'RavenHomeWhisper.render' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           grep -R 'RavenOfficeTraceStore.record' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
+          grep -R 'RavenOfficeStateStore.write' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
+          grep -R 'RavenWidgetOfficeModule.broadcast' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeStateStore.kt"
           grep -R 'RavenScreenMonitor.start' "$ROOT/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt"
           test -s 'ravenos-launcher/device-canary.sh'
 
