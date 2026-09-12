@@ -5,8 +5,9 @@ import android.content.Context
 /**
  * Short deterministic callbacks across recent phone state.
  *
- * This layer never invents new sensors. It only connects already-authorized markers into
- * small fourth-wall observations so Goblin Vision can remember the scene it is inhabiting.
+ * Callback law: a repeated phone event is not automatically a joke. Visible screen meaning and
+ * material scene evolution own the premise; notifications/System UI remain cameos unless they
+ * materially change the scene.
  */
 object RavenMetaGoblinCallbackOS {
     fun compose(
@@ -17,97 +18,74 @@ object RavenMetaGoblinCallbackOS {
         val recent = RavenMarkerBus.recent(context, 40)
         val prior = recent.dropLast(1)
         val scene = RavenPhoneSceneOS.snapshot(context, marker.at)
-        val now = marker.at
-        val seed = "${marker.key}|${marker.detail}|${complex.occurrence}|${scene.activeApp}"
+        val screen = RavenScreenContextOS.snapshot(context, marker.at)
+        val graph = runCatching { RavenSceneGraphOS.observe(context, screen, marker.at) }.getOrNull()
+        val seed = "${marker.key}|${marker.detail}|${screen.semanticKind}|${graph?.task}|${graph?.selectedClass}"
+        val subject = graph?.selected.orEmpty().ifBlank { graph?.subject.orEmpty() }.take(72)
+        val owner = graph?.app.orEmpty().ifBlank { scene.activeApp.orEmpty() }.ifBlank { "the current app" }
+
+        // Notifications and System UI are supporting plot by default. Never turn their recurrence
+        // count into a punchline. If the real scene is readable, describe the interruption as a
+        // cameo relative to that scene; otherwise stay silent.
+        val systemCameo = marker.key.startsWith("NOTIFICATION") ||
+            field(marker.detail, "package") == "com.android.systemui" ||
+            marker.key in setOf("SYSTEM_UI", "SYSTEM_DECK")
+        if (systemCameo) {
+            if (!screen.available || owner.equals("System UI", true)) return ""
+            val visible = subject.ifBlank { graph?.title.orEmpty() }.ifBlank { owner }
+            return pick(seed, listOf(
+                "$owner still owns the scene around “$visible”; Android chrome only knocked at the door.",
+                "The visible subject is still “$visible” in $owner. System UI gets cameo credit, not top billing.",
+                "$owner kept the A-plot while Android passed through the frame. Continuity held.",
+            ))
+        }
 
         if (marker.key == "APP_ENTER") {
             val current = appLabel(marker)
             if (!current.isNullOrBlank()) {
                 val priorApps = prior.asReversed().filter { it.key == "APP_ENTER" }.take(8)
-                val firstSame = priorApps.indexOfFirst { appLabel(it) == current }
-                if (firstSame >= 1) {
+                val returned = priorApps.any { appLabel(it) == current }
+                if (returned && screen.available) {
+                    val visible = subject.ifBlank { graph?.title.orEmpty() }.ifBlank { current }
                     return pick(seed, listOf(
-                        "Back to $current. The goblin remembers this hallway.",
-                        "$current again. We have officially made a loop.",
-                        "Return trip to $current. Same phone, recurring bit.",
+                        "Back to $current, and “$visible” is still the useful part of the scene.",
+                        "$current reclaimed foreground without resetting the episode. The visible subject survived the cut.",
+                        "Return to $current. Same episode, current subject: “$visible”.",
                     ))
                 }
-                if (scene.mediaHot && !scene.mediaTitle.isNullOrBlank()) {
+                if (scene.mediaHot && !scene.mediaTitle.isNullOrBlank() && screen.available) {
+                    val track = scene.mediaTitle!!.take(42)
                     return pick(seed, listOf(
-                        "“${scene.mediaTitle!!.take(34)}” survived the app jump.",
-                        "Same soundtrack, new foreground.",
-                        "The music followed us into $current.",
-                    ))
-                }
-                if (scene.recentSwitches >= 5) {
-                    return pick(seed, listOf(
-                        "${scene.recentSwitches} app changes in 30s. The phone is editing itself.",
-                        "Foreground has changed hands ${scene.recentSwitches} times. Tiny montage acquired.",
-                        "${scene.recentSwitches} switches. Attention graph currently doing parkour.",
-                    ))
-                }
-                if (scene.goblinEyeActive) {
-                    return pick(seed, listOf(
-                        "Eye armed; $current just took the screen.",
-                        "$current has foreground and the Eye is still awake.",
-                        "Goblin Eye followed the handoff into $current.",
+                        "“$track” survived the app jump underneath $current. Soundtrack continuity, not a new A-plot.",
+                        "$current took foreground while “$track” kept soundtrack duty.",
+                        "New foreground, same soundtrack. $current still gets to own what is visibly happening.",
                     ))
                 }
             }
         }
 
-        if (marker.key == "WINDOW_CHANGE") {
-            val pkg = field(marker.detail, "package")
-            val sameWindowFamily = prior.count {
-                it.key == "WINDOW_CHANGE" &&
-                    field(it.detail, "package") == pkg &&
-                    now - it.at in 0..45_000L
-            }
-            if (sameWindowFamily >= 3) {
-                val label = field(marker.detail, "app") ?: pkg?.substringAfterLast('.') ?: "This app"
+        if (marker.key == "WINDOW_CHANGE" && screen.available) {
+            val visible = subject.ifBlank { graph?.title.orEmpty() }
+            if (visible.isNotBlank()) {
                 return pick(seed, listOf(
-                    "$label has changed internal surfaces ${sameWindowFamily + 1} times. Busy little room.",
-                    "Fourth wall count: ${sameWindowFamily + 1} window shifts inside $label.",
-                    "$label keeps rearranging the furniture without leaving the app.",
+                    "$owner rearranged the interface around “$visible”; the subject did not change with the furniture.",
+                    "Window changed, scene didn't: “$visible” still owns attention in $owner.",
+                    "$owner moved some chrome around. Keep “$visible” in the plot.",
                 ))
             }
         }
 
-        val systemUiDetours = prior.count {
-            it.key == "APP_ENTER" && field(it.detail, "package") == "com.android.systemui" && now - it.at in 0..60_000L
-        }
-        if (marker.key == "APP_ENTER" && field(marker.detail, "package") == "com.android.systemui" && systemUiDetours >= 2) {
+        if (marker.key == "SCREEN_VISUAL" && (scene.lastVisualMotion ?: 0) >= 60 && screen.available) {
+            val visible = subject.ifBlank { graph?.title.orEmpty() }.ifBlank { owner }
             return pick(seed, listOf(
-                "System UI detour #${systemUiDetours + 1} this minute. That's a ritual now.",
-                "Back in System UI again. Android chrome has tenure.",
-                "System UI keeps guest-starring in this episode.",
+                "The pixels changed hard, but the current readable subject is still “$visible”.",
+                "Visible set change around “$visible”. Treat it as a cut only if the meaning actually moved.",
+                "Goblin Eye saw a hard visual change; screen meaning still gets final edit.",
             ))
         }
 
-        if (marker.key.startsWith("NOTIFICATION") && scene.notificationBurst >= 3) {
-            return pick(seed, listOf(
-                "The notification tray is attempting a hostile takeover.",
-                "Notification weather: crowded.",
-                "The tray is now a small percussion section.",
-            ))
-        }
-
-        if (marker.key == "SCREEN_VISUAL" && (scene.lastVisualMotion ?: 0) >= 60) {
-            return pick(seed, listOf(
-                "That was not a subtle scene change.",
-                "The pixels changed jobs mid-sentence.",
-                "Goblin Eye just watched the set get rebuilt.",
-            ))
-        }
-
-        val recentEventCount = prior.count { now - it.at in 0..20_000L }
-        if (recentEventCount >= 8 && complex.occurrence % 3 == 0) {
-            return pick(seed, listOf(
-                "$recentEventCount phone events in 20s. The office has stopped pretending this is calm.",
-                "The phone is generating plot faster than the goblins can invoice it.",
-                "This minute has acquired editing velocity.",
-            ))
-        }
+        // No event-count jokes. Recurrence is retained structurally elsewhere and can be spent only
+        // when Gold/Season/Bit systems have an actual scene-aware callback to make.
         return ""
     }
 
