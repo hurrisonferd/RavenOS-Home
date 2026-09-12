@@ -16,6 +16,7 @@ object RavenNotificationSenseOS {
     private const val KEY_LAST_PACKAGE = "last_package"
     private const val KEY_LAST_AT = "last_at"
     private const val KEY_BURST = "burst"
+    private const val KEY_POSTED_PREFIX = "posted_at_"
     private const val BURST_MS = 12_000L
 
     fun mode(context: Context): PrivacyMode = runCatching {
@@ -53,10 +54,13 @@ object RavenNotificationSenseOS {
         val ambient = ranked && ranking.isAmbient
         val matchesFilter = !ranked || ranking.matchesInterruptionFilter()
         val channel = if (ranked) ranking.channel?.id.orEmpty() else ""
+        val rank = if (ranked) ranking.rank else -1
         val ongoing = (n.flags and Notification.FLAG_ONGOING_EVENT) != 0
+        val groupSummary = (n.flags and Notification.FLAG_GROUP_SUMMARY) != 0
         val category = n.category.orEmpty()
         val alerting = matchesFilter && !ambient && importance >= NotificationManager.IMPORTANCE_DEFAULT && !ongoing
         val burst = nextBurst(context, sbn.packageName, sbn.postTime)
+        rememberPosted(context, sbn.key, System.currentTimeMillis())
         val privacy = mode(context)
         val extras = n.extras
         val title = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty().trim()
@@ -76,6 +80,8 @@ object RavenNotificationSenseOS {
             append("|matches_filter:").append(matchesFilter)
             append("|alerting:").append(alerting)
             append("|ongoing:").append(ongoing)
+            append("|group_summary:").append(groupSummary)
+            append("|rank:").append(rank)
             append("|burst:").append(burst)
             append("|interruption_filter:").append(interruptionFilter)
             if (channel.isNotBlank()) append("|channel:").append(clean(channel, 64))
@@ -94,14 +100,23 @@ object RavenNotificationSenseOS {
 
     fun onRemoved(context: Context, sbn: StatusBarNotification) {
         if (!RavenHauntModeStore.get(context).notificationRouting) return
+        val lifetime = takeLifetime(context, sbn.key, System.currentTimeMillis())
+        val category = sbn.notification?.category.orEmpty().ifBlank { "none" }
         RavenOfficeBarService.signal(
             context,
             "NOTIFICATION_SENSE",
-            "package:${sbn.packageName}|state:removed|privacy:${mode(context).name}",
+            buildString {
+                append("package:").append(sbn.packageName)
+                append("|state:removed")
+                append("|category:").append(category)
+                append("|payoff:true")
+                lifetime?.let { append("|lifetime_ms:").append(it) }
+                append("|privacy:").append(mode(context).name)
+            },
         )
     }
 
-    fun summary(context: Context): String = "NOTIFICATION SENSE ${mode(context).name}"
+    fun summary(context: Context): String = "NOTIFICATION SENSE ${mode(context).name} + SHADE GEOMETRY"
 
     private fun nextBurst(context: Context, pkg: String, at: Long): Int {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -113,10 +128,29 @@ object RavenNotificationSenseOS {
         return burst
     }
 
+    private fun rememberPosted(context: Context, key: String?, at: Long) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putLong(KEY_POSTED_PREFIX + stableHash(key.orEmpty()), at).apply()
+    }
+
+    private fun takeLifetime(context: Context, key: String?, now: Long): Long? {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val storedKey = KEY_POSTED_PREFIX + stableHash(key.orEmpty())
+        val at = prefs.getLong(storedKey, -1L)
+        prefs.edit().remove(storedKey).apply()
+        return at.takeIf { it > 0L }?.let { (now - it).coerceAtLeast(0L) }
+    }
+
     private fun clean(raw: String, max: Int): String = raw
         .replace('|', ' ')
         .replace('\n', ' ')
         .replace('\r', ' ')
         .trim()
         .take(max)
+
+    private fun stableHash(text: String): String {
+        var hash = 0x811C9DC5.toInt()
+        for (c in text) { hash = hash xor c.code; hash *= 16777619 }
+        return (hash and Int.MAX_VALUE).toString(16)
+    }
 }
