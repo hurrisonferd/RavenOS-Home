@@ -37,19 +37,32 @@ object RavenCommandRouter {
             }
         }
 
+        if (normalized.startsWith("recall ") || normalized.startsWith("office recall ")) {
+            val query = if (normalized.startsWith("office recall ")) q.substringAfter("office recall ", "") else q.substringAfter("recall ", "")
+            return Result(true, RavenOfficeRecallOS.searchBlocking(context, query))
+        }
+
         return when (normalized) {
             "why", "why?", "goblin why", "office why" -> Result(true, RavenEvidenceBoard.why(context))
             "evidence", "evidence board", "goblin evidence" -> Result(true, RavenEvidenceBoard.compact(context, 10))
             "clear evidence", "clear evidence board" -> { RavenEvidenceBoard.clear(context); Result(true, "evidence board cleared") }
             "save that shit", "save this", "bookmark moment", "pin current bit" -> Result(true, RavenReplayOS.saveCurrent(context))
             "replay", "replay os", "bookmarks" -> Result(true, RavenReplayOS.compact(context))
+            "recall", "office recall", "recall help" -> Result(true, RavenOfficeRecallOS.searchBlocking(context, ""))
+            "dialogue vault", "vault status", "writers room" -> Result(true, RavenDialogueVaultOS.compact(context))
+            "scene graph", "screen graph", "what do you see" -> Result(true, RavenSceneGraphOS.compact(context))
+            "clear dialogue usage", "clear writers room usage" -> {
+                RavenDialogueVaultOS.clearUsage(context)
+                RavenSceneGraphOS.clear()
+                Result(true, "dialogue fingerprints, expression usage, and structural scene history cleared")
+            }
             "next drop", "goblin next drop" -> {
                 RavenOfficeBarService.signal(context, "NEXT_DROP", "owner:command")
                 Result(true, "next drop")
             }
             "goblin status", "goblin brain", "brain status" -> {
                 val why = RavenEvidenceBoard.why(context).replace('\n', ' ')
-                Result(true, "GOBLIN BRAIN ACTIVE · $why")
+                Result(true, "GOBLIN BRAIN ACTIVE · $why · ${RavenDialogueVaultOS.compact(context)} · ${RavenOfficeRecallOS.compact(context)}")
             }
             "quick deck", "quick controls", "controls", "sound controls" -> {
                 val activity = context as? LauncherActivity ?: return Result(false)
