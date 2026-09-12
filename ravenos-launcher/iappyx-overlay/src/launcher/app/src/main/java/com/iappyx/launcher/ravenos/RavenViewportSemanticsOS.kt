@@ -66,6 +66,7 @@ object RavenViewportSemanticsOS {
         var visited = 0
         var sensitive = false
         var editablePresent = false
+        var inputFocused = false
         var scrollablePresent = false
         val rootBounds = Rect().also { runCatching { root.getBoundsInScreen(it) } }
         val screenHeight = rootBounds.height().takeIf { it > 0 } ?: 2400
@@ -116,7 +117,10 @@ object RavenViewportSemanticsOS {
             if (node == null || depth > MAX_DEPTH || visited >= MAX_NODES || sensitive) return
             visited++
             if (node.isPassword) { sensitive = true; return }
-            if (node.isEditable) editablePresent = true
+            if (node.isEditable) {
+                editablePresent = true
+                if (node.isFocused) inputFocused = true
+            }
             if (node.isScrollable) scrollablePresent = true
 
             if (node.isVisibleToUser && !node.isEditable) {
@@ -159,7 +163,7 @@ object RavenViewportSemanticsOS {
         val subject = (meaningful.firstOrNull { it.text != title } ?: meaningful.first()).text.take(190)
         val phrasePack = meaningful.take(12).map { it.text }.distinct().joinToString(" · ").take(720)
         val allText = meaningful.take(24).joinToString(" ") { it.text }.lowercase()
-        val task = inferTask(packageName, allText, editablePresent, scrollablePresent, roles.keys)
+        val task = inferTask(packageName, allText, editablePresent, inputFocused, scrollablePresent, roles.keys)
         val roleSummary = roles.entries.sortedByDescending { it.value }.take(5)
             .joinToString(",") { "${it.key}:${it.value}" }
         val meta = RavenMetaRecursionOS.detect("$title $subject $phrasePack")
@@ -187,22 +191,24 @@ object RavenViewportSemanticsOS {
         packageName: String,
         text: String,
         editablePresent: Boolean,
+        inputFocused: Boolean,
         scrollablePresent: Boolean,
         roles: Set<String>,
     ): String {
         val pkg = packageName.lowercase()
         fun has(vararg terms: String) = terms.any(text::contains)
         return when {
-            editablePresent && has("send", "reply", "message", "chat", "ask chatgpt") -> "COMPOSING"
-            editablePresent && has("search", "find", "address") -> "SEARCHING"
+            inputFocused && has("send", "reply", "message", "chat", "ask chatgpt") -> "COMPOSING"
+            inputFocused && has("search", "find", "address") -> "SEARCHING"
             pkg.contains("settings") || has("permission", "accessibility", "appear on top") -> "CONFIGURING"
             has("pull request", "commit", "workflow", "kotlin", "build", "github") -> "DEBUGGING"
             has("playing", "pause", "album", "track", "song") -> "LISTENING"
             has("video", "comments", "youtube") -> "WATCHING"
-            "TAB" in roles || pkg.contains("chrome") || pkg.contains("browser") -> if (scrollablePresent) "BROWSING" else "WEB"
             scrollablePresent && (has("chat", "conversation", "reply") || pkg.contains("openai")) -> "READING_CHAT"
+            "TAB" in roles || pkg.contains("chrome") || pkg.contains("browser") -> if (scrollablePresent) "BROWSING" else "WEB"
             scrollablePresent -> "READING"
-            editablePresent -> "TYPING"
+            inputFocused -> "TYPING"
+            editablePresent -> "VIEWING"
             else -> "VIEWING"
         }
     }
