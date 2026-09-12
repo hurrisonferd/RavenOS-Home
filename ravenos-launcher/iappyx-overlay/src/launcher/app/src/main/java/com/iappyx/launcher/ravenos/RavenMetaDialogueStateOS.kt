@@ -19,15 +19,18 @@ object RavenMetaDialogueStateOS {
 
     fun tags(event: String, motif: String, callback: String, surface: String): Set<String> {
         val e = event.uppercase()
-        val out = linkedSetOf<String>()
-        if (e.contains("FAIL") || e.contains("ERROR") || e.contains("BLOCK")) out += "proof"
-        if (e.contains("SCREEN") || e.contains("USER_PRESENT") || e.contains("LAUNCH")) out += "launcher"
-        if (e.contains("NOTIFICATION")) out += "office"
-        if (e.contains("POWER") || e.contains("BATTERY")) out += "vehicle"
-        if (motif.isNotBlank()) out += "motif"
-        if (callback.isNotBlank()) out += "callback"
-        if (surface.uppercase().contains("BOARD")) out += "office"
-        out += "meta"
+        val out = linkedSetOf("meta", "deadpan", "contrast", "timing")
+        if (e.contains("FAIL") || e.contains("ERROR") || e.contains("BLOCK")) out += setOf("proof", "receipt", "office")
+        if (e.contains("SCREEN")) out += setOf("screen", "ui", "scene", "launcher", "haunt", "follow-me")
+        if (e.contains("USER_PRESENT") || e.contains("LAUNCH") || e.contains("HOME")) out += setOf("launcher", "ui", "scene", "haunt")
+        if (e.contains("NOTIFICATION")) out += setOf("office", "status")
+        if (e.contains("POWER") || e.contains("BATTERY")) out += setOf("vehicle", "omni-rv")
+        if (e.contains("WIDGET")) out += setOf("widget", "ui")
+        if (e.contains("NO_OP") || e.contains("IDLE")) out += "null"
+        if (motif.isNotBlank()) out += setOf("motif", "prop", "mythology", "residue")
+        if (callback.isNotBlank()) out += setOf("callback", "residue", "prop")
+        if (surface.uppercase().contains("BOARD")) out += setOf("office", "ensemble", "relationship", "clipboard")
+        if (surface.uppercase().contains("DESK")) out += setOf("office", "prop", "scene")
         return out
     }
 
