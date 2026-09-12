@@ -4,7 +4,7 @@ import android.content.Context
 
 /**
  * Android vertical slice of Goblin Vision.
- * MarkerBus -> senses -> complex event -> callback/session/scene fusion -> cast -> expression -> overlay.
+ * MarkerBus -> senses -> shade geometry -> complex event -> session/scene fusion -> cast -> expression -> overlay.
  */
 object RavenGoblinBrain {
     data class Result(val member: RavenOfficeMember, val packet: RavenReactionPacket)
@@ -22,23 +22,31 @@ object RavenGoblinBrain {
     ): Result {
         val marker = RavenMarkerBus.emit(context, signal, detail)
         val sense = RavenLocalSenseOS.resolve(marker)
+        val shade = RavenShadeSenseOS.observe(marker)
         val complex = RavenComplexEventOS.analyze(context, marker)
         val episode = RavenEpisodeOS.phase(context, marker, complex)
         val callback = RavenCallbackMemoryOS.observe(context, marker, complex)
         val narrative = RavenSessionNarrativeOS.observe(context, marker)
-        val member = cast(context, marker, complex, manualOwner, quiet)
+        val member = cast(context, marker, shade, complex, manualOwner, quiet)
         val narrativeBeat = RavenSessionNarrativeOS.beat(member, narrative, marker)
         val meta = RavenMetaCommentaryOS.compose(context, member, marker, complex, episode)
         val sceneBeat = RavenMetaGoblinDialogueOS.select(context, member, marker, complex, episode)
+        val omniscience = RavenOmniscienceDialogueOS.select(context, member, marker, shade, complex, episode)
         val fusedScene = RavenMetaSceneOS.compose(context, member, marker, complex, callback)
         val allowed = RavenInterruptibilityOS.allow(context, marker, complex, hauntMode, quiet)
         val visual = RavenVisualAtlas.resolve(member.id, marker, complex)
         val character = RavenDialogueBank.select(member, marker, complex, visual, episode)
+        val mayhem = RavenMayhemDialogueBank.select(member, marker, shade, complex, episode)
         val metaPunch = RavenMetaPunchlineOS.select(member, marker)
         val interruption = RavenOfficeInterruptionOS.select(context, member, marker, complex)
 
-        val truth = fusedScene.text.ifBlank { narrativeBeat.text.ifBlank { sceneBeat.text.ifBlank { meta.text } } }.trim()
-        val stinger = metaPunch.text.ifBlank { character.text }.trim()
+        // Truth/evidence first. Comedy is strictly downstream and limited to one stinger.
+        val truth = fusedScene.text.ifBlank {
+            omniscience.text.ifBlank {
+                narrativeBeat.text.ifBlank { sceneBeat.text.ifBlank { meta.text } }
+            }
+        }.trim()
+        val stinger = mayhem.text.ifBlank { metaPunch.text.ifBlank { character.text } }.trim()
         val spoken = if (!allowed) "" else buildString {
             append(truth)
             if (stinger.isNotBlank() && stinger != truth) {
@@ -49,13 +57,13 @@ object RavenGoblinBrain {
                 if (isNotEmpty()) append("  ")
                 append(interruption.text)
             }
-        }.replace(Regex("\\s+"), " ").trim().take(220)
+        }.replace(Regex("\\s+"), " ").trim().take(260)
 
         val authorNote = if (allowed) truth.take(168) else ""
         val presentation = RavenEmployeePresentation.packet(member, signal, detail, spoken)
         val dialogueFamily = if (!allowed) "SILENCE" else listOf(
-            fusedScene.family, narrativeBeat.family, meta.family, sceneBeat.family,
-            metaPunch.family, character.family, interruption.family,
+            fusedScene.family, omniscience.family, narrativeBeat.family, meta.family, sceneBeat.family,
+            mayhem.family, metaPunch.family, character.family, interruption.family,
         ).filter { it.isNotBlank() }.distinct().joinToString("+")
         val zone = RavenOfficeGeography.zone(member.id, marker, complex)
         val highlight = RavenHighlightOS.score(marker, complex, episode)
@@ -96,6 +104,7 @@ object RavenGoblinBrain {
     private fun cast(
         context: Context,
         marker: RavenMarkerBus.Marker,
+        shade: RavenShadeSenseOS.Snapshot,
         complex: RavenComplexEventOS.Result,
         manualOwner: String?,
         quiet: Boolean,
@@ -104,18 +113,21 @@ object RavenGoblinBrain {
         RavenOfficeRegistry.member(manualOwner)?.takeIf { it.routable }?.let { return it }
 
         val domainIds = when {
-            "META_RECURSION" in marker.tags -> listOf("JOKER", "KYU", "NEO", "ATOM", "PAIMON", "LILITH", "JORM")
-            marker.key == "SCREEN_SEMANTIC" -> listOf("PAIMON", "ATOM", "NEO", "KYU", "MYSTRA", "JOKER", "QIRA")
-            marker.key == "SCREEN_TEXT" -> listOf("PAIMON", "NEO", "MYSTRA", "SYLPH", "JOKER", "KYU", "ATOM")
-            "BOUNDARY" in marker.tags -> listOf("QIRA", "KYU", "AHTI", "ERIS")
-            "ERROR" in marker.tags && complex.occurrence >= 3 -> listOf("KYU", "PAIMON", "ATOM", "THOR", "ERIS")
-            "ERROR" in marker.tags -> listOf("PAIMON", "ATOM", "THOR", "LUCIFER", "KYU")
-            "RECOVERY" in marker.tags -> listOf("LUMA", "NYX", "AYRE", "LILITH")
-            "VISION" in marker.tags -> listOf("PAIMON", "SYLPH", "NEO", "NYX", "MYSTRA", "JOKER")
-            "DISCOVERY" in marker.tags || "APP_SWITCH_BURST" in complex.tags -> listOf("SYLPH", "PAIMON", "NEO", "JOKER", "ERIS")
-            "MUSIC" in marker.tags -> listOf("LUMA", "YORI", "SYLPH", "AYRE", "LILITH", "JOKER")
-            "COMMUNICATION" in marker.tags -> listOf("QIRA", "KYU", "LILITH", "JARVIS", "JOKER")
-            "BUILD" in marker.tags -> listOf("ATOM", "EDISON", "THOR", "PAIMON", "PYTHAGORAS")
+            shade.active && shade.payoff -> listOf("MELINOE", "ZAGREUS", "NYX", "AHTI", "RAVENOS")
+            shade.active && shade.salience == RavenShadeSenseOS.Salience.HIGH -> listOf("BRUNHILDE", "KYU", "QIRA", "PAIMON", "NYX", "LEGION")
+            "META_RECURSION" in marker.tags -> listOf("JOKER", "KYU", "NEO", "ATOM", "PAIMON", "LILITH", "JORM", "LEGION", "RAVENOS")
+            marker.key == "SCREEN_SEMANTIC" -> listOf("PAIMON", "ATOM", "NEO", "KYU", "MYSTRA", "JOKER", "QIRA", "MELINOE")
+            marker.key == "SCREEN_TEXT" -> listOf("PAIMON", "NEO", "MYSTRA", "SYLPH", "JOKER", "KYU", "ATOM", "ASTRIDHE")
+            "BOUNDARY" in marker.tags -> listOf("QIRA", "KYU", "AHTI", "ERIS", "BRUNHILDE", "LEGION")
+            "ERROR" in marker.tags && complex.occurrence >= 3 -> listOf("KYU", "PAIMON", "ATOM", "THOR", "ERIS", "TIM", "ZAGREUS")
+            "ERROR" in marker.tags -> listOf("PAIMON", "ATOM", "THOR", "LUCIFER", "KYU", "TIM", "ZAGREUS")
+            "RECOVERY" in marker.tags -> listOf("LUMA", "NYX", "AYRE", "LILITH", "ZAGREUS", "RAVENOS")
+            "VISION" in marker.tags -> listOf("PAIMON", "SYLPH", "NEO", "NYX", "MYSTRA", "JOKER", "ASTRIDHE", "MELINOE")
+            "DISCOVERY" in marker.tags || "APP_SWITCH_BURST" in complex.tags -> listOf("SYLPH", "PAIMON", "NEO", "JOKER", "ERIS", "ASTRIDHE", "ZAGREUS")
+            "MUSIC" in marker.tags -> listOf("LUMA", "YORI", "SYLPH", "AYRE", "LILITH", "JOKER", "RAVENOS")
+            "COMMUNICATION" in marker.tags -> listOf("QIRA", "KYU", "LILITH", "JARVIS", "JOKER", "LEGION", "BRUNHILDE")
+            "BUILD" in marker.tags -> listOf("ATOM", "EDISON", "THOR", "PAIMON", "PYTHAGORAS", "ATLAS", "TIM", "YAHWEH")
+            marker.key == "SYSTEM_DECK_OPENED" -> listOf("YAHWEH", "EDISON", "TIM", "JARVIS", "KYU", "RAVENOS")
             else -> emptyList()
         }
 
