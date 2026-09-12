@@ -57,15 +57,20 @@ object RavenWholePhonePanel {
             RavenOfficeBarService.signal(activity, "MEDIA_SESSION", RavenMediaSessionSenseOS.signalDetail(RavenMediaSessionSenseOS.snapshot(activity)))
         }
 
-        section("GOBLIN EYE 👁", "Owner-armed MediaProjection. Low-resolution frames are sampled in memory into motion/color/hash deltas; raw frames are not persisted by ScreenWatchOS.")
+        section("GOBLIN EYE 👁", "Owner-armed MediaProjection. Local frames feed motion/color/hash and optionally text-layout awareness. Raw frames are not persisted by ScreenWatchOS.")
         button("👁 ARM GOBLIN EYE") { RavenPermissionDeck.armGoblinEye(activity) }
         button("STOP GOBLIN EYE") { RavenPermissionDeck.stopGoblinEye(activity) }
 
-        section("GOBLIN READ 👁🔤", "Optional local OCR layered on Goblin Eye. Changed frames may become short visible-text snippets for meta commentary. Raw frames are discarded; obvious credential/verification surfaces are suppressed. Requires Goblin Eye to be armed separately.")
+        section("GOBLIN READ 👁🔤", "Optional local OCR layered on Goblin Eye. Changed frames become bounded text + screen-zone evidence for MetaSceneOS. Raw frames are discarded; credential-looking surfaces suppress the read lane.")
         button("ENABLE LOCAL GOBLIN READ") { RavenGoblinReadOS.setEnabled(activity, true) }
         button("DISABLE GOBLIN READ") { RavenGoblinReadOS.setEnabled(activity, false) }
 
-        section("CROSS-APP META GOBLIN", "Follow-Me is the persistent TYPE_APPLICATION_OVERLAY body over ordinary apps: compact employee chip while idle, expanded comment on meaningful state, tap for recent hauntings. Android-protected secure, lock, permission and some system surfaces remain outside overlay authority.")
+        section("ACCESSIBILITY READ 🧭🔤", "Separate owner switch for Android-exposed visible labels and static text. Editable values and password nodes are excluded. This complements OCR when apps expose useful accessibility semantics.")
+        button("ENABLE ACCESSIBILITY READ") { RavenAccessibilityReadOS.setEnabled(activity, true) }
+        button("DISABLE ACCESSIBILITY READ") { RavenAccessibilityReadOS.setEnabled(activity, false) }
+        button("OPEN ACCESSIBILITY AWARENESS") { RavenPermissionDeck.openForegroundAwareness(activity) }
+
+        section("CROSS-APP META GOBLIN", "Follow-Me is the persistent TYPE_APPLICATION_OVERLAY body over ordinary apps: compact employee chip while idle, expanded comment on meaningful scenes, tap for recent hauntings. Secure/lock/protected surfaces remain Android-controlled.")
         button("OPEN APPEAR-ON-TOP ACCESS") { RavenPermissionDeck.openOverlayAccess(activity) }
         button("ENABLE FOLLOW-ME") {
             if (!RavenFollowMeOverlay.enable(activity)) RavenPermissionDeck.openOverlayAccess(activity)
@@ -73,13 +78,10 @@ object RavenWholePhonePanel {
         }
         button("HIDE FOLLOW-ME") { RavenFollowMeOverlay.disable(activity) }
 
-        section("FOREGROUND AWARENESS", "Accessibility reads package/window/class transitions only. Window-content retrieval stays disabled; Goblin Read handles explicitly armed visual text locally instead.")
-        button("OPEN ACCESSIBILITY AWARENESS") { RavenPermissionDeck.openForegroundAwareness(activity) }
-
-        section("FOREGROUND LEDGER", "Optional Android Usage Access adds a second app-resume signal when One UI window events are incomplete. App identity/timing only; no content.")
+        section("FOREGROUND LEDGER", "Optional Android Usage Access adds a second app-resume signal when One UI Accessibility events are incomplete. App identity/timing only; no content.")
         button("OPEN USAGE ACCESS") { RavenPermissionDeck.openUsageAwareness(activity) }
 
-        section("CALLBACK MEMORY", "Session-bounded deterministic recurrence memory. It remembers patterns such as repeated app returns and a track surviving multiple scene cuts; it does not store a transcript.")
+        section("CALLBACK MEMORY", "Session-bounded deterministic recurrence memory: repeated app returns, A↔B loops, persistent tracks, recursive RavenOS references, and recurring scene shapes. No transcript is stored here.")
         button("CLEAR CALLBACK BITS") { RavenCallbackMemoryOS.clear() }
 
         section("GALAXY / BACKGROUND SURVIVAL", RavenGalaxyHauntOS.samsungInstructions(activity))
@@ -107,6 +109,7 @@ object RavenWholePhonePanel {
             append("\n").append(RavenNotificationSenseOS.summary(activity))
             append("\n").append(media.compact())
             append("\n").append(RavenGoblinReadOS.compact(activity))
+            append("\n").append(RavenAccessibilityReadOS.compact(activity))
             append("\n").append(RavenFollowMeOverlay.status(activity))
             append("\n").append(galaxy.compact())
         }
