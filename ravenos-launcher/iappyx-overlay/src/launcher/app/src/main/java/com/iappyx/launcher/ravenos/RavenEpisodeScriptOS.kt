@@ -6,10 +6,9 @@ import java.util.ArrayDeque
 /**
  * Process-session script memory for Follow-Me Office.
  *
- * Stores only bounded derived scene state: app/task/short subject, motifs, callbacks and transient
- * interruptions. It does not retain screenshots, raw OCR frames, editable values, or a transcript.
- * The goal is continuity: who owns the scene, what changed, what returned, and which running bits
- * have actually earned another callback.
+ * Stores only bounded derived scene state: app/task/short subject, motifs, callbacks, structural
+ * interactions and transient interruptions. It does not retain screenshots, raw OCR frames,
+ * editable values, or a transcript.
  */
 object RavenEpisodeScriptOS {
     data class Cue(
@@ -22,6 +21,10 @@ object RavenEpisodeScriptOS {
         val sceneChanged: Boolean,
         val returned: Boolean,
         val interruption: String,
+        val interaction: String,
+        val interactionTarget: String,
+        val interactionDirection: String,
+        val interactionRepeat: Int,
         val motif: String,
         val motifCount: Int,
         val dwell: Int,
@@ -30,6 +33,11 @@ object RavenEpisodeScriptOS {
     ) {
         val meaningful: Boolean get() = sceneOwner.isNotBlank() || subject.isNotBlank() || interruption.isNotBlank()
         val callbackEarned: Boolean get() = motifCount in setOf(3, 5, 8, 13, 21)
+        val interactionWorthSpeaking: Boolean get() = when (interaction) {
+            "SELECT", "TAP", "LONG_PRESS" -> interactionTarget.isNotBlank()
+            "SCROLL" -> interactionRepeat in setOf(3, 5, 8, 13)
+            else -> false
+        }
     }
 
     private data class Scene(val owner: String, val task: String, val subject: String, val signature: String)
@@ -83,10 +91,27 @@ object RavenEpisodeScriptOS {
         }
 
         val interruption = transientInterruption(marker, current.owner)
-        val motif = motifFor(screen, marker, narrative, interruption)
+        val expectedPkg = screen.packageName ?: viewport?.packageName
+        val interaction = RavenInteractionMemoryOS.latest(marker.at)?.takeIf { expectedPkg.isNullOrBlank() || it.packageName == expectedPkg }
+        val interactionKind = interaction?.kind.orEmpty()
+        val interactionTarget = interaction?.target.orEmpty().ifBlank { viewport?.selected.orEmpty() }
+        val interactionDirection = interaction?.direction.orEmpty()
+        val interactionRepeat = interaction?.repeated ?: 0
+        val motif = motifFor(screen, marker, narrative, interruption, interactionKind, interactionTarget)
         val motifCount = if (motif.isBlank()) 0 else bumpMotif(motif)
-        val continuity = continuityLine(previous, current, sceneChanged, returned, interruption, dwell)
-        val callback = callbackLine(motif, motifCount, current)
+        val continuity = continuityLine(
+            previous = previous,
+            current = current,
+            sceneChanged = sceneChanged,
+            returned = returned,
+            interruption = interruption,
+            interaction = interactionKind,
+            interactionTarget = interactionTarget,
+            interactionDirection = interactionDirection,
+            interactionRepeat = interactionRepeat,
+            dwell = dwell,
+        )
+        val callback = callbackLine(motif, motifCount, current, interactionTarget)
 
         return Cue(
             act = act.coerceAtLeast(1),
@@ -98,6 +123,10 @@ object RavenEpisodeScriptOS {
             sceneChanged = sceneChanged,
             returned = returned,
             interruption = interruption,
+            interaction = interactionKind,
+            interactionTarget = interactionTarget,
+            interactionDirection = interactionDirection,
+            interactionRepeat = interactionRepeat,
             motif = motif,
             motifCount = motifCount,
             dwell = dwell,
@@ -110,6 +139,7 @@ object RavenEpisodeScriptOS {
     fun clear() {
         history.clear()
         motifCounts.clear()
+        RavenInteractionMemoryOS.clear()
         act = 0
         current = Scene("", "", "", "")
         dwell = 0
@@ -121,6 +151,7 @@ object RavenEpisodeScriptOS {
         if (current.owner.isNotBlank()) append(" owner=").append(current.owner)
         if (current.task.isNotBlank()) append(" task=").append(current.task)
         append(" dwell=").append(dwell)
+        RavenInteractionMemoryOS.latest()?.let { append(" action=").append(it.compact().take(60)) }
         if (motifCounts.isNotEmpty()) {
             val top = motifCounts.entries.maxByOrNull { it.value }
             if (top != null) append(" motif=").append(top.key).append('×').append(top.value)
@@ -147,11 +178,16 @@ object RavenEpisodeScriptOS {
         marker: RavenMarkerBus.Marker,
         narrative: RavenSessionNarrativeOS.Narrative,
         interruption: String,
+        interaction: String,
+        interactionTarget: String,
     ): String {
-        val all = "${screen.text} ${screen.focus} ${marker.detail}".lowercase()
+        val all = "${screen.text} ${screen.focus} ${marker.detail} $interactionTarget".lowercase()
         return when {
             screen.meta && ("office" in all || "goblin" in all || "ravenos" in all) -> "SELF_AWARE_OFFICE"
             interruption == "Smart Capture" && ("office" in all || "recent hauntings" in all || "goblin" in all) -> "SELF_REVIEW_SCREENSHOT"
+            interaction == "SELECT" && screen.semanticKind == "MUSIC" -> "SELECTING_MEDIA"
+            interaction == "SCROLL" && screen.semanticKind in setOf("CHATGPT", "BROWSER", "COMMUNITY") -> "SCROLLING_THREAD"
+            interaction in setOf("TAP", "SELECT", "LONG_PRESS") && interactionTarget.isNotBlank() -> "UI_SELECTION"
             narrative.id == "SOUNDTRACK_MONTAGE" -> "SOUNDTRACK_MONTAGE"
             screen.semanticKind == "MUSIC" -> "MUSIC_ROOM"
             screen.semanticKind == "CHATGPT" && screen.meta -> "CHATGPT_SELF_DEBUG"
@@ -177,8 +213,16 @@ object RavenEpisodeScriptOS {
         sceneChanged: Boolean,
         returned: Boolean,
         interruption: String,
+        interaction: String,
+        interactionTarget: String,
+        interactionDirection: String,
+        interactionRepeat: Int,
         dwell: Int,
     ): String = when {
+        interaction in setOf("SELECT", "TAP", "LONG_PRESS") && interactionTarget.isNotBlank() && current.owner.isNotBlank() ->
+            "${current.owner} still owns the scene; Raven ${interaction.lowercase().replace('_', ' ')}ed “${interactionTarget.take(72)}”."
+        interaction == "SCROLL" && interactionRepeat in setOf(3, 5, 8, 13) && current.owner.isNotBlank() ->
+            "Still in ${current.owner}; Raven has scrolled ${interactionDirection.lowercase().ifBlank { "through" }} this scene $interactionRepeat beats in a row."
         interruption.isNotBlank() && current.owner.isNotBlank() -> "${current.owner} still owns the scene; $interruption is a cameo."
         returned && current.owner.isNotBlank() -> "Back to ${current.owner}; this scene has history now."
         sceneChanged && previous.owner.isNotBlank() && current.owner.isNotBlank() && previous.owner != current.owner ->
@@ -187,7 +231,7 @@ object RavenEpisodeScriptOS {
         else -> ""
     }
 
-    private fun callbackLine(motif: String, count: Int, current: Scene): String {
+    private fun callbackLine(motif: String, count: Int, current: Scene, target: String): String {
         if (motif.isBlank() || count !in setOf(3, 5, 8, 13, 21)) return ""
         return when (motif) {
             "SELF_AWARE_OFFICE" -> "The office has now caught itself being the subject $count times. Fourth-wall rent is due."
@@ -196,6 +240,9 @@ object RavenEpisodeScriptOS {
             "MUSIC_ROOM" -> "Music-room callback #$count: ${current.owner.ifBlank { "the player" }} still has the aux cord."
             "CHATGPT_SELF_DEBUG" -> "Self-debug callback #$count: ChatGPT and RavenOS are reviewing RavenOS reviewing ChatGPT."
             "CALLBACK_ABOUT_CALLBACKS" -> "Callback-about-callbacks #$count. The bit has developed administrative overhead."
+            "SELECTING_MEDIA" -> "Selection callback #$count: “${target.take(64).ifBlank { "the track" }}” is now part of the running music-room bit."
+            "SCROLLING_THREAD" -> "Scroll callback #$count: this thread has officially become a corridor."
+            "UI_SELECTION" -> "Interaction callback #$count: “${target.take(64).ifBlank { "that control" }}” keeps re-entering the script."
             else -> "Running bit #$count earned: ${motif.lowercase().replace('_', ' ')}."
         }
     }
