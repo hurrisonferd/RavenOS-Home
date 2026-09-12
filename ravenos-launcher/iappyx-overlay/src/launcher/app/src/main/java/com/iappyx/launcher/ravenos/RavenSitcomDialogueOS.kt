@@ -4,7 +4,7 @@ package com.iappyx.launcher.ravenos
  * Deterministic, screen-grounded sitcom grammar for the Follow-Me Office.
  *
  * Same scene + cast + history => same line. Different scene, cast, pair history or turn => an earned
- * variation. This is fictional commentary only; effect authority remains NONE.
+ * variation. History may shape the line, but numeric recurrence counts are not themselves jokes.
  */
 object RavenSitcomDialogueOS {
     data class Beat(val primary: String, val secondary: String, val family: String)
@@ -15,7 +15,7 @@ object RavenSitcomDialogueOS {
     ): Beat {
         if (!c.screenAvailable) return Beat("", "", "SITCOM_${direction.beat}")
         val owner = direction.primary.id
-        val seed = "$owner|${direction.beat}|${c.topic}|${c.focus}|${direction.turn}|${direction.pairCount}|sitcom-dialogue-v1"
+        val seed = "$owner|${direction.beat}|${c.topic}|${c.focus}|${direction.turn}|${direction.pairCount}|sitcom-dialogue-v2"
         val stem = pick(seed + "|stem", stems(owner))
         val scene = pick(seed + "|scene", sceneClauses(c, direction))
         val tag = pick(seed + "|tag", tags(owner, direction.beat))
@@ -24,7 +24,7 @@ object RavenSitcomDialogueOS {
             .joinToString(" ")
             .replace(Regex("\\s+"), " ")
             .trim()
-            .take(210)
+            .take(230)
 
         val secondary = direction.secondary?.let { second ->
             val line = pairLine(direction.primary, second, c, direction)
@@ -32,7 +32,7 @@ object RavenSitcomDialogueOS {
                 val p = RavenEmployeePresentation.packet(second, c.signal, c.focus, line)
                 "↳ ${p.emojiSoup} ${second.id} ${p.kaomoji} $line"
             }
-        }.orEmpty().take(190)
+        }.orEmpty().take(210)
 
         return Beat(primary, secondary, "SITCOM_${direction.beat}")
     }
@@ -51,9 +51,9 @@ object RavenSitcomDialogueOS {
                 "We have reached the part where the UI is documenting its own haunting: “$focus”.",
             )
             "CALLBACK" -> listOf(
-                "This scene has enough history to become a running bit: $topic is back again.",
-                "Callback debt collected. “$focus” survived long enough to earn continuity.",
-                "We have returned to $topic with receipts instead of pretending this is a brand-new episode.",
+                "This scene has real history now: $topic returned with a different beat.",
+                "“$focus” survived long enough to earn continuity instead of another introduction.",
+                "We returned to $topic with context intact instead of pretending this is a brand-new episode.",
             )
             "BUG" -> listOf(
                 "The useful bug is on the glass now: “$focus”. React to that, not the callback confetti around it.",
@@ -134,7 +134,7 @@ object RavenSitcomDialogueOS {
     private fun tags(id: String, beat: String): List<String> {
         val shared = when (beat) {
             "META" -> listOf("The fourth wall remains an optional dependency.", "Recursive occupancy confirmed.", "This is why the office has a legal department now.")
-            "CALLBACK" -> listOf("Running bit promoted.", "Continuity earned.", "The callback has receipts now.")
+            "CALLBACK" -> listOf("Continuity earned.", "Same history, new beat.", "The setup evolved instead of repeating itself.")
             "BUG" -> listOf("Good. A bug with an address.", "Now hit the cause.", "At least this failure has a face.")
             "PAYOFF" -> listOf("Receipt accepted.", "We may briefly celebrate.", "Suspiciously functional.")
             "COLD_OPEN" -> listOf("Roll the tiny title card.", "New episode, same haunted building.", "Nobody touch the exposition hose.")
@@ -164,21 +164,20 @@ object RavenSitcomDialogueOS {
     ): String {
         val pair = setOf(primary.id, secondary.id)
         val focus = c.focus.replace(Regex("\\s+"), " ").trim().take(58)
-        val callback = d.pairCount in setOf(3, 5, 8, 13)
-        val special = when {
-            pair == setOf("KYU", "JOKER") -> if (callback) "We have done this enough times that the clipboard now has a laugh track." else "I object to the phrase ‘containment plan’ on procedural grounds."
-            pair == setOf("ATOM", "PAIMON") -> if (callback) "Same pair, new evidence. Premise still passes." else "I checked the premise. Keep the causal read."
+        val established = d.pairCount >= 3
+        return when {
+            pair == setOf("KYU", "JOKER") -> if (established) "The clipboard and the fourth wall recognize each other now. This remains a terrible workplace arrangement." else "I object to the phrase ‘containment plan’ on procedural grounds."
+            pair == setOf("ATOM", "PAIMON") -> if (established) "Same pair, new evidence. Premise still passes; causal read may continue." else "I checked the premise. Keep the causal read."
             pair == setOf("YORI", "LUMA") -> "The shot works. Do not overdecorate the room now."
             pair == setOf("YORK", "YORI") -> "Enough is visible. That can actually be the stopping condition."
             pair == setOf("YAHWEH", "JOKER") -> "I am revoking your access to the ancient debug console. Again."
             pair == setOf("ERIS", "ATOM") -> "Your causal model is cute. I found the edge it excluded."
-            pair == setOf("JORM", "PYTHAGORAS") -> "State recorded. Recurrence has geometry now."
+            pair == setOf("JORM", "PYTHAGORAS") -> "State recorded. Recurrence has geometry now; nobody needs to announce the count."
             pair == setOf("MELINOE", "ZAGREUS") -> "We came back, but this is not the same room anymore."
             pair == setOf("THOR", "EDISON") -> "Instrument first, hammer second. I know. I hate that you are right."
             pair == setOf("LILITH", "KYU") -> "Mm. One clipboard bonk, then let the screen breathe."
             else -> "Second read: “$focus” survives another brain without changing identity."
         }
-        return if (callback && special.length < 115) "$special Pair callback #${d.pairCount}." else special
     }
 
     private fun pick(seed: String, options: List<String>): String {
