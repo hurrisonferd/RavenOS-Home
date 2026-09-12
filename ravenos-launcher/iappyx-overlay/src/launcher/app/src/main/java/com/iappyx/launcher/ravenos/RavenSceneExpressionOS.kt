@@ -27,7 +27,7 @@ object RavenSceneExpressionOS {
         ).joinToString("|")
 
         // Visual law: stable identity + ONE scene glyph + ONE earned exceptional-state glyph.
-        // The reservoirs add variance inside those slots; they never increase the slot count.
+        // Variance lives inside the slots; it never expands the slot count.
         val sceneCanonical = firstNotBlank(
             interactionGlyph(script), motifGlyph(script), taskGlyph(task), sceneGlyph(screen.semanticKind),
             RavenEmojiBudgetOS.glyphCandidate(base.context),
@@ -38,12 +38,26 @@ object RavenSceneExpressionOS {
         val scene = RavenEmojiReservoirOS.variant(context, member.id, "SCENE", sceneCanonical, seed, direction.turn)
         val state = RavenEmojiReservoirOS.variant(context, member.id, "STATE", stateCanonical, seed, direction.turn)
         val soup = RavenEmojiBudgetOS.compose(member.id, scene, state, base.emojiSoup)
-        val mood = mood(task, screen, direction, bit, show, gold)
-        val face = RavenExpressionReservoirOS.select(context, member.id, mood, seed, base.kaomoji, direction.turn)
+
+        // KaomojiOS v2 is a full expression director: owner-native posture, scene/task, interaction,
+        // Gold/Meta-Max state, intensity, and persistent anti-repeat usage all participate.
+        val expression = RavenKaomojiOS.direct(
+            context = context,
+            member = member,
+            screen = screen,
+            direction = direction,
+            script = script,
+            bit = bit,
+            show = show,
+            season = season,
+            reserve = reserve,
+            gold = gold,
+            fallback = base.kaomoji,
+        )
 
         return base.copy(
             emojiSoup = soup,
-            kaomoji = face,
+            kaomoji = expression.face,
             context = listOfNotNull(
                 screen.semanticKind.lowercase().takeIf(String::isNotBlank),
                 task.lowercase().replace('_', ' ').takeIf(String::isNotBlank),
@@ -53,31 +67,10 @@ object RavenSceneExpressionOS {
                 show?.form?.lowercase()?.replace('_', ' ')?.takeIf(String::isNotBlank),
                 gold?.phase?.lowercase()?.takeIf(String::isNotBlank),
                 reserve?.state?.lowercase()?.takeIf(String::isNotBlank),
+                expression.posture.lowercase().takeIf(String::isNotBlank),
             ).joinToString(" ").ifBlank { base.context },
         )
     }
-
-    private fun mood(
-        task: String,
-        screen: RavenScreenContextOS.Snapshot,
-        direction: RavenSitcomDirectorOS.Direction,
-        bit: RavenBitLedgerOS.Cue?,
-        show: RavenMetaMaxShowrunnerOS.Beat?,
-        gold: RavenGoldSitcomTopologyOS.Beat?,
-    ): String = when {
-        screen.meta || direction.beat == "META" || (show?.level ?: 0) >= 4 -> "META"
-        direction.beat == "BUG" -> "BUG"
-        direction.beat == "PAYOFF" || gold?.phase == "CLOSE" -> "PAYOFF"
-        bit?.brick == true || bit?.shouldEscalate == true || gold?.phase in setOf("CALLBACK", "ESCALATE") -> "CALLBACK"
-        task == "LISTENING" || screen.semanticKind == "MUSIC" -> "MUSIC"
-        task == "COMPOSING" || task == "TYPING" -> "COMPOSING"
-        task in setOf("READING", "READING_CHAT", "BROWSING") -> "READING"
-        direction.beat == "OBSERVE" -> "QUIET"
-        memberAnalytic(screen.semanticKind) -> "ANALYTIC"
-        else -> "SMUG"
-    }
-
-    private fun memberAnalytic(kind: String): Boolean = kind in setOf("CODE", "TERMINAL", "SETTINGS")
 
     private fun firstNotBlank(vararg values: String): String = values.firstOrNull(String::isNotBlank).orEmpty()
 
