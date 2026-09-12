@@ -35,7 +35,9 @@ object RavenGoblinBrainBusOS {
 
         val rv = RavenRVResilienceOS.snapshot(app, packet.updatedAt)
         val pressure = pressure(rv)
+        val enabledOrgans = RavenGoblinSystemsRegistryOS.enabledUnder(pressure).map { it.id }.toSet()
         systems += "OMNI_RV_${pressure.name}"
+        systems += "REGISTRY_${enabledOrgans.size}_${RavenGoblinSystemsRegistryOS.organs.size}"
 
         val motif = field(packet.detail, "script_motif").orEmpty()
         val callback = when {
@@ -65,7 +67,7 @@ object RavenGoblinBrainBusOS {
         val launcherCritical = packet.signal in setOf("HOME", "HOME_ENTER", "APP_LAUNCH", "SEARCH", "APP_UNIVERSE") &&
             rv.mode in setOf("COCKPIT_OFFLINE", "PHONE_LIMP_HOME")
 
-        if (packet.dialogue.isNotBlank()) {
+        if (packet.dialogue.isNotBlank() && "META_GRAMMAR" in enabledOrgans) {
             val meta = RavenGoblinMetaPipelineOS.enrich(
                 RavenGoblinMetaPipelineOS.Input(
                     context = app,
@@ -101,15 +103,19 @@ object RavenGoblinBrainBusOS {
             }
         }
 
-        val knowledge = RavenKnowledgeBrokerOS.observe(app, packet)
-        if (knowledge.available) {
-            systems += "KNOWLEDGE_${knowledge.scope}"
-            val inject = shouldInjectKnowledge(packet, knowledge, hauntMode, pressure, metaLevel, quiet)
-            packet = packet.copy(
-                dialogue = if (inject) appendKnowledge(packet.dialogue, knowledge) else packet.dialogue,
-                complexTags = packet.complexTags + setOf("WEB_KNOWLEDGE", "WEB_${knowledge.provider}"),
-                proof = packet.proof + ":web=${knowledge.provider}:${knowledge.scope}:${knowledge.ageMs}ms",
-            )
+        if ("KNOWLEDGE_BROKER" in enabledOrgans) {
+            val knowledge = RavenKnowledgeBrokerOS.observe(app, packet)
+            if (knowledge.available) {
+                systems += "KNOWLEDGE_${knowledge.scope}"
+                val inject = shouldInjectKnowledge(packet, knowledge, hauntMode, pressure, metaLevel, quiet)
+                packet = packet.copy(
+                    dialogue = if (inject) appendKnowledge(packet.dialogue, knowledge) else packet.dialogue,
+                    complexTags = packet.complexTags + setOf("WEB_KNOWLEDGE", "WEB_${knowledge.provider}"),
+                    proof = packet.proof + ":web=${knowledge.provider}:${knowledge.scope}:${knowledge.ageMs}ms",
+                )
+            }
+        } else {
+            systems += "KNOWLEDGE_SHED"
         }
 
         val systemReceipt = systems.distinct().joinToString(">")
