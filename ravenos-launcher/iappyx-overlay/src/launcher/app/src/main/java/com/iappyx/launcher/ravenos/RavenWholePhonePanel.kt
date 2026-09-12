@@ -57,6 +57,12 @@ object RavenWholePhonePanel {
             RavenOfficeGovernor.clearStats(activity)
         }
 
+        section("OFFICE SITCOM 🎬🧚", "The Follow-Me employee is a cast position, not the owner of the widget. Scene change, dwell, recurrence, pair chemistry and deterministic turn cadence rotate the full routable office. Dialogue is screen-grounded; pair callbacks can evolve without turning every sensor event into chatter.")
+        button("RESET SITCOM CAST + RUNNING BITS") {
+            RavenSitcomDirectorOS.clear(activity)
+            RavenOfficeBarService.signal(activity, "SCREEN_SEMANTIC", "state:sitcom_reset|source:control_panel")
+        }
+
         section("NOTIFICATION SENSE", "SOURCE = package/category/ranking only. SEMANTIC may route title locally. FULL_LOCAL may ingest title/body locally. Nothing is uploaded by this layer.")
         button("SOURCE ONLY") { RavenNotificationSenseOS.setMode(activity, RavenNotificationSenseOS.PrivacyMode.SOURCE) }
         button("SEMANTIC LOCAL") { RavenNotificationSenseOS.setMode(activity, RavenNotificationSenseOS.PrivacyMode.SEMANTIC) }
@@ -125,6 +131,7 @@ object RavenWholePhonePanel {
             append("\n").append(RavenFollowMeOverlay.status(activity))
             append("\n").append(galaxy.compact())
             append("\n").append(RavenOfficeGovernor.compact(activity))
+            append("\n").append(RavenSitcomDirectorOS.compact(activity))
             append("\nSCREEN=").append(if (screen.available) "READABLE" else "UNKNOWN")
             append(" source=").append(screen.source)
             append(" confidence=").append(screen.confidence)
