@@ -32,20 +32,22 @@ object RavenGoblinBrain {
         val allowed = RavenInterruptibilityOS.allow(context, marker, complex, hauntMode, quiet)
         val visual = RavenVisualAtlas.resolve(member.id, marker, complex)
         val character = RavenDialogueBank.select(member, marker, complex, visual, episode)
+        val metaPunch = RavenMetaPunchlineOS.select(member, marker)
 
         val truth = fusedScene.text.ifBlank { sceneBeat.text.ifBlank { meta.text } }.trim()
+        val stinger = metaPunch.text.ifBlank { character.text }.trim()
         val spoken = if (!allowed) "" else buildString {
             append(truth)
-            if (character.text.isNotBlank() && character.text != truth) {
+            if (stinger.isNotBlank() && stinger != truth) {
                 if (isNotEmpty()) append("  ")
-                append(character.text.trim())
+                append(stinger)
             }
         }.replace(Regex("\\s+"), " ").trim().take(184)
 
         val authorNote = if (allowed) truth.take(168) else ""
         val presentation = RavenEmployeePresentation.packet(member, signal, detail, spoken)
         val dialogueFamily = if (!allowed) "SILENCE" else listOf(
-            fusedScene.family, meta.family, sceneBeat.family, character.family,
+            fusedScene.family, meta.family, sceneBeat.family, metaPunch.family, character.family,
         ).filter { it.isNotBlank() }.distinct().joinToString("+")
         val zone = RavenOfficeGeography.zone(member.id, marker, complex)
         val highlight = RavenHighlightOS.score(marker, complex, episode)
