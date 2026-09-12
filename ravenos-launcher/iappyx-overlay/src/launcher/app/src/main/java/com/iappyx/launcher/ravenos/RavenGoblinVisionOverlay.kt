@@ -20,13 +20,18 @@ import kotlin.math.abs
 
 /**
  * GOBLIN VISION cross-app presentation contract.
- * Persistent speech bubble for ordinary Android app surfaces; secure/system surfaces
- * remain governed by Android rather than being falsely claimed by RavenOS.
+ *
+ * The Meta Goblin is a resident TYPE_APPLICATION_OVERLAY body: CHIP while idle,
+ * COMMENT when a phone event earns speech, and FEED when Raven taps it. It never
+ * claims secure/system surfaces Android refuses to overlay and never reads the
+ * underlying app through this presentation layer.
  */
 object RavenGoblinVisionOverlay {
     private const val PREFS = "ravenos_goblin_vision_v1"
     private const val KEY_X = "x"
     private const val KEY_Y = "y"
+
+    private enum class Mode { CHIP, COMMENT, FEED }
 
     private var wm: WindowManager? = null
     private var root: LinearLayout? = null
@@ -38,6 +43,15 @@ object RavenGoblinVisionOverlay {
     private val handler = Handler(Looper.getMainLooper())
     private var collapseRunnable: Runnable? = null
 
+    private var mode = Mode.CHIP
+    private var appContext: Context? = null
+    private var lastMember: RavenOfficeMember? = null
+    private var lastOwnerLine: String = ""
+    private var lastNote: String = ""
+    private var lastSignal: String = ""
+    private var lastDetail: String = ""
+    private var lastHaunt: RavenHauntMode = RavenHauntMode.HAUNTED
+
     fun render(
         context: Context,
         member: RavenOfficeMember,
@@ -47,43 +61,51 @@ object RavenGoblinVisionOverlay {
         hauntMode: RavenHauntMode,
     ) {
         val packet = RavenEmployeePresentation.packet(member, signal, detail, note)
-        renderBase(context, member, packet.ownerLine, packet.note, packet.context, hauntMode)
+        remember(context, member, packet.ownerLine, cleanVisible(packet.note), signal, detail, hauntMode)
+        mode = if (lastNote.isBlank()) Mode.CHIP else Mode.COMMENT
+        renderCurrent(context)
     }
 
     fun renderReaction(context: Context, reaction: RavenReactionPacket, hauntMode: RavenHauntMode) {
         val member = RavenOfficeRegistry.member(reaction.owner) ?: return
-        val spoken = reaction.dialogue.ifBlank { "${reaction.owner} is watching." }
-        val glyph = RavenEmployeePresentation.signalGlyph(reaction.signal, reaction.detail)
-        renderBase(
-            context = context,
-            member = member,
-            ownerLine = reaction.ownerLine,
-            note = spoken,
-            contextLine = glyph,
-            hauntMode = hauntMode,
-        )
-        scheduleCollapse(context, reaction, hauntMode)
+        val spoken = cleanVisible(reaction.dialogue)
+        remember(context, member, reaction.ownerLine, spoken, reaction.signal, reaction.detail, hauntMode)
+        mode = if (spoken.isBlank()) Mode.CHIP else Mode.COMMENT
+        renderCurrent(context)
+        if (spoken.isNotBlank()) scheduleCollapse(context, reaction, hauntMode)
     }
 
-    private fun renderBase(
+    private fun remember(
         context: Context,
         member: RavenOfficeMember,
         ownerLine: String,
         note: String,
-        contextLine: String,
+        signal: String,
+        detail: String,
         hauntMode: RavenHauntMode,
     ) {
+        appContext = context.applicationContext
+        lastMember = member
+        lastOwnerLine = ownerLine
+        lastNote = note
+        lastSignal = signal
+        lastDetail = detail
+        lastHaunt = hauntMode
+    }
+
+    private fun renderCurrent(context: Context) {
+        val member = lastMember ?: return
         val stateAt = RavenOfficeStateStore.read(context)?.updatedAt ?: 0L
         val enabled = RavenFollowMeOverlay.isEnabled(context)
         val permitted = Settings.canDrawOverlays(context)
-        if (!hauntMode.followMe || !enabled || !permitted) {
+        if (!lastHaunt.followMe || !enabled || !permitted) {
             RavenSurfaceIntegrity.mark(
                 context,
                 RavenSurfaceIntegrity.FOLLOW_ME,
                 if (RavenFollowMeOverlay.isPending(context)) "PENDING" else "INACTIVE",
                 stateAt,
                 when {
-                    !hauntMode.followMe -> "goblin_vision_suppressed:${hauntMode.label}"
+                    !lastHaunt.followMe -> "goblin_vision_suppressed:${lastHaunt.label}"
                     RavenFollowMeOverlay.isPending(context) -> "goblin_vision_waiting_for_overlay_permission"
                     !enabled -> "goblin_vision_disabled"
                     else -> "overlay_permission_missing"
@@ -101,52 +123,88 @@ object RavenGoblinVisionOverlay {
 
         val accent = readableAccent(member.accent)
         box.background = GradientDrawable().apply {
-            cornerRadius = dp(context, if (hauntMode.ordinal >= RavenHauntMode.FERAL.ordinal) 24 else 18).toFloat()
-            setColor(Color.argb(if (hauntMode.ordinal >= RavenHauntMode.FERAL.ordinal) 247 else 238, 14, 14, 20))
-            setStroke(dp(context, if (hauntMode.ordinal >= RavenHauntMode.FERAL.ordinal) 2 else 1), withAlpha(accent, 235))
+            cornerRadius = dp(context, if (lastHaunt.ordinal >= RavenHauntMode.FERAL.ordinal) 24 else 18).toFloat()
+            setColor(Color.argb(if (lastHaunt.ordinal >= RavenHauntMode.FERAL.ordinal) 247 else 238, 14, 14, 20))
+            setStroke(dp(context, if (lastHaunt.ordinal >= RavenHauntMode.FERAL.ordinal) 2 else 1), withAlpha(accent, 235))
         }
-        statusView?.apply {
-            visibility = View.VISIBLE
-            text = "👁 GOBLIN"
-            setTextColor(0xFFBFC0CC.toInt())
-        }
-        ownerView?.apply {
-            visibility = View.VISIBLE
-            text = ownerLine
-            textSize = if (hauntMode == RavenHauntMode.APOCALYPSE) 17f else 15f
-            setTextColor(accent)
-            maxLines = 2
-            ellipsize = TextUtils.TruncateAt.END
-        }
-        noteView?.apply {
-            visibility = if (note.isBlank()) View.GONE else View.VISIBLE
-            text = note
-            textSize = 13.5f
-            maxLines = when (hauntMode) {
-                RavenHauntMode.CALM -> 2
-                RavenHauntMode.LIVED_IN -> 3
-                RavenHauntMode.HAUNTED -> 4
-                RavenHauntMode.FERAL -> 4
-                RavenHauntMode.APOCALYPSE -> 5
+
+        val eventGlyph = RavenEmployeePresentation.signalGlyph(lastSignal, lastDetail)
+        when (mode) {
+            Mode.CHIP -> {
+                statusView?.visibility = View.GONE
+                ownerView?.apply {
+                    visibility = View.VISIBLE
+                    text = lastOwnerLine
+                    textSize = 14f
+                    maxLines = 1
+                    ellipsize = TextUtils.TruncateAt.END
+                    setTextColor(accent)
+                }
+                noteView?.visibility = View.GONE
+                contextView?.visibility = View.GONE
             }
-            ellipsize = TextUtils.TruncateAt.END
-            setTextColor(0xFFF8F8FC.toInt())
-        }
-        contextView?.apply {
-            visibility = if (contextLine.isBlank()) View.GONE else View.VISIBLE
-            text = contextLine
-            textSize = 10f
-            maxLines = 1
-            setTextColor(0xFFD4D4DE.toInt())
+            Mode.COMMENT -> {
+                statusView?.apply {
+                    visibility = View.VISIBLE
+                    text = listOf("👁 META GOBLIN", eventGlyph).filter { it.isNotBlank() }.joinToString("  ")
+                    setTextColor(0xFFBFC0CC.toInt())
+                }
+                ownerView?.apply {
+                    visibility = View.VISIBLE
+                    text = lastOwnerLine
+                    textSize = if (lastHaunt == RavenHauntMode.APOCALYPSE) 17f else 15f
+                    maxLines = 2
+                    ellipsize = TextUtils.TruncateAt.END
+                    setTextColor(accent)
+                }
+                noteView?.apply {
+                    visibility = if (lastNote.isBlank()) View.GONE else View.VISIBLE
+                    text = lastNote
+                    textSize = 13.5f
+                    maxLines = if (lastHaunt == RavenHauntMode.APOCALYPSE) 5 else 4
+                    ellipsize = TextUtils.TruncateAt.END
+                    setTextColor(0xFFF8F8FC.toInt())
+                }
+                contextView?.visibility = View.GONE
+            }
+            Mode.FEED -> {
+                statusView?.apply {
+                    visibility = View.VISIBLE
+                    text = "👁 OFFICE · RECENT HAUNTINGS"
+                    setTextColor(0xFFBFC0CC.toInt())
+                }
+                ownerView?.apply {
+                    visibility = View.VISIBLE
+                    text = lastOwnerLine
+                    textSize = 14.5f
+                    maxLines = 1
+                    ellipsize = TextUtils.TruncateAt.END
+                    setTextColor(accent)
+                }
+                noteView?.visibility = View.GONE
+                contextView?.apply {
+                    val feed = miniFeed(context)
+                    visibility = if (feed.isBlank()) View.GONE else View.VISIBLE
+                    text = feed
+                    textSize = 11.5f
+                    maxLines = 12
+                    ellipsize = TextUtils.TruncateAt.END
+                    setTextColor(0xFFF0F0F6.toInt())
+                }
+            }
         }
 
         lp?.let { params ->
-            val widthDp = when (hauntMode) {
-                RavenHauntMode.CALM -> 238
-                RavenHauntMode.LIVED_IN -> 268
-                RavenHauntMode.HAUNTED -> 302
-                RavenHauntMode.FERAL -> 326
-                RavenHauntMode.APOCALYPSE -> 350
+            val widthDp = when (mode) {
+                Mode.CHIP -> if (lastHaunt.ordinal >= RavenHauntMode.FERAL.ordinal) 220 else 196
+                Mode.COMMENT -> when (lastHaunt) {
+                    RavenHauntMode.CALM -> 250
+                    RavenHauntMode.LIVED_IN -> 276
+                    RavenHauntMode.HAUNTED -> 308
+                    RavenHauntMode.FERAL -> 332
+                    RavenHauntMode.APOCALYPSE -> 356
+                }
+                Mode.FEED -> if (lastHaunt == RavenHauntMode.APOCALYPSE) 368 else 346
             }
             val width = dp(context, widthDp)
             if (params.width != width) {
@@ -155,24 +213,41 @@ object RavenGoblinVisionOverlay {
             }
         }
 
-        RavenSurfaceIntegrity.mark(context, RavenSurfaceIntegrity.FOLLOW_ME, "RENDERED", stateAt, "goblin_vision_persistent_meta_v4")
+        RavenSurfaceIntegrity.mark(
+            context,
+            RavenSurfaceIntegrity.FOLLOW_ME,
+            "RENDERED",
+            stateAt,
+            "goblin_vision_meta_overlay_v5:${mode.name.lowercase()}",
+        )
     }
+
+    private fun miniFeed(context: Context): String = RavenOfficeTraceStore.recent(context, 8)
+        .mapNotNull { entry ->
+            val line = cleanVisible(entry.note)
+            if (line.isBlank()) return@mapNotNull null
+            val member = RavenOfficeRegistry.member(entry.owner)
+            val presentation = member?.let {
+                RavenEmployeePresentation.packet(it, entry.signal, entry.detail, line)
+            }
+            val who = presentation?.let { "${it.emojiSoup} ${entry.owner} ${it.kaomoji}" } ?: entry.owner
+            val repeat = if (entry.repeats > 1) " ×${entry.repeats}" else ""
+            "$who$repeat\n${line.take(100)}"
+        }
+        .take(4)
+        .joinToString("\n\n")
 
     private fun scheduleCollapse(context: Context, reaction: RavenReactionPacket, hauntMode: RavenHauntMode) {
         collapseRunnable?.let(handler::removeCallbacks)
         if (!reaction.interruptible || hauntMode == RavenHauntMode.APOCALYPSE) return
         val runnable = Runnable {
-            val box = root ?: return@Runnable
-            statusView?.visibility = View.GONE
-            noteView?.visibility = View.GONE
-            contextView?.visibility = View.GONE
-            lp?.let { params ->
-                params.width = dp(context, if (hauntMode == RavenHauntMode.FERAL) 190 else 164)
-                try { wm?.updateViewLayout(box, params) } catch (_: Throwable) {}
+            if (mode == Mode.COMMENT) {
+                mode = Mode.CHIP
+                renderCurrent(context.applicationContext)
             }
         }
         collapseRunnable = runnable
-        handler.postDelayed(runnable, reaction.lifetimeMs.coerceIn(2400L, 15_000L))
+        handler.postDelayed(runnable, reaction.lifetimeMs.coerceIn(3_200L, 15_000L))
     }
 
     fun hide() {
@@ -214,8 +289,9 @@ object RavenGoblinVisionOverlay {
             setPadding(0, dp(context, 5), 0, 0)
         }.also(box::addView)
         contextView = TextView(context).apply {
-            textSize = 10f
-            setPadding(0, dp(context, 5), 0, 0)
+            textSize = 11.5f
+            setLineSpacing(dp(context, 1).toFloat(), 1.02f)
+            setPadding(0, dp(context, 6), 0, 0)
         }.also(box::addView)
 
         val params = WindowManager.LayoutParams(
@@ -272,19 +348,37 @@ object RavenGoblinVisionOverlay {
                 MotionEvent.ACTION_UP -> {
                     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                         .putInt(KEY_X, params.x).putInt(KEY_Y, params.y).apply()
-                    if (!moved && System.currentTimeMillis() - downAt >= 650L) {
-                        try {
-                            context.startActivity(
-                                Intent(context, RavenHomeActivity::class.java)
-                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
-                            )
-                        } catch (_: Throwable) {}
+                    if (!moved) {
+                        val held = System.currentTimeMillis() - downAt
+                        if (held >= 650L) {
+                            try {
+                                context.startActivity(
+                                    Intent(context, RavenHomeActivity::class.java)
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                                )
+                            } catch (_: Throwable) {}
+                        } else {
+                            collapseRunnable?.let(handler::removeCallbacks)
+                            mode = when (mode) {
+                                Mode.CHIP -> if (lastNote.isBlank()) Mode.FEED else Mode.COMMENT
+                                Mode.COMMENT -> Mode.FEED
+                                Mode.FEED -> Mode.CHIP
+                            }
+                            appContext?.let(::renderCurrent)
+                        }
                     }
                     true
                 }
                 else -> false
             }
         }
+    }
+
+    private fun cleanVisible(raw: String): String {
+        val clean = raw.replace(Regex("\\s+"), " ").trim()
+        if (clean.isBlank() || clean.equals("Noted.", true)) return ""
+        if (Regex("^[A-Z0-9_-]+\\s+is\\s+watching[.!]?$", RegexOption.IGNORE_CASE).matches(clean)) return ""
+        return clean
     }
 
     private fun withAlpha(color: Int, alpha: Int): Int = Color.argb(alpha.coerceIn(0, 255), Color.red(color), Color.green(color), Color.blue(color))
