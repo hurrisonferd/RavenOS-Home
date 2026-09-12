@@ -73,12 +73,29 @@ object RavenGoblinSystemsRegistryOS {
         Organ("WATCHLET", Stage.SURFACE, Cost.LIGHT, "DISPLAY"),
     )
 
+    /**
+     * These organs already execute inside RavenGoblinBrain before the late-stage bus can inspect
+     * Omni RV pressure. They therefore cannot truthfully be reported as shed by the registry.
+     * Keeping this list explicit prevents telemetry from claiming an organ was disabled after it ran.
+     */
+    val baseBrainMandatory = setOf(
+        "MARKER_BUS", "LOCAL_SENSE", "SHADE_SENSE", "COMPLEX_EVENT",
+        "SCREEN_CONTEXT", "VIEWPORT_SEMANTICS",
+        "CALLBACK_MEMORY", "SESSION_NARRATIVE", "EPISODE_SCRIPT", "BIT_LEDGER", "OFFICE_SEASON",
+        "SITCOM_DIRECTOR", "BACKSTAGE", "GOLD_TOPOLOGY", "METAMAX_SHOWRUNNER", "PLOT_STACK", "EGO_RESERVE",
+        "OBSERVATION", "CONTEXTUAL_DIALOGUE", "SITCOM_DIALOGUE", "SCRIPT_DIALOGUE", "LONG_SERIES",
+        "META_COMMENTARY", "META_GOBLIN", "OMNISCIENCE_DIALOGUE", "META_SCENE",
+        "RV_RESILIENCE", "INTERRUPTIBILITY", "PRESENTATION_ARBITER",
+        "EMPLOYEE_PRESENTATION", "SCENE_EXPRESSION",
+    )
+
     fun compact(): String {
         val byStage = organs.groupBy { it.stage }
         return Stage.values().joinToString(" · ") { stage -> "${stage.name}=${byStage[stage]?.size ?: 0}" }
     }
 
     fun enabledUnder(pressure: RavenOmniRvExpressionBudget.Pressure): List<Organ> = organs.filter { organ ->
+        if (organ.id in baseBrainMandatory) return@filter true
         when (pressure) {
             RavenOmniRvExpressionBudget.Pressure.NOMINAL -> true
             RavenOmniRvExpressionBudget.Pressure.BUSY -> organ.cost != Cost.HEAVY
