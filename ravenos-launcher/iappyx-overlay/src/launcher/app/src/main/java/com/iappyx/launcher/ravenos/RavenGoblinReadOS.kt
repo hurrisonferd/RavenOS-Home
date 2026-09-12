@@ -35,7 +35,7 @@ object RavenGoblinReadOS {
     private const val KEY_BLOCKS = "blocks"
     private const val KEY_AT = "last_at"
     private const val MIN_INTERVAL_MS = 3_200L
-    private const val TTL_MS = 20_000L
+    private const val TTL_MS = 45_000L
 
     private val inFlight = AtomicBoolean(false)
     @Volatile private var lastSubmitAt = 0L
@@ -47,10 +47,10 @@ object RavenGoblinReadOS {
     fun setEnabled(context: Context, enabled: Boolean) {
         val app = context.applicationContext
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_ENABLED, enabled).apply()
-        if (!enabled) { clearReading(app); RavenScreenMapOS.clear(app) }
+        if (!enabled) { clearReading(app); RavenScreenMapOS.clear(app); RavenOverlayEchoOS.clear() }
         RavenOfficeBarService.signal(
             app, "SCREEN_TEXT",
-            if (enabled) "state:armed|layout:geometry|local:true|cloud:false|raw_persist:false" else "state:disabled",
+            if (enabled) "state:armed|layout:geometry|local:true|cloud:false|raw_persist:false|echo_filter:true" else "state:disabled",
         )
     }
 
@@ -89,9 +89,9 @@ object RavenGoblinReadOS {
                 val bottom = mutableListOf<String>()
                 val geometry = mutableListOf<RavenScreenMapOS.Block>()
 
-                result.textBlocks.take(24).forEach { block ->
+                result.textBlocks.take(32).forEach { block ->
                     val clean = normalizePiece(block.text)
-                    if (clean.isBlank()) return@forEach
+                    if (clean.isBlank() || RavenOverlayEchoOS.isEcho(clean)) return@forEach
                     all += clean
                     val rect = block.boundingBox
                     val centerY = rect?.centerY() ?: frameHeight / 2
@@ -112,30 +112,35 @@ object RavenGoblinReadOS {
                     }
                     else -> {
                         RavenScreenMapOS.record(app, frameWidth, frameHeight, geometry)
-                        val topText = normalize(top.joinToString(" · ")).take(120)
-                        val middleText = normalize(middle.joinToString(" · ")).take(120)
-                        val bottomText = normalize(bottom.joinToString(" · ")).take(120)
+                        val topText = normalize(top.joinToString(" · ")).take(180)
+                        val middleText = normalize(middle.joinToString(" · ")).take(180)
+                        val bottomText = normalize(bottom.joinToString(" · ")).take(180)
                         val prior = latest(app)?.text.orEmpty()
                         if (normalized != prior) {
                             val captured = System.currentTimeMillis()
                             app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                                 .putString(KEY_TEXT, normalized).putString(KEY_TOP, topText).putString(KEY_MIDDLE, middleText)
-                                .putString(KEY_BOTTOM, bottomText).putInt(KEY_BLOCKS, result.textBlocks.size).putLong(KEY_AT, captured).apply()
+                                .putString(KEY_BOTTOM, bottomText).putInt(KEY_BLOCKS, all.size).putLong(KEY_AT, captured).apply()
                             val meta = RavenMetaRecursionOS.detect(normalized)
                             val map = RavenScreenMapOS.latest(app)
                             RavenOfficeBarService.signal(
                                 app, "SCREEN_TEXT",
                                 buildString {
-                                    append("state:visible|text:").append(escape(normalized.take(180)))
-                                    append("|top:").append(escape(topText.take(60)))
-                                    append("|middle:").append(escape(middleText.take(60)))
-                                    append("|bottom:").append(escape(bottomText.take(60)))
-                                    append("|blocks:").append(result.textBlocks.size)
+                                    append("state:visible|text:").append(escape(normalized.take(240)))
+                                    append("|top:").append(escape(topText.take(80)))
+                                    append("|middle:").append(escape(middleText.take(80)))
+                                    append("|bottom:").append(escape(bottomText.take(80)))
+                                    append("|blocks:").append(all.size)
                                     append("|quiet_zone:").append(map?.quietZone() ?: leastBusy(topText, middleText, bottomText))
                                     append("|meta:").append(meta)
-                                    append("|local:true|cloud:false|raw_persist:false")
+                                    append("|meta_score:").append(RavenMetaRecursionOS.score(normalized))
+                                    append("|local:true|cloud:false|raw_persist:false|echo_filter:true")
                                 },
                             )
+                        } else {
+                            // Refresh freshness for a stable readable screen without creating a new visible event.
+                            app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                                .putLong(KEY_AT, System.currentTimeMillis()).apply()
                         }
                     }
                 }
@@ -149,15 +154,21 @@ object RavenGoblinReadOS {
     ).minByOrNull { it.second }?.first ?: "top"
 
     private fun normalizePiece(raw: String): String = raw.lineSequence()
-        .map { it.replace(Regex("\\s+"), " ").trim() }.filter { it.length >= 2 }.take(3).joinToString(" ").take(120)
+        .map { it.replace(Regex("\\s+"), " ").trim() }
+        .filter { it.length >= 2 }
+        .take(4)
+        .joinToString(" ")
+        .take(180)
 
-    private fun normalize(raw: String): String = raw.replace(Regex("\\s+"), " ").trim().take(300)
+    private fun normalize(raw: String): String = raw.replace(Regex("\\s+"), " ").trim().take(480)
 
     private fun looksSensitive(text: String): Boolean {
         val t = text.lowercase()
-        return listOf("password", "passcode", "verification code", "one-time code", "one time code", "security code",
+        return listOf(
+            "password", "passcode", "verification code", "one-time code", "one time code", "security code",
             "authentication code", "2fa", "otp", "credit card", "card number", "social security", "recovery code",
-            "seed phrase", "private key").any(t::contains)
+            "seed phrase", "private key",
+        ).any(t::contains)
     }
 
     private fun escape(text: String): String = text.replace('|', '/').replace('\n', ' ').replace('\r', ' ')
