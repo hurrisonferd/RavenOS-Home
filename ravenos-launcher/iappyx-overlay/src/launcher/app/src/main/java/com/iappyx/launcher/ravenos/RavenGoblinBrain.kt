@@ -4,7 +4,7 @@ import android.content.Context
 
 /**
  * Android vertical slice of Goblin Vision.
- * MarkerBus -> local senses -> complex event -> callback/scene fusion -> cast -> expression -> overlay.
+ * MarkerBus -> senses -> complex event -> callback/session/scene fusion -> cast -> expression -> overlay.
  */
 object RavenGoblinBrain {
     data class Result(val member: RavenOfficeMember, val packet: RavenReactionPacket)
@@ -25,7 +25,9 @@ object RavenGoblinBrain {
         val complex = RavenComplexEventOS.analyze(context, marker)
         val episode = RavenEpisodeOS.phase(context, marker, complex)
         val callback = RavenCallbackMemoryOS.observe(context, marker, complex)
+        val narrative = RavenSessionNarrativeOS.observe(context, marker)
         val member = cast(context, marker, complex, manualOwner, quiet)
+        val narrativeBeat = RavenSessionNarrativeOS.beat(member, narrative, marker)
         val meta = RavenMetaCommentaryOS.compose(context, member, marker, complex, episode)
         val sceneBeat = RavenMetaGoblinDialogueOS.select(context, member, marker, complex, episode)
         val fusedScene = RavenMetaSceneOS.compose(context, member, marker, complex, callback)
@@ -33,8 +35,9 @@ object RavenGoblinBrain {
         val visual = RavenVisualAtlas.resolve(member.id, marker, complex)
         val character = RavenDialogueBank.select(member, marker, complex, visual, episode)
         val metaPunch = RavenMetaPunchlineOS.select(member, marker)
+        val interruption = RavenOfficeInterruptionOS.select(context, member, marker, complex)
 
-        val truth = fusedScene.text.ifBlank { sceneBeat.text.ifBlank { meta.text } }.trim()
+        val truth = fusedScene.text.ifBlank { narrativeBeat.text.ifBlank { sceneBeat.text.ifBlank { meta.text } } }.trim()
         val stinger = metaPunch.text.ifBlank { character.text }.trim()
         val spoken = if (!allowed) "" else buildString {
             append(truth)
@@ -42,12 +45,17 @@ object RavenGoblinBrain {
                 if (isNotEmpty()) append("  ")
                 append(stinger)
             }
-        }.replace(Regex("\\s+"), " ").trim().take(184)
+            if (interruption.text.isNotBlank()) {
+                if (isNotEmpty()) append("  ")
+                append(interruption.text)
+            }
+        }.replace(Regex("\\s+"), " ").trim().take(220)
 
         val authorNote = if (allowed) truth.take(168) else ""
         val presentation = RavenEmployeePresentation.packet(member, signal, detail, spoken)
         val dialogueFamily = if (!allowed) "SILENCE" else listOf(
-            fusedScene.family, meta.family, sceneBeat.family, metaPunch.family, character.family,
+            fusedScene.family, narrativeBeat.family, meta.family, sceneBeat.family,
+            metaPunch.family, character.family, interruption.family,
         ).filter { it.isNotBlank() }.distinct().joinToString("+")
         val zone = RavenOfficeGeography.zone(member.id, marker, complex)
         val highlight = RavenHighlightOS.score(marker, complex, episode)
