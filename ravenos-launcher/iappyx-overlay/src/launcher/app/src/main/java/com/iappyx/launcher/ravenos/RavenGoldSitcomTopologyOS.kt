@@ -22,10 +22,13 @@ object RavenGoldSitcomTopologyOS {
         val reason: String,
     )
 
-    private const val PREFS = "ravenos_gold_topology_v1"
     private const val PAIR_COOLDOWN_TURNS = 3
     private const val PARTNER_COOLDOWN_TURNS = 2
+    private val pairLastTurn = mutableMapOf<String, Int>()
+    private val ownerLastPartner = mutableMapOf<String, String>()
+    private val ownerLastPartnerTurn = mutableMapOf<String, Int>()
 
+    @Synchronized
     fun direct(
         context: Context,
         marker: RavenMarkerBus.Marker,
@@ -35,7 +38,6 @@ object RavenGoldSitcomTopologyOS {
         direction: RavenSitcomDirectorOS.Direction,
         memory: RavenOfficeSeasonOS.Memory,
     ): Beat {
-        val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val terminal = terminal(marker)
         val phase = when {
             terminal -> "CLOSE"
@@ -46,10 +48,10 @@ object RavenGoldSitcomTopologyOS {
         }
         val candidate = direction.secondary
         val pairKey = pairKey(direction.primary.id, candidate?.id)
-        val lastPairTurn = if (pairKey.isBlank()) -999 else p.getInt("pair_${pairKey}_turn", -999)
-        val lastPartner = p.getString("last_partner_${direction.primary.id}", "").orEmpty()
-        val lastPartnerTurn = p.getInt("partner_${direction.primary.id}_turn", -999)
-        val pairCooling = direction.turn - lastPairTurn < PAIR_COOLDOWN_TURNS
+        val lastPairTurn = pairLastTurn[pairKey] ?: -999
+        val lastPartner = ownerLastPartner[direction.primary.id].orEmpty()
+        val lastPartnerTurn = ownerLastPartnerTurn[direction.primary.id] ?: -999
+        val pairCooling = pairKey.isNotBlank() && direction.turn - lastPairTurn < PAIR_COOLDOWN_TURNS
         val partnerCooling = candidate != null && candidate.id == lastPartner && direction.turn - lastPartnerTurn < PARTNER_COOLDOWN_TURNS
         val salience = when {
             screen.meta -> 5
@@ -63,11 +65,9 @@ object RavenGoldSitcomTopologyOS {
         val crosstalk = candidate != null && salience >= threshold && !pairCooling && !partnerCooling && !terminal
         val secondary = candidate.takeIf { crosstalk }
         if (secondary != null) {
-            p.edit()
-                .putInt("pair_${pairKey}_turn", direction.turn)
-                .putString("last_partner_${direction.primary.id}", secondary.id)
-                .putInt("partner_${direction.primary.id}_turn", direction.turn)
-                .apply()
+            pairLastTurn[pairKey] = direction.turn
+            ownerLastPartner[direction.primary.id] = secondary.id
+            ownerLastPartnerTurn[direction.primary.id] = direction.turn
         }
         val synthesis = terminal || phase in setOf("CALLBACK", "ESCALATE") && direction.turn % 3 == 0
         return Beat(
@@ -92,8 +92,11 @@ object RavenGoldSitcomTopologyOS {
         )
     }
 
+    @Synchronized
     fun clear(context: Context) {
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
+        pairLastTurn.clear()
+        ownerLastPartner.clear()
+        ownerLastPartnerTurn.clear()
     }
 
     private fun terminal(marker: RavenMarkerBus.Marker): Boolean {
