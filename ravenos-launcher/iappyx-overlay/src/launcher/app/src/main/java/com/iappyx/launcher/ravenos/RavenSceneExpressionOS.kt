@@ -29,11 +29,12 @@ object RavenSceneExpressionOS {
             else -> ""
         }
         val scriptGlyph = scriptGlyph(script)
+        val interactionGlyph = interactionGlyph(script)
         val cameoGlyph = if (!script?.interruption.isNullOrBlank()) "🎭" else ""
-        val extras = listOf(metaGlyph, sceneGlyph, taskGlyph, beatGlyph, scriptGlyph, cameoGlyph)
+        val extras = listOf(metaGlyph, sceneGlyph, taskGlyph, beatGlyph, scriptGlyph, interactionGlyph, cameoGlyph)
             .filter(String::isNotBlank)
             .distinct()
-            .take(4)
+            .take(5)
         val soup = buildString {
             append(base.emojiSoup)
             extras.forEach { glyph -> if (!contains(glyph)) append(glyph) }
@@ -46,6 +47,7 @@ object RavenSceneExpressionOS {
                 sceneGlyph.takeIf(String::isNotBlank),
                 task.lowercase().replace('_', ' ').takeIf(String::isNotBlank),
                 script?.motif?.lowercase()?.replace('_', ' ')?.takeIf(String::isNotBlank),
+                script?.interaction?.lowercase()?.takeIf(String::isNotBlank),
             ).joinToString(" ").ifBlank { base.context },
         )
     }
@@ -93,12 +95,31 @@ object RavenSceneExpressionOS {
         "MUSIC_ROOM" -> "🎧🏠"
         "CHATGPT_SELF_DEBUG" -> "🤖🪞"
         "CALLBACK_ABOUT_CALLBACKS" -> "🔁🎭"
+        "SELECTING_MEDIA" -> "🎯🎵"
+        "SCROLLING_THREAD" -> "↕️📖"
+        "UI_SELECTION" -> "👆✨"
         else -> when {
             script?.callbackEarned == true -> "🔁✨"
             script?.returned == true -> "↩️🎬"
             script?.sceneChanged == true -> "🎬➡️"
             else -> ""
         }
+    }
+
+    private fun interactionGlyph(script: RavenEpisodeScriptOS.Cue?): String = when (script?.interaction) {
+        "SELECT" -> "🎯"
+        "TAP" -> "👆"
+        "LONG_PRESS" -> "☝️⏳"
+        "SCROLL" -> when (script.interactionDirection) {
+            "UP" -> "⬆️📜"
+            "DOWN" -> "⬇️📜"
+            "LEFT" -> "⬅️📜"
+            "RIGHT" -> "➡️📜"
+            else -> "↕️📜"
+        }
+        "FOCUS" -> "🎯👁"
+        "TYPING" -> "⌨️💭"
+        else -> ""
     }
 
     private fun inferTask(summary: String): String {
@@ -148,7 +169,7 @@ object RavenSceneExpressionOS {
             else -> return fallback
         }
         val motif = script?.motif.orEmpty()
-        val seed = "$owner|$task|$meta|$motif|${script?.motifCount ?: 0}|${direction.beat}|${direction.turn}|${direction.sceneId}"
+        val seed = "$owner|$task|$meta|$motif|${script?.interaction.orEmpty()}|${script?.motifCount ?: 0}|${direction.beat}|${direction.turn}|${direction.sceneId}"
         val gate = stableIndex("gate|$seed", 5)
         if (gate == 0 && !meta && direction.beat == "OBSERVE" && script?.callbackEarned != true) return fallback
         return family[stableIndex(seed, family.size)]
