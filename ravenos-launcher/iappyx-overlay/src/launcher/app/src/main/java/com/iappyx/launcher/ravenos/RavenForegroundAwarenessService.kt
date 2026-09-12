@@ -29,6 +29,11 @@ class RavenForegroundAwarenessService : AccessibilityService() {
         val packageName = event.packageName?.toString()?.trim().orEmpty()
         if (packageName.isBlank() || packageName == applicationContext.packageName) return
 
+        // Structural interaction memory is always bounded to the Accessibility service session.
+        // Labels are only retained when Raven explicitly arms Accessibility Read; editable/password
+        // content is excluded inside RavenInteractionMemoryOS regardless.
+        RavenInteractionMemoryOS.observe(event, allowLabels = RavenAccessibilityReadOS.isEnabled(this))
+
         val className = event.className?.toString()?.trim().orEmpty().take(120)
         val windowId = event.windowId
         val eventType = event.eventType
