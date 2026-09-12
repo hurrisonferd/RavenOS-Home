@@ -32,7 +32,7 @@ object RavenExpressionSelectorOS {
         val budget = RavenOmniRvExpressionBudget.forPressure(input.pressure, input.quiet, input.launcherCritical)
         val family = effectiveFamily(input)
         val seed = stableSeed(input)
-        val kaomoji = if (budget.allowKaomoji) RavenKaomojiExpansionBank.pick(family, seed) else ""
+        val kaomoji = if (budget.allowKaomoji) RavenKaomojiGrammarOS.pick(input.owner, family, seed) else ""
         val ensemble = if (budget.allowEnsemble && input.previousOwner.isNotBlank() && input.previousOwner != input.owner) {
             RavenEnsembleKaomojiOS.pick(ensembleKind(input), seed xor input.previousOwner.hashCode())
         } else ""
