@@ -5,8 +5,8 @@ import android.content.Context
 /**
  * Shared semantic packet for every dialogue organ.
  *
- * Character banks should react to what is on the glass, not reconstruct screen meaning from a
- * package/window callback. This packet contains only already-authorized, bounded local context.
+ * Character banks react to what is on the glass, not reconstruct screen meaning from a package/window
+ * callback. The semantic summary may include the viewport task inferred from visible non-editable UI.
  */
 object RavenDialogueContextOS {
     data class ContextPacket(
@@ -93,26 +93,52 @@ object RavenDialogueContextOS {
     ): Pair<String, String> {
         val text = "${screen.focus} ${screen.text} ${screen.semanticSummary} ${narrative.label}".lowercase()
         fun has(vararg words: String) = words.any(text::contains)
+        val task = taskLabel(screen.semanticSummary)
+        fun withTask(base: String): String = if (task.isBlank() || base.contains(task, true)) base else "$base · $task"
         return when {
             has("goblin vision", "meta goblin", "follow-me office", "follow me office", "follow-me", "ravenos launcher") ->
-                "GOBLIN_VISION" to "Goblin Vision / Follow-Me Office"
+                "GOBLIN_VISION" to withTask("Goblin Vision / Follow-Me Office")
             has("dialogue bank", "dialogue", "statements", "talking", "speech", "commentary", "too rapid", "too quiet") ->
-                "DIALOGUE" to "office dialogue behavior"
-            has("screen awareness", "screen itself", "actual context", "ocr", "accessibility read", "visible text", "screen context") ->
-                "SCREEN_AWARENESS" to "screen awareness"
+                "DIALOGUE" to withTask("office dialogue behavior")
+            has("screen awareness", "screen itself", "actual context", "ocr", "accessibility read", "visible text", "screen context", "viewport") ->
+                "SCREEN_AWARENESS" to withTask("screen awareness")
             has("permission", "accessibility", "appear on top", "overlay permission", "notification access") ->
-                "PERMISSIONS" to "Android permissions"
+                "PERMISSIONS" to withTask("Android permissions")
             has("commit", "compile", "apk", "kotlin", "github", "branch", "source", "build") || "BUILD" in marker.tags ->
-                "BUILD" to "RavenOS build work"
+                "BUILD" to withTask("RavenOS build work")
             screen.meta || narrative.id == "RAVENOS_SELF_DEBUG" ->
-                "META_RECURSION" to "RavenOS self-reference"
+                "META_RECURSION" to withTask("RavenOS self-reference")
             screen.semanticKind == "MUSIC" || has("music", "track", "song", "album") ->
-                "MUSIC" to "music"
-            screen.semanticKind == "VIDEO" -> "VIDEO" to "video"
-            screen.semanticKind == "CHATGPT" -> "CHATGPT" to "ChatGPT conversation"
-            screen.semanticKind == "SETTINGS" -> "SETTINGS" to screen.semanticSummary
-            screen.semanticKind in setOf("MAIL", "MESSAGING") -> "COMMUNICATION" to "communication"
-            else -> screen.semanticKind to screen.semanticSummary.ifBlank { "current screen" }
+                "MUSIC" to withTask("music")
+            screen.semanticKind == "VIDEO" -> "VIDEO" to withTask("video")
+            screen.semanticKind == "CHATGPT" -> "CHATGPT" to withTask("ChatGPT conversation")
+            screen.semanticKind == "BROWSER" -> "BROWSER" to withTask(screen.semanticSummary.ifBlank { "web page" })
+            screen.semanticKind == "COMMUNITY" -> "COMMUNITY" to withTask(screen.semanticSummary.ifBlank { "community thread" })
+            screen.semanticKind == "CODE" -> "CODE" to withTask(screen.semanticSummary.ifBlank { "source / CI" })
+            screen.semanticKind == "TERMINAL" -> "TERMINAL" to withTask(screen.semanticSummary.ifBlank { "terminal" })
+            screen.semanticKind == "SETTINGS" -> "SETTINGS" to withTask(screen.semanticSummary)
+            screen.semanticKind in setOf("MAIL", "MESSAGING") -> "COMMUNICATION" to withTask("communication")
+            screen.semanticKind == "FILES" -> "FILES" to withTask("files")
+            screen.semanticKind == "GALLERY" -> "GALLERY" to withTask("gallery")
+            screen.semanticKind == "CAMERA" -> "CAMERA" to withTask("camera")
+            else -> screen.semanticKind to withTask(screen.semanticSummary.ifBlank { "current screen" })
+        }
+    }
+
+    private fun taskLabel(summary: String): String {
+        val s = summary.lowercase()
+        return when {
+            "composing" in s -> "composing"
+            "reading chat" in s -> "reading chat"
+            "debugging" in s -> "debugging"
+            "configuring" in s -> "configuring"
+            "searching" in s -> "searching"
+            "browsing" in s -> "browsing"
+            "listening" in s -> "listening"
+            "watching" in s -> "watching"
+            "reading" in s -> "reading"
+            "typing" in s -> "typing"
+            else -> ""
         }
     }
 }
