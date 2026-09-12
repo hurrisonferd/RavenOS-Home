@@ -6,10 +6,11 @@ import android.content.Context
  * Settles what the resident overlay is allowed to present.
  *
  * SCREEN: trustworthy owner-authorized screen meaning exists; screen-aware sitcom may speak.
- * PHONE: no readable screen, but a real phone event can still earn the legacy Meta Goblin voice.
- * CHIP: no comment-worthy truth; keep the resident present without replacing personality with setup text.
+ * PHONE: no readable screen, but a materially novel phone event can still earn legacy Meta Goblin voice.
+ * CHIP: no comment-worthy truth; keep resident presence without replacing personality with setup text.
  * DIAGNOSTIC: explicit owner-requested sensor diagnosis only.
  *
+ * Recurrence alone never earns speech here. Counts belong to structural memory, not punchline quota.
  * Sensing remains presentation-only. This organ grants no Android effect authority.
  */
 object RavenPresentationArbiterOS {
@@ -45,9 +46,9 @@ object RavenPresentationArbiterOS {
         val notificationNoise = marker.key.startsWith("NOTIFICATION")
 
         if (screen.available && screen.confidence >= 60) {
-            // A tray ping may enrich the scene, but it does not get to interrupt a readable screen
-            // on its own. Visible screen meaning wins; notification churn stays evidence-only unless
-            // the screen-aware interruptibility layer independently says the visible scene changed.
+            // A tray ping may enrich the scene, but it does not interrupt a readable screen on its
+            // own. Visible meaning wins; notification churn stays evidence-only unless the actual
+            // readable scene independently earned speech.
             val speak = if (notificationNoise) screenSpeech.speak else screenSpeech.speak || direction.shouldSpeak
             return Decision(
                 mode = Mode.SCREEN,
@@ -75,11 +76,6 @@ object RavenPresentationArbiterOS {
         val signature = phoneSignature(marker)
         val lastSignature = prefs.getString(KEY_LAST_PHONE_SIGNATURE, "").orEmpty()
         val novel = signature.isNotBlank() && signature != lastSignature
-        val callbackEligible = marker.key in setOf(
-            "APP_ENTER", "HOME_ENTER", "ROOM_CHANGED", "MEDIA_ACTIVE", "MEDIA_IDLE", "MEDIA_SESSION",
-            "SCREEN_VISUAL", "SEARCH_OPENED", "APP_UNIVERSE_OPENED", "SYSTEM_DECK_OPENED",
-        )
-        val milestone = callbackEligible && complex.occurrence in setOf(3, 5, 8, 13, 21, 34)
         val gap = if (critical) 4_500L else phoneGapMs(haunt)
         val major = marker.key in setOf(
             "APP_ENTER", "HOME_ENTER", "MEDIA_ACTIVE", "MEDIA_IDLE", "MEDIA_SESSION",
@@ -88,12 +84,13 @@ object RavenPresentationArbiterOS {
         )
         val deterministicGate = when {
             critical || major -> true
-            milestone -> true
             marker.key == "SCREEN_VISUAL" -> stableIndex("${marker.id}|vision-phone", 3) == 0
-            marker.key == "WINDOW_CHANGE" -> stableIndex("$signature|${complex.occurrence}|window-phone", 4) == 0
-            else -> stableIndex("$signature|${complex.occurrence}|phone", 3) == 0
+            marker.key == "WINDOW_CHANGE" -> stableIndex("$signature|window-phone", 4) == 0
+            else -> stableIndex("$signature|phone", 3) == 0
         }
-        val speak = age >= gap && deterministicGate && (novel || milestone || critical)
+        // Crucial law: occurrence/milestone counts never make this true. A phone-only interruption
+        // must be materially novel or critical, then still survive cadence and deterministic gate.
+        val speak = age >= gap && deterministicGate && (novel || critical)
 
         if (speak) {
             prefs.edit()
@@ -108,9 +105,9 @@ object RavenPresentationArbiterOS {
             showObservation = false,
             reason = when {
                 speak && critical -> "PHONE_CRITICAL"
-                speak && milestone -> "PHONE_CALLBACK"
                 speak && novel -> "PHONE_NOVELTY"
                 age < gap -> "PHONE_CADENCE"
+                !novel -> "PHONE_REPEAT_SILENT"
                 else -> "PHONE_EVIDENCE_ONLY"
             },
         )
