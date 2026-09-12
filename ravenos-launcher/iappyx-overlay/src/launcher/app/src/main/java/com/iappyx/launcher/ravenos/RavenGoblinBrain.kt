@@ -11,6 +11,8 @@ object RavenGoblinBrain {
 
     private const val CAST_PREFS = "ravenos_goblin_cast_v2"
     private const val KEY_LAST_OWNER = "last_owner"
+    private const val KEY_LAST_SCREEN_SIGNATURE = "last_screen_signature"
+    private const val KEY_LAST_ROTATION_AT = "last_rotation_at"
 
     fun react(
         context: Context,
@@ -31,13 +33,32 @@ object RavenGoblinBrain {
         // RavenInterruptibilityOS.allow remains the boolean compatibility seam; evaluate returns the typed reason/score used here.
         val speech = RavenInterruptibilityOS.evaluate(context, marker, complex, hauntMode, quiet, screen)
 
-        // Evidence-only events must not rotate the visible resident every time Android twitches.
-        val previousMember = if (!speech.speak && !quiet) {
+        val castPrefs = context.getSharedPreferences(CAST_PREFS, Context.MODE_PRIVATE)
+        val previousSignature = castPrefs.getString(KEY_LAST_SCREEN_SIGNATURE, "").orEmpty()
+        val currentSignature = screen.signature
+        val subjectChanged = screen.available && currentSignature.isNotBlank() && currentSignature != previousSignature
+        val lastRotationAt = castPrefs.getLong(KEY_LAST_ROTATION_AT, 0L)
+        val residentAge = if (lastRotationAt <= 0L) Long.MAX_VALUE else marker.at - lastRotationAt
+        val staleResident = manualOwner == null && residentAge >= residentResidenceMs(hauntMode) &&
+            (screen.available || marker.key in setOf("SCREEN_TEXT", "SCREEN_SEMANTIC", "SCREEN_VISUAL"))
+        val blindScreenRecast = manualOwner == null && !screen.available &&
+            marker.key in setOf("SCREEN_TEXT", "SCREEN_SEMANTIC", "SCREEN_VISUAL") && complex.occurrence % 6 == 0
+
+        // Evidence-only callbacks can hold the current resident, but a genuinely new screen subject,
+        // a stale screen resident, or repeated blind vision events are allowed to recast. This prevents
+        // the Follow-Me pill from freezing forever on whichever employee happened to be visible first.
+        val holdResident = !speech.speak && !quiet && !subjectChanged && !staleResident && !blindScreenRecast
+        val previousMember = if (holdResident) {
             RavenOfficeStateStore.read(context)?.owner
                 ?.let(RavenOfficeRegistry::member)
                 ?.takeIf { it.routable }
         } else null
         val member = previousMember ?: cast(context, marker, shade, complex, manualOwner, quiet, screen)
+
+        castPrefs.edit().apply {
+            if (currentSignature.isNotBlank()) putString(KEY_LAST_SCREEN_SIGNATURE, currentSignature)
+            if (previousMember == null) putLong(KEY_LAST_ROTATION_AT, marker.at)
+        }.apply()
 
         val dialogueContext = RavenDialogueContextOS.compose(context, member, marker, complex, episode, screen, callback, narrative)
         val observation = RavenObservationOS.observe(context, dialogueContext, hauntMode)
@@ -178,12 +199,20 @@ object RavenGoblinBrain {
         }
         val withoutRepeat = pool.filterNot { it.id == last }.ifEmpty { pool }
         val chosen = if (withoutRepeat.isNotEmpty()) {
-            withoutRepeat[stableIndex("${screen.signature}|${marker.key}|${complex.occurrence}|office-v3", withoutRepeat.size)]
+            withoutRepeat[stableIndex("${screen.signature}|${marker.key}|${complex.occurrence}|office-v4", withoutRepeat.size)]
         } else RavenOfficeRegistry.route(marker.key, marker.detail)
 
         context.getSharedPreferences(CAST_PREFS, Context.MODE_PRIVATE)
             .edit().putString(KEY_LAST_OWNER, chosen.id).apply()
         return chosen
+    }
+
+    private fun residentResidenceMs(haunt: RavenHauntMode): Long = when (haunt) {
+        RavenHauntMode.CALM -> 75_000L
+        RavenHauntMode.LIVED_IN -> 55_000L
+        RavenHauntMode.HAUNTED -> 38_000L
+        RavenHauntMode.FERAL -> 24_000L
+        RavenHauntMode.APOCALYPSE -> 15_000L
     }
 
     private fun stableIndex(text: String, size: Int): Int {
