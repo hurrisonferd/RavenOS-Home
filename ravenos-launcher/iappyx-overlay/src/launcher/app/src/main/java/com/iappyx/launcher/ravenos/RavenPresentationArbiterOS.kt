@@ -42,19 +42,30 @@ object RavenPresentationArbiterOS {
             return Decision(Mode.DIAGNOSTIC, false, true, "EXPLICIT_DIAGNOSTIC")
         }
 
+        val notificationNoise = marker.key.startsWith("NOTIFICATION")
+
         if (screen.available && screen.confidence >= 60) {
+            // A tray ping may enrich the scene, but it does not get to interrupt a readable screen
+            // on its own. Visible screen meaning wins; notification churn stays evidence-only unless
+            // the screen-aware interruptibility layer independently says the visible scene changed.
+            val speak = if (notificationNoise) screenSpeech.speak else screenSpeech.speak || direction.shouldSpeak
             return Decision(
                 mode = Mode.SCREEN,
-                speak = screenSpeech.speak || direction.shouldSpeak,
+                speak = speak,
                 showObservation = true,
-                reason = if (screenSpeech.speak) screenSpeech.reason else "SITCOM_${direction.beat}",
+                reason = when {
+                    speak && screenSpeech.speak -> screenSpeech.reason
+                    speak -> "SITCOM_${direction.beat}"
+                    notificationNoise -> "SCREEN_NOTIFICATION_EVIDENCE_ONLY"
+                    else -> "SCREEN_EVIDENCE_ONLY"
+                },
             )
         }
 
         val critical = "BOUNDARY" in marker.tags || "ERROR" in marker.tags ||
             "PAYOFF" in complex.tags || marker.salience >= 9
         if (!meaningfulPhoneEvent(marker) && !critical) {
-            return Decision(Mode.CHIP, false, false, "NO_READABLE_SCENE")
+            return Decision(Mode.CHIP, false, false, if (notificationNoise) "NOTIFICATION_EVIDENCE_ONLY" else "NO_READABLE_SCENE")
         }
 
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -64,12 +75,16 @@ object RavenPresentationArbiterOS {
         val signature = phoneSignature(marker)
         val lastSignature = prefs.getString(KEY_LAST_PHONE_SIGNATURE, "").orEmpty()
         val novel = signature.isNotBlank() && signature != lastSignature
-        val milestone = complex.occurrence in setOf(2, 3, 5, 8, 13, 21, 34)
+        val callbackEligible = marker.key in setOf(
+            "APP_ENTER", "HOME_ENTER", "ROOM_CHANGED", "MEDIA_ACTIVE", "MEDIA_IDLE", "MEDIA_SESSION",
+            "SCREEN_VISUAL", "SEARCH_OPENED", "APP_UNIVERSE_OPENED", "SYSTEM_DECK_OPENED",
+        )
+        val milestone = callbackEligible && complex.occurrence in setOf(3, 5, 8, 13, 21, 34)
         val gap = if (critical) 4_500L else phoneGapMs(haunt)
         val major = marker.key in setOf(
             "APP_ENTER", "HOME_ENTER", "MEDIA_ACTIVE", "MEDIA_IDLE", "MEDIA_SESSION",
-            "NOTIFICATION_POSTED", "NOTIFICATION_REMOVED", "SYSTEM_DECK_OPENED", "SEARCH_OPENED",
-            "APP_UNIVERSE_OPENED", "ROOM_CHANGED", "POWER_CHANGED", "BATTERY_CHANGED",
+            "SYSTEM_DECK_OPENED", "SEARCH_OPENED", "APP_UNIVERSE_OPENED", "ROOM_CHANGED",
+            "POWER_CHANGED", "BATTERY_CHANGED",
         )
         val deterministicGate = when {
             critical || major -> true
@@ -108,8 +123,7 @@ object RavenPresentationArbiterOS {
     private fun meaningfulPhoneEvent(marker: RavenMarkerBus.Marker): Boolean = marker.key in setOf(
         "APP_ENTER", "WINDOW_CHANGE", "HOME_ENTER", "ROOM_CHANGED", "SEARCH_OPENED",
         "APP_UNIVERSE_OPENED", "SYSTEM_DECK_OPENED", "MEDIA_ACTIVE", "MEDIA_IDLE", "MEDIA_SESSION",
-        "NOTIFICATION_POSTED", "NOTIFICATION_REMOVED", "POWER_CHANGED", "BATTERY_CHANGED",
-        "SCREEN_VISUAL", "AUDIO", "DEVICE", "NIGHT",
+        "POWER_CHANGED", "BATTERY_CHANGED", "SCREEN_VISUAL", "AUDIO", "DEVICE", "NIGHT",
     )
 
     private fun phoneGapMs(haunt: RavenHauntMode): Long = when (haunt) {
