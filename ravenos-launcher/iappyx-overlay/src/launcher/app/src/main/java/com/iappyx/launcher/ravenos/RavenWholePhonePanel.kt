@@ -53,6 +53,7 @@ object RavenWholePhonePanel {
         button("CLEAR SCREEN/CALLBACK MEMORY") {
             RavenScreenMemoryOS.clear()
             RavenCallbackMemoryOS.clear()
+            RavenEpisodeScriptOS.clear()
             RavenInterruptibilityOS.clear(activity)
             RavenOfficeGovernor.clearStats(activity)
         }
@@ -60,7 +61,15 @@ object RavenWholePhonePanel {
         section("OFFICE SITCOM 🎬🧚", "The Follow-Me employee is a cast position, not the owner of the widget. Scene change, dwell, recurrence, pair chemistry and deterministic turn cadence rotate the full routable office. Dialogue is screen-grounded; pair callbacks can evolve without turning every sensor event into chatter.")
         button("RESET SITCOM CAST + RUNNING BITS") {
             RavenSitcomDirectorOS.clear(activity)
+            RavenEpisodeScriptOS.clear()
             RavenOfficeBarService.signal(activity, "SCREEN_SEMANTIC", "state:sitcom_reset|source:control_panel")
+        }
+
+        section("EPISODE SCRIPT MEMORY 📺🧠", "Process-session structural memory tracks scene owner, task, short derived subject, interruptions, returns, motifs and earned callbacks. It does not store screenshots, raw OCR frames, editable field values or a persistent transcript. Smart Capture/System UI/keyboard can become cameos while the real app keeps scene ownership.")
+        button("RESET CURRENT EPISODE") {
+            RavenEpisodeScriptOS.clear()
+            RavenScreenMemoryOS.clear()
+            RavenOfficeBarService.signal(activity, "SCREEN_SEMANTIC", "state:episode_reset|source:control_panel")
         }
 
         section("NOTIFICATION SENSE", "SOURCE = package/category/ranking only. SEMANTIC may route title locally. FULL_LOCAL may ingest title/body locally. Nothing is uploaded by this layer.")
@@ -82,12 +91,12 @@ object RavenWholePhonePanel {
         button("ENABLE LOCAL GOBLIN READ") { RavenGoblinReadOS.setEnabled(activity, true) }
         button("DISABLE GOBLIN READ") { RavenGoblinReadOS.setEnabled(activity, false) }
 
-        section("ACCESSIBILITY READ 🧭🔤", "Separate owner switch for Android-exposed visible labels and static text. Editable values and password nodes are excluded. Accessibility and OCR are fused as two witnesses to one semantic screen rather than competing sources.")
+        section("ACCESSIBILITY READ 🧭🔤", "Separate owner switch for Android-exposed visible labels and static text. Editable values and password nodes are excluded. Accessibility and OCR are fused as two witnesses to one semantic screen rather than competing sources. Transient keyboard/SystemUI/screenshot layers are demoted when a real application window is visible underneath.")
         button("ENABLE ACCESSIBILITY READ") { RavenAccessibilityReadOS.setEnabled(activity, true) }
         button("DISABLE ACCESSIBILITY READ") { RavenAccessibilityReadOS.setEnabled(activity, false) }
         button("OPEN ACCESSIBILITY AWARENESS") { RavenPermissionDeck.openForegroundAwareness(activity) }
 
-        section("CROSS-APP META GOBLIN", "Follow-Me is the persistent TYPE_APPLICATION_OVERLAY body over ordinary apps: CHIP idle, OBSERVING when the screen is understood, COMMENT when an employee earns dialogue, tap for recent hauntings. Secure/lock/protected surfaces remain Android-controlled.")
+        section("CROSS-APP META GOBLIN", "Follow-Me is the persistent TYPE_APPLICATION_OVERLAY body over ordinary apps: widened CHIP identity, OBSERVING when the screen is understood, COMMENT when an employee earns dialogue, tap for recent hauntings. Secure/lock/protected surfaces remain Android-controlled.")
         button("OPEN APPEAR-ON-TOP ACCESS") { RavenPermissionDeck.openOverlayAccess(activity) }
         button("ENABLE FOLLOW-ME") {
             if (!RavenFollowMeOverlay.enable(activity)) RavenPermissionDeck.openOverlayAccess(activity)
@@ -98,8 +107,11 @@ object RavenWholePhonePanel {
         section("FOREGROUND LEDGER", "Optional Android Usage Access adds a second app-resume signal when One UI Accessibility events are incomplete. App identity/timing only; no content.")
         button("OPEN USAGE ACCESS") { RavenPermissionDeck.openUsageAwareness(activity) }
 
-        section("CALLBACK + SUBJECT MEMORY", "Callback memory tracks loops/returns; screen memory tracks only a few short derived semantic subjects in process memory. Neither organ stores raw screenshots or a persistent OCR transcript.")
-        button("CLEAR CALLBACK BITS") { RavenCallbackMemoryOS.clear() }
+        section("CALLBACK + SUBJECT MEMORY", "Callback memory tracks loops/returns; screen memory tracks only a few short derived semantic subjects in process memory. Episode Script adds structural continuity without storing a raw screen transcript.")
+        button("CLEAR CALLBACK BITS") {
+            RavenCallbackMemoryOS.clear()
+            RavenEpisodeScriptOS.clear()
+        }
 
         section("GALAXY / BACKGROUND SURVIVAL", RavenGalaxyHauntOS.samsungInstructions(activity))
         button("BATTERY OPTIMIZATION") { RavenPermissionDeck.openBatteryOptimization(activity) }
@@ -132,6 +144,7 @@ object RavenWholePhonePanel {
             append("\n").append(galaxy.compact())
             append("\n").append(RavenOfficeGovernor.compact(activity))
             append("\n").append(RavenSitcomDirectorOS.compact(activity))
+            append("\n").append(RavenEpisodeScriptOS.compact())
             append("\nSCREEN=").append(if (screen.available) "READABLE" else "UNKNOWN")
             append(" source=").append(screen.source)
             append(" confidence=").append(screen.confidence)
