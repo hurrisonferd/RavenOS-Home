@@ -20,7 +20,7 @@ import kotlin.math.abs
 
 /**
  * GOBLIN VISION cross-app presentation contract.
- * Resident TYPE_APPLICATION_OVERLAY body: CHIP while idle, COMMENT on earned speech, FEED on tap.
+ * Resident TYPE_APPLICATION_OVERLAY body: CHIP idle, OBSERVING screen-aware, COMMENT earned speech, FEED on tap.
  */
 object RavenGoblinVisionOverlay {
     private const val PREFS = "ravenos_goblin_vision_v1"
@@ -29,7 +29,7 @@ object RavenGoblinVisionOverlay {
     private const val KEY_MANUAL_UNTIL = "manual_until"
     private const val MANUAL_HOLD_MS = 120_000L
 
-    private enum class Mode { CHIP, COMMENT, FEED }
+    private enum class Mode { CHIP, OBSERVING, COMMENT, FEED }
 
     private var wm: WindowManager? = null
     private var root: LinearLayout? = null
@@ -46,31 +46,42 @@ object RavenGoblinVisionOverlay {
     private var lastMember: RavenOfficeMember? = null
     private var lastOwnerLine: String = ""
     private var lastNote: String = ""
+    private var lastObservation: String = ""
     private var lastSignal: String = ""
     private var lastDetail: String = ""
     private var lastHaunt: RavenHauntMode = RavenHauntMode.HAUNTED
 
     fun render(context: Context, member: RavenOfficeMember, signal: String, note: String, detail: String, hauntMode: RavenHauntMode) {
         val packet = RavenEmployeePresentation.packet(member, signal, detail, note)
-        remember(context, member, packet.ownerLine, cleanVisible(packet.note), signal, detail, hauntMode)
-        mode = if (lastNote.isBlank()) Mode.CHIP else Mode.COMMENT
+        remember(context, member, packet.ownerLine, cleanVisible(packet.note), cleanVisible(packet.note), signal, detail, hauntMode)
+        mode = when {
+            lastNote.isNotBlank() -> Mode.COMMENT
+            lastObservation.isNotBlank() -> Mode.OBSERVING
+            else -> Mode.CHIP
+        }
         renderCurrent(context)
     }
 
     fun renderReaction(context: Context, reaction: RavenReactionPacket, hauntMode: RavenHauntMode) {
         val member = RavenOfficeRegistry.member(reaction.owner) ?: return
         val spoken = cleanVisible(reaction.dialogue)
-        remember(context, member, reaction.ownerLine, spoken, reaction.signal, reaction.detail, hauntMode)
-        mode = if (spoken.isBlank()) Mode.CHIP else Mode.COMMENT
+        val observation = cleanVisible(reaction.authorNote)
+        remember(context, member, reaction.ownerLine, spoken, observation, reaction.signal, reaction.detail, hauntMode)
+        mode = when {
+            spoken.isNotBlank() -> Mode.COMMENT
+            observation.isNotBlank() -> Mode.OBSERVING
+            else -> Mode.CHIP
+        }
         renderCurrent(context)
         if (spoken.isNotBlank()) scheduleCollapse(context, reaction, hauntMode)
     }
 
-    private fun remember(context: Context, member: RavenOfficeMember, ownerLine: String, note: String, signal: String, detail: String, hauntMode: RavenHauntMode) {
+    private fun remember(context: Context, member: RavenOfficeMember, ownerLine: String, note: String, observation: String, signal: String, detail: String, hauntMode: RavenHauntMode) {
         appContext = context.applicationContext
         lastMember = member
         lastOwnerLine = ownerLine
         lastNote = note
+        lastObservation = observation
         lastSignal = signal
         lastDetail = detail
         lastHaunt = hauntMode
@@ -123,6 +134,30 @@ object RavenGoblinVisionOverlay {
                     setTextColor(accent)
                 }
                 noteView?.visibility = View.GONE
+                contextView?.visibility = View.GONE
+            }
+            Mode.OBSERVING -> {
+                statusView?.apply {
+                    visibility = View.VISIBLE
+                    text = "👁 WATCHING THE GLASS"
+                    setTextColor(0xFFBFC0CC.toInt())
+                }
+                ownerView?.apply {
+                    visibility = View.VISIBLE
+                    text = lastOwnerLine
+                    textSize = 14.5f
+                    maxLines = 1
+                    ellipsize = TextUtils.TruncateAt.END
+                    setTextColor(accent)
+                }
+                noteView?.apply {
+                    visibility = if (lastObservation.isBlank()) View.GONE else View.VISIBLE
+                    text = lastObservation
+                    textSize = 12.8f
+                    maxLines = 3
+                    ellipsize = TextUtils.TruncateAt.END
+                    setTextColor(0xFFE7E7EF.toInt())
+                }
                 contextView?.visibility = View.GONE
             }
             Mode.COMMENT -> {
@@ -179,6 +214,13 @@ object RavenGoblinVisionOverlay {
         lp?.let { params ->
             val widthDp = when (mode) {
                 Mode.CHIP -> if (lastHaunt.ordinal >= RavenHauntMode.FERAL.ordinal) 220 else 196
+                Mode.OBSERVING -> when (lastHaunt) {
+                    RavenHauntMode.CALM -> 244
+                    RavenHauntMode.LIVED_IN -> 268
+                    RavenHauntMode.HAUNTED -> 292
+                    RavenHauntMode.FERAL -> 316
+                    RavenHauntMode.APOCALYPSE -> 332
+                }
                 Mode.COMMENT -> when (lastHaunt) {
                     RavenHauntMode.CALM -> 250
                     RavenHauntMode.LIVED_IN -> 276
@@ -192,8 +234,6 @@ object RavenGoblinVisionOverlay {
             val width = dp(context, widthDp)
             if (params.width != width) { params.width = width; changed = true }
 
-            // Auto-placement resumes after a short manual-drag hold. It uses current OCR density
-            // and keyboard semantics to avoid sitting on top of the thing Raven is trying to read.
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             val manualUntil = prefs.getLong(KEY_MANUAL_UNTIL, 0L)
             if (System.currentTimeMillis() >= manualUntil && mode != Mode.FEED) {
@@ -209,7 +249,7 @@ object RavenGoblinVisionOverlay {
 
         RavenSurfaceIntegrity.mark(
             context, RavenSurfaceIntegrity.FOLLOW_ME, "RENDERED", stateAt,
-            "goblin_vision_meta_overlay_v6:${mode.name.lowercase()}",
+            "goblin_vision_meta_overlay_v7:${mode.name.lowercase()}",
         )
     }
 
@@ -229,12 +269,12 @@ object RavenGoblinVisionOverlay {
         if (!reaction.interruptible || hauntMode == RavenHauntMode.APOCALYPSE) return
         val runnable = Runnable {
             if (mode == Mode.COMMENT) {
-                mode = Mode.CHIP
+                mode = if (lastObservation.isNotBlank()) Mode.OBSERVING else Mode.CHIP
                 renderCurrent(context.applicationContext)
             }
         }
         collapseRunnable = runnable
-        handler.postDelayed(runnable, reaction.lifetimeMs.coerceIn(3_200L, 15_000L))
+        handler.postDelayed(runnable, reaction.lifetimeMs.coerceIn(4_000L, 18_000L))
     }
 
     fun hide() {
@@ -311,7 +351,8 @@ object RavenGoblinVisionOverlay {
                         } else {
                             collapseRunnable?.let(handler::removeCallbacks)
                             mode = when (mode) {
-                                Mode.CHIP -> if (lastNote.isBlank()) Mode.FEED else Mode.COMMENT
+                                Mode.CHIP -> if (lastObservation.isBlank()) Mode.FEED else Mode.OBSERVING
+                                Mode.OBSERVING -> if (lastNote.isBlank()) Mode.FEED else Mode.COMMENT
                                 Mode.COMMENT -> Mode.FEED
                                 Mode.FEED -> Mode.CHIP
                             }
