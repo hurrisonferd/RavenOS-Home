@@ -81,7 +81,7 @@ object RavenGoblinReadOS {
                         )
                     }
                     else -> {
-                        val prior = latest(app, Long.MAX_VALUE)?.text.orEmpty()
+                        val prior = latest(app)?.text.orEmpty()
                         if (normalized != prior) {
                             app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                                 .putString(KEY_TEXT, normalized)
