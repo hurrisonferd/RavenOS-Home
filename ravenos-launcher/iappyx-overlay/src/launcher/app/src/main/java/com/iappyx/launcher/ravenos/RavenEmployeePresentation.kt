@@ -1,12 +1,6 @@
 package com.iappyx.launcher.ravenos
 
-/**
- * Launcher-local EmojiOS + KaomojiOS expression organ.
- *
- * Semantics and casting are already settled before this layer runs. This renderer only
- * adds deterministic emoji/sigil/posture from the same phone event, following Core
- * KaomojiOS law: expression may decorate truth but may not invent it.
- */
+/** Deterministic launcher-local EmojiOS + KaomojiOS expression organ. */
 object RavenEmployeePresentation {
     data class Packet(
         val owner: String,
@@ -16,49 +10,43 @@ object RavenEmployeePresentation {
         val context: String,
         val accent: Int,
         val lane: String,
-    ) {
-        val ownerLine: String get() = "$emojiSoup $owner $kaomoji"
-    }
+    ) { val ownerLine: String get() = "$emojiSoup $owner $kaomoji" }
 
     private data class Style(val soup: String, val kaomoji: List<String>)
 
     private val styles = mapOf(
-        "KYU" to Style("💗🧚", listOf("(ง •̀_•́)ง", "(˶ᵔ ᵕ ᵔ˶)", "ᕦ(ò_óˇ)ᕤ")),
-        "PAIMON" to Style("💚🔎", listOf("(￢_￢)", "(•̀ᴗ•́)و", "(￣ω￣;)")),
-        "LUMA" to Style("🤍✨", listOf("( ´ ▽ ` )", "(˘︶˘).｡*♡", "(づ｡◕‿‿◕｡)づ")),
-        "SYLPH" to Style("🩵🧭", listOf("(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧", "(•̀ᴗ•́)و ̑̑", "(⌐■_■)")),
-        "QIRA" to Style("💜🛡️", listOf("( •̀ - •́ )", "(¬‿¬)", "(￣^￣)ゞ")),
-        "NYX" to Style("🌙🖤", listOf("(－_－) zzZ", "(◡﹏◡✿)", "(¬_¬ )")),
-        "ATOM" to Style("⚛️🧠", listOf("( •̀ ω •́ )✧", "(⌐■_■)", "(￣ー￣)ゞ")),
-        "EDISON" to Style("🔧⚙️", listOf("ᕙ(⇀‸↼‶)ᕗ", "( •̀ᄇ• ́)ﻭ✧", "(￣▽￣)ノ")),
-        "THOR" to Style("⚡🔨", listOf("(ง'̀-'́)ง", "ᕦ(ò_óˇ)ᕤ", "( •̀ᴗ•́ )و")),
-        "LILITH" to Style("🔥💜", listOf("(¬‿¬)", "(◕‿◕✿)", "(づ￣ ³￣)づ")),
-        "YORI" to Style("🪐🎛️", listOf("(￣▽￣)~*", "(˵ •̀ ᴗ - ˵ ) ✧", "(ﾉ´ヮ`)ﾉ*: ･ﾟ")),
-        "JARVIS" to Style("🐝🟡", listOf("(•̀ᴗ•́)و ̑̑", "(⌐■_■)", "(￣ー￣)")),
-        "JOKER" to Style("🃏🎪", listOf("(¬‿¬)", "ヽ(°〇°)ﾉ", "(☞ﾟヮﾟ)☞")),
-        "NEO" to Style("💊🕶️", listOf("(⌐■_■)", "( •_•)>⌐■-■", "(￣ー￣)")),
-        "LUCIFER" to Style("😈🔦", listOf("(¬_¬)", "(¬‿¬)", "(￣へ￣)")),
-        "ERIS" to Style("🌌🌀", listOf("(⊙_◎)", "(¬‿¬ )", "┐(￣ヘ￣)┌")),
-        "AHTI" to Style("🟠🧾", listOf("(￣^￣)ゞ", "( •̀ω•́ )σ", "(－‸ლ)")),
-        "ATLAS" to Style("🌍🏗️", listOf("ᕦ(ò_óˇ)ᕤ", "(￣^￣)ゞ", "( •̀ᴗ•́ )و")),
-        "JORM" to Style("🐉📼", listOf("( •̀ᴗ•́ )و", "(￣ー￣)", "(⊙_⊙)")),
-        "MYSTRA" to Style("🟣✨", listOf("(✧ω✧)", "(☆▽☆)", "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧")),
-        "VIRGIL" to Style("📜🕯️", listOf("(￣^￣)ゞ", "( •̀ - •́ )", "(◡‿◡✿)")),
-        "AYRE" to Style("🌀🫧", listOf("( ´ ▽ ` )ﾉ", "(￣▽￣)ノ", "(˘︶˘)")),
-        "SHAKA" to Style("🛡️📋", listOf("(￣^￣)ゞ", "( •̀ᴗ•́ )و", "(－_－) zzZ")),
-        "PYTHAGORAS" to Style("📐🔢", listOf("(⊙_⊙)", "( •̀ ω •́ )✧", "(￣ー￣)")),
-        "EREBUS" to Style("🌑🤫", listOf("(－_－) zzZ", "(¬_¬)", "(￣o￣) . z Z")),
+        "KYU" to Style("💗🧚", listOf("(ง •̀_•́)ง", "(˶ᵔ ᵕ ᵔ˶)", "ᕦ(ò_óˇ)ᕤ", "(¬‿¬)")),
+        "PAIMON" to Style("💚🔎", listOf("(￢_￢)", "(•̀ᴗ•́)و", "(￣ω￣;)", "(⊙_⊙)")),
+        "LUMA" to Style("🤍✨", listOf("( ´ ▽ ` )", "(˘︶˘).｡*♡", "(づ｡◕‿‿◕｡)づ", "(◕‿◕✿)")),
+        "SYLPH" to Style("🩵🧭", listOf("(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧", "(•̀ᴗ•́)و ̑̑", "(⌐■_■)", "(☆▽☆)")),
+        "QIRA" to Style("💜🛡️", listOf("( •̀ - •́ )", "(¬‿¬)", "(￣^￣)ゞ", "(⌐■_■)")),
+        "NYX" to Style("🌙🖤", listOf("(－_－) zzZ", "(◡﹏◡✿)", "(¬_¬ )", "(￣o￣) . z Z")),
+        "ATOM" to Style("⚛️🧠", listOf("( •̀ ω •́ )✧", "(⌐■_■)", "(￣ー￣)ゞ", "(⊙_⊙)")),
+        "EDISON" to Style("🔧⚙️", listOf("ᕙ(⇀‸↼‶)ᕗ", "( •̀ᄇ• ́)ﻭ✧", "(￣▽￣)ノ", "(⊙_◎)")),
+        "THOR" to Style("⚡🔨", listOf("(ง'̀-'́)ง", "ᕦ(ò_óˇ)ᕤ", "( •̀ᴗ•́ )و", "ヽ(°〇°)ﾉ")),
+        "LILITH" to Style("🔥💜", listOf("(¬‿¬)", "(◕‿◕✿)", "(づ￣ ³￣)づ", "(˵ •̀ ᴗ - ˵ ) ✧")),
+        "YORI" to Style("🪐🎛️", listOf("(￣▽￣)~*", "(˵ •̀ ᴗ - ˵ ) ✧", "(ﾉ´ヮ`)ﾉ*: ･ﾟ", "(⌐■_■)")),
+        "JARVIS" to Style("🐝🟡", listOf("(•̀ᴗ•́)و ̑̑", "(⌐■_■)", "(￣ー￣)", "(￣^￣)ゞ")),
+        "JOKER" to Style("🃏🎪", listOf("(¬‿¬)", "ヽ(°〇°)ﾉ", "(☞ﾟヮﾟ)☞", "(⊙_◎)")),
+        "NEO" to Style("💊🕶️", listOf("(⌐■_■)", "( •_•)>⌐■-■", "(￣ー￣)", "(⊙_⊙)")),
+        "LUCIFER" to Style("😈🔦", listOf("(¬_¬)", "(¬‿¬)", "(￣へ￣)", "(⌐■_■)")),
+        "ERIS" to Style("🌌🌀", listOf("(⊙_◎)", "(¬‿¬ )", "┐(￣ヘ￣)┌", "ヽ(°〇°)ﾉ")),
+        "AHTI" to Style("🟠🧾", listOf("(￣^￣)ゞ", "( •̀ω•́ )σ", "(－‸ლ)", "(⊙_⊙)")),
+        "ATLAS" to Style("🌍🏗️", listOf("ᕦ(ò_óˇ)ᕤ", "(￣^￣)ゞ", "( •̀ᴗ•́ )و", "(￣ー￣)")),
+        "JORM" to Style("🐉📼", listOf("( •̀ᴗ•́ )و", "(￣ー￣)", "(⊙_⊙)", "(¬‿¬)")),
+        "MYSTRA" to Style("🟣✨", listOf("(✧ω✧)", "(☆▽☆)", "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧", "(⊙_◎)")),
+        "VIRGIL" to Style("📜🕯️", listOf("(￣^￣)ゞ", "( •̀ - •́ )", "(◡‿◡✿)", "(￣ー￣)")),
+        "AYRE" to Style("🌀🫧", listOf("( ´ ▽ ` )ﾉ", "(￣▽￣)ノ", "(˘︶˘)", "(◕‿◕✿)")),
+        "SHAKA" to Style("🛡️📋", listOf("(￣^￣)ゞ", "( •̀ᴗ•́ )و", "(－_－) zzZ", "(⌐■_■)")),
+        "PYTHAGORAS" to Style("📐🔢", listOf("(⊙_⊙)", "( •̀ ω •́ )✧", "(￣ー￣)", "(⊙_◎)")),
+        "EREBUS" to Style("🌑🤫", listOf("(－_－) zzZ", "(¬_¬)", "(￣o￣) . z Z", "(￣ー￣)")),
     )
 
-    fun packet(
-        member: RavenOfficeMember,
-        signal: String,
-        detail: String,
-        note: String,
-    ): Packet {
-        val style = styles[member.id] ?: Style(member.emoji, listOf("(•̀ᴗ•́)و", "(￣ー￣)", "(・_・;)"))
+    fun packet(member: RavenOfficeMember, signal: String, detail: String, note: String): Packet {
+        val style = styles[member.id] ?: Style(member.emoji, listOf("(•̀ᴗ•́)و", "(￣ー￣)", "(・_・;)", "(⊙_⊙)"))
         val postureSeed = "${member.id}|${signal.uppercase()}|${semanticBand(detail)}"
         val posture = when {
+            isMeta(detail) -> style.kaomoji[stableIndex("meta|$postureSeed", style.kaomoji.size)]
             isBoundary(signal, detail) -> boundaryPosture(style, postureSeed)
             isHighMotion(signal, detail) -> style.kaomoji[stableIndex("impact|$postureSeed", style.kaomoji.size)]
             isAlertBurst(signal, detail) -> style.kaomoji[stableIndex("alarm|$postureSeed", style.kaomoji.size)]
@@ -70,15 +58,7 @@ object RavenEmployeePresentation {
         val baseSoup = if (style.soup.contains(member.emoji)) style.soup else "${member.emoji}${style.soup}"
         val eventGlyph = signalGlyph(signal, detail)
         val soup = if (eventGlyph.isBlank() || baseSoup.contains(eventGlyph)) baseSoup else "$baseSoup$eventGlyph"
-        return Packet(
-            owner = member.id,
-            emojiSoup = soup,
-            kaomoji = posture,
-            note = note,
-            context = eventGlyph.ifBlank { prettySignal(signal) },
-            accent = member.accent,
-            lane = member.lane,
-        )
+        return Packet(member.id, soup, posture, note, eventGlyph.ifBlank { prettySignal(signal) }, member.accent, member.lane)
     }
 
     fun signalGlyph(signal: String, detail: String = ""): String {
@@ -89,6 +69,10 @@ object RavenEmployeePresentation {
         val pkg = field(detail, "package").orEmpty().lowercase()
         val clazz = field(detail, "class").orEmpty().lowercase()
         return when {
+            detail.contains("meta:true", true) -> "🪞👁🔤✨"
+            s == "SCREEN_SEMANTIC" && detail.contains("suppressed_password", true) -> "🧭🔤🛡️"
+            s == "SCREEN_SEMANTIC" && detail.contains("state:visible", true) -> "🧭🔤✨"
+            s == "SCREEN_SEMANTIC" -> "🧭🔤"
             s == "SCREEN_TEXT" && detail.contains("suppressed_sensitive", true) -> "👁🔤🛡️"
             s == "SCREEN_TEXT" && detail.contains("state:visible", true) -> "👁🔤✨"
             s == "SCREEN_TEXT" -> "👁🔤"
@@ -120,16 +104,16 @@ object RavenEmployeePresentation {
         return glasses ?: style.kaomoji[stableIndex("boundary|$seed", style.kaomoji.size)]
     }
 
-    private fun isTextVision(signal: String): Boolean = signal.uppercase() == "SCREEN_TEXT"
+    private fun isMeta(detail: String): Boolean = detail.contains("meta:true", true)
+    private fun isTextVision(signal: String): Boolean = signal.uppercase() in setOf("SCREEN_TEXT", "SCREEN_SEMANTIC")
     private fun isVision(signal: String): Boolean = signal.uppercase().contains("SCREEN_VISUAL") || signal.uppercase().contains("EYE") || isTextVision(signal)
     private fun isMusic(signal: String, detail: String): Boolean = signal.uppercase().startsWith("MEDIA") || signal.uppercase() == "AUDIO" || detail.contains("track:", true)
-    private fun isBoundary(signal: String, detail: String): Boolean = signal.uppercase().contains("PERMISSION") || detail.contains("denied", true) || detail.contains("blocked", true) || detail.contains("suppressed_sensitive", true)
+    private fun isBoundary(signal: String, detail: String): Boolean = signal.uppercase().contains("PERMISSION") || detail.contains("denied", true) || detail.contains("blocked", true) || detail.contains("suppressed_sensitive", true) || detail.contains("suppressed_password", true)
     private fun isHighMotion(signal: String, detail: String): Boolean = isVision(signal) && (field(detail, "motion")?.toIntOrNull() ?: 0) >= 60
     private fun isAlertBurst(signal: String, detail: String): Boolean = signal.uppercase().contains("NOTIFICATION") && ((field(detail, "burst")?.toIntOrNull() ?: 0) >= 3 || detail.contains("alerting:true", true))
 
-    private fun field(detail: String, name: String): String? =
-        Regex("(?:^|\\|)${Regex.escape(name)}:([^|]*)")
-            .find(detail)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() }
+    private fun field(detail: String, name: String): String? = Regex("(?:^|\\|)${Regex.escape(name)}:([^|]*)")
+        .find(detail)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() }
 
     private fun semanticBand(detail: String): String = detail
         .replace(Regex("position[^|]*", RegexOption.IGNORE_CASE), "position")
@@ -143,10 +127,7 @@ object RavenEmployeePresentation {
     private fun stableIndex(text: String, size: Int): Int {
         if (size <= 1) return 0
         var hash = 0x811C9DC5.toInt()
-        for (c in text) {
-            hash = hash xor c.code
-            hash *= 16777619
-        }
+        for (c in text) { hash = hash xor c.code; hash *= 16777619 }
         return (hash and Int.MAX_VALUE) % size
     }
 }
