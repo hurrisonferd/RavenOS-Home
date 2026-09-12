@@ -53,8 +53,8 @@ class RavenForegroundAwarenessService : AccessibilityService() {
         }
 
         // Web/chat content can mutate or scroll without a new Android window. Re-read a bounded
-        // semantic viewport. If the IME is active, prefer the visible app underneath it rather than
-        // accidentally treating Samsung Keyboard as the entire scene.
+        // semantic viewport. If the IME / screenshot UI / System UI is active, prefer the visible
+        // ordinary app underneath it rather than promoting a transient layer into scene ownership.
         if (RavenAccessibilityReadOS.isEnabled(this) && now - lastSemanticAt >= 550L) {
             observeVisibleSemantics(packageName, force = false)
         }
@@ -92,15 +92,29 @@ class RavenForegroundAwarenessService : AccessibilityService() {
             val p = pkg.lowercase()
             return p.contains("honeyboard") || p.contains("inputmethod") || p.contains("keyboard")
         }
+        fun isTransientSystemLayer(pkg: String): Boolean {
+            val p = pkg.lowercase()
+            return p == "com.android.systemui" ||
+                p.contains("smartcapture") ||
+                p.contains("screenshot") ||
+                p.contains("capture") && p.contains("samsung") ||
+                isInput(pkg)
+        }
 
+        val ordinaryApps = candidates.filterNot { isTransientSystemLayer(it.pkg) }
         val nonInput = candidates.filterNot { isInput(it.pkg) }
-        val selected = nonInput.firstOrNull { it.active && it.pkg == packageHint }
-            ?: nonInput.firstOrNull { it.active }
-            ?: nonInput.firstOrNull { it.focused && it.pkg == packageHint }
-            ?: nonInput.firstOrNull { it.focused }
-            ?: nonInput.firstOrNull { it.pkg == packageHint }
-            ?: nonInput.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
-            ?: candidates.firstOrNull()
+        val preferredPool = ordinaryApps.ifEmpty { nonInput.ifEmpty { candidates } }
+        val hintIsTransient = packageHint?.let(::isTransientSystemLayer) == true
+        val stableHint = packageHint.takeUnless { hintIsTransient }
+
+        val selected = preferredPool.firstOrNull { it.active && stableHint != null && it.pkg == stableHint }
+            ?: preferredPool.firstOrNull { it.active && it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+            ?: preferredPool.firstOrNull { it.active }
+            ?: preferredPool.firstOrNull { it.focused && stableHint != null && it.pkg == stableHint }
+            ?: preferredPool.firstOrNull { it.focused }
+            ?: preferredPool.firstOrNull { stableHint != null && it.pkg == stableHint }
+            ?: preferredPool.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+            ?: preferredPool.firstOrNull()
             ?: return
 
         lastSemanticAt = now
