@@ -122,7 +122,9 @@ class RavenOfficeBarService : Service() {
         )
         val member = brain.member
         val reaction = brain.packet
-        val body = reaction.dialogue.ifBlank { "${reaction.owner} is watching." }
+        // Silence is a valid deterministic result. Never manufacture "X is watching" filler.
+        val body = reaction.dialogue.trim()
+        val notificationBody = body.ifBlank { "👁 resident · waiting for a phone moment worth commenting on" }
 
         RavenReactionStateStore.write(this, reaction)
         RavenOfficeStateStore.write(
@@ -135,14 +137,16 @@ class RavenOfficeBarService : Service() {
             manual = manual != null,
             quiet = quiet,
         )
-        RavenOfficeTraceStore.record(
-            this,
-            member,
-            signal,
-            detail,
-            body,
-            hauntMode,
-        )
+        if (body.isNotBlank()) {
+            RavenOfficeTraceStore.record(
+                this,
+                member,
+                signal,
+                detail,
+                body,
+                hauntMode,
+            )
+        }
 
         RavenHomeAura.render(member, hauntMode)
         RavenHomeWhisper.render(member, body, signal, detail, hauntMode)
@@ -172,7 +176,7 @@ class RavenOfficeBarService : Service() {
             val secondary = if (textColor == Color.BLACK) 0xCC000000.toInt() else 0xDDFFFFFF.toInt()
             setInt(R.id.raven_office_root, "setBackgroundColor", reaction.accent)
             setTextViewText(R.id.raven_office_owner, title)
-            setTextViewText(R.id.raven_office_note, body)
+            setTextViewText(R.id.raven_office_note, notificationBody)
             setTextViewText(R.id.raven_office_context, contextLine)
             setTextColor(R.id.raven_office_owner, textColor)
             setTextColor(R.id.raven_office_note, textColor)
@@ -182,8 +186,8 @@ class RavenOfficeBarService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
-            .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentText(notificationBody)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(notificationBody))
             .setCustomContentView(custom)
             .setCustomBigContentView(custom)
             .setColor(reaction.accent)
