@@ -5,9 +5,9 @@ import android.content.Context
 /**
  * Android adaptation of canonical Gold Council sitcom topology.
  *
- * Gold laws preserved here: topology not chatter, targeted crosstalk over parallel monologue,
- * pair/partner cooldown, callbacks over novelty, silence valid, terminal author note/checksum only
- * after an actual closing event. No effect authority is imported from Council presentation.
+ * Gold laws: topology not chatter, targeted crosstalk over parallel monologue, callbacks over random
+ * novelty, silence valid. RavenOS refinement: recurrence is not callback material by itself; Gold
+ * callbacks must be attached to visible meaning, owner interaction, or a real structural return.
  */
 object RavenGoldSitcomTopologyOS {
     data class Beat(
@@ -40,10 +40,20 @@ object RavenGoldSitcomTopologyOS {
         backstage: RavenBackstageOS.Cue? = null,
     ): Beat {
         val terminal = terminal(marker)
+        val systemSupporting = isSystemSupporting(marker)
+        val motifIsCameo = script.motif.startsWith("CAMEO_") || script.motif == "CALLBACK_ABOUT_CALLBACKS"
+        val structuralReturn = memory.motifReturningAcrossSessions && script.motif.isNotBlank() && !motifIsCameo
+        val callbackEarned = when {
+            screen.meta && script.callbackEarned -> true
+            script.interactionWorthSpeaking && script.callbackEarned -> true
+            structuralReturn -> true
+            direction.beat == "CALLBACK" && !systemSupporting && screen.available -> true
+            else -> false
+        }
         val phase = when {
             terminal -> "CLOSE"
             "ERROR" in marker.tags || "PAYOFF" in complex.tags || "BOUNDARY" in marker.tags -> "ESCALATE"
-            script.callbackEarned || memory.motifReturningAcrossSessions || direction.beat == "CALLBACK" -> "CALLBACK"
+            callbackEarned -> "CALLBACK"
             direction.sceneChanged || script.sceneChanged -> "OPEN"
             else -> "BUILD"
         }
@@ -65,8 +75,9 @@ object RavenGoldSitcomTopologyOS {
             "ERROR" in marker.tags || "PAYOFF" in complex.tags -> 5
             script.interactionWorthSpeaking -> 4
             phase == "CALLBACK" -> 4
-            backstagePreferred -> 4
+            backstagePreferred && !systemSupporting -> 4
             phase == "OPEN" -> 2
+            systemSupporting -> 1
             else -> 3
         }
         val threshold = if (phase == "OPEN") 4 else 3
@@ -93,6 +104,7 @@ object RavenGoldSitcomTopologyOS {
                 phase == "CALLBACK" -> "gold-callback"
                 phase == "ESCALATE" -> "gold-escalate"
                 phase == "OPEN" -> "gold-open"
+                systemSupporting -> "gold-supporting-cameo"
                 crosstalk -> "gold-build-crosstalk"
                 pairCooling -> "gold-pair-cooldown"
                 partnerCooling -> "gold-partner-cooldown"
@@ -106,6 +118,11 @@ object RavenGoldSitcomTopologyOS {
         pairLastTurn.clear()
         ownerLastPartner.clear()
         ownerLastPartnerTurn.clear()
+    }
+
+    private fun isSystemSupporting(marker: RavenMarkerBus.Marker): Boolean {
+        val pkg = field(marker.detail, "package")
+        return marker.key.startsWith("NOTIFICATION") || marker.key in setOf("SYSTEM_UI", "SYSTEM_DECK") || pkg == "com.android.systemui"
     }
 
     private fun terminal(marker: RavenMarkerBus.Marker): Boolean {
@@ -131,6 +148,9 @@ object RavenGoldSitcomTopologyOS {
         "RECORDING_STOPPED" -> "🟠 DUMBCHECKSUM: VIDEO_STOPPED; CALLBACKS_REMAIN; NO_MATERIAL_AFTER_CHECKSUM"
         else -> "🟠 DUMBCHECKSUM: S${memory.season}E${memory.episodeInSeason}; CROSSTALK_GT_MONOLOGUE; CALLBACK_GT_RANDOM_NOVELTY"
     }
+
+    private fun field(detail: String, name: String): String? = Regex("(?:^|\\|)${Regex.escape(name)}:([^|]*)")
+        .find(detail)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() }
 
     private fun pairKey(a: String, b: String?): String {
         if (b.isNullOrBlank()) return ""
