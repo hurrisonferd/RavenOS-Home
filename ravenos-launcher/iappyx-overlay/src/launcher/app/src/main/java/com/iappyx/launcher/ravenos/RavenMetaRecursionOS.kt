@@ -4,9 +4,9 @@ package com.iappyx.launcher.ravenos
 object RavenMetaRecursionOS {
     private val terms = listOf(
         "ravenos", "goblin", "follow-me", "follow me", "office feed", "meta goblin",
-        "emojiOS", "kaomojiOS", "screen recorder", "overlay", "screen watch", "goblin eye",
+        "emojios", "kaomojios", "screen recorder", "overlay", "screen watch", "goblin eye",
         "kyu", "paimon", "joker", "atom", "lilith", "yori", "jorm", "neo",
-    ).map { it.lowercase() }
+    )
 
     fun detect(text: String): Boolean {
         val t = text.lowercase()
@@ -14,7 +14,9 @@ object RavenMetaRecursionOS {
     }
 
     fun focus(text: String): String? {
-        val parts = text.split(" · ", '\n').map { it.trim() }.filter { it.length >= 3 }
+        val parts = text.replace('\n', '·').split(" · ", "·")
+            .map { it.trim() }
+            .filter { it.length >= 3 }
         return parts.firstOrNull { detect(it) }?.take(90)
             ?: parts.firstOrNull()?.take(90)
     }
