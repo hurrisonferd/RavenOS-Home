@@ -16,6 +16,12 @@ class RavenForegroundAwarenessService : AccessibilityService() {
     private var lastAt: Long = 0L
     private var lastSemanticAt: Long = 0L
 
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        RavenOfficeBarService.signal(this, "FOREGROUND_WINDOW", "state:accessibility_connected|source:accessibility-window")
+        if (RavenAccessibilityReadOS.isEnabled(this)) observeVisibleSemantics(null, force = true)
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
         val packageName = event.packageName?.toString()?.trim().orEmpty()
@@ -44,13 +50,22 @@ class RavenForegroundAwarenessService : AccessibilityService() {
             RavenOfficeBarService.signal(this, signal, detail)
         }
 
-        // Content is deliberately slower than window identity. We only ask Android for the
-        // visible hierarchy when Raven has separately armed Accessibility Read.
-        if (RavenAccessibilityReadOS.isEnabled(this) && now - lastSemanticAt >= 1200L) {
-            lastSemanticAt = now
-            val root = try { rootInActiveWindow } catch (_: Throwable) { null }
-            RavenAccessibilityReadOS.observe(this, packageName, root)
+        // Web content can mutate or scroll without a new Android window. Re-read the active root on
+        // bounded content/focus/scroll/click events so browser surfaces do not leave the office blind.
+        if (RavenAccessibilityReadOS.isEnabled(this) && now - lastSemanticAt >= 550L) {
+            observeVisibleSemantics(packageName, force = false)
         }
+    }
+
+    private fun observeVisibleSemantics(packageHint: String?, force: Boolean) {
+        val now = System.currentTimeMillis()
+        if (!force && now - lastSemanticAt < 550L) return
+        val root = try { rootInActiveWindow } catch (_: Throwable) { null } ?: return
+        val pkg = packageHint?.takeIf { it.isNotBlank() }
+            ?: root.packageName?.toString()?.trim().orEmpty()
+        if (pkg.isBlank() || pkg == applicationContext.packageName) return
+        lastSemanticAt = now
+        RavenAccessibilityReadOS.observe(this, pkg, root)
     }
 
     override fun onInterrupt() {
