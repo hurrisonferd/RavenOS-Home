@@ -26,9 +26,9 @@ object RavenAccessibilityReadOS {
     private const val KEY_NODES = "nodes"
     private const val KEY_KEYBOARD = "keyboard"
     private const val KEY_AT = "at"
-    private const val TTL_MS = 15_000L
-    private const val MAX_NODES = 96
-    private const val MAX_DEPTH = 8
+    private const val TTL_MS = 45_000L
+    private const val MAX_NODES = 128
+    private const val MAX_DEPTH = 10
 
     fun isEnabled(context: Context): Boolean = context.applicationContext
         .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -91,10 +91,10 @@ object RavenAccessibilityReadOS {
             if (node.isVisibleToUser && !node.isEditable) {
                 listOf(node.text, node.contentDescription)
                     .mapNotNull { it?.toString()?.replace(Regex("\\s+"), " ")?.trim() }
-                    .filter { it.length in 2..120 }
-                    .forEach { if (it !in collected && collected.size < 24) collected += it }
+                    .filter { it.length in 2..160 }
+                    .forEach { if (it !in collected && collected.size < 36) collected += it }
             }
-            val children = node.childCount.coerceAtMost(24)
+            val children = node.childCount.coerceAtMost(32)
             for (i in 0 until children) walk(node.getChild(i), depth + 1)
         }
         walk(root, 0)
@@ -109,11 +109,15 @@ object RavenAccessibilityReadOS {
             return
         }
 
-        val normalized = collected.take(10).joinToString(" · ").take(260).trim()
+        val normalized = collected.take(18).joinToString(" · ").take(460).trim()
         if (normalized.isBlank()) return
         val prior = latest(app)?.let { "${it.packageName}|${it.text}" }.orEmpty()
         val current = "$packageName|$normalized"
-        if (prior == current) return
+        if (prior == current) {
+            app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putLong(KEY_AT, System.currentTimeMillis()).apply()
+            return
+        }
 
         val now = System.currentTimeMillis()
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
@@ -130,10 +134,11 @@ object RavenAccessibilityReadOS {
             "SCREEN_SEMANTIC",
             buildString {
                 append("state:visible|package:").append(escape(packageName))
-                append("|text:").append(escape(normalized.take(180)))
+                append("|text:").append(escape(normalized.take(240)))
                 append("|nodes:").append(visited)
                 append("|keyboard:").append(keyboardLike)
                 append("|meta:").append(meta)
+                append("|meta_score:").append(RavenMetaRecursionOS.score(normalized))
                 append("|source:accessibility|local:true|editable_values:false|passwords:false")
             },
         )
