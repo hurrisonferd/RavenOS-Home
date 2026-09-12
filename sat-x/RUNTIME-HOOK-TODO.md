@@ -1,0 +1,1 @@
+Runtime hook target: RavenEmployeePresentation.packet -> RavenEmployeeExpressionBridge.decorate after legacy style selection and before Packet return. Preserve fallback emoji/kaomoji and all existing signal glyph/evidence behavior.
