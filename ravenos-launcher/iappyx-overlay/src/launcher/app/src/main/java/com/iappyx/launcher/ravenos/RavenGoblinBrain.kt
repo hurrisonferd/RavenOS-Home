@@ -25,6 +25,8 @@ object RavenGoblinBrain {
         val callback = RavenCallbackMemoryOS.observe(context, marker, complex)
         val narrative = RavenSessionNarrativeOS.observe(context, marker)
         val screen = RavenScreenContextOS.snapshot(context, marker.at)
+        // RavenInterruptibilityOS.allow remains the boolean compatibility seam; evaluate returns
+        // the typed reason/score used by the presentation arbiter below.
         val screenSpeech = RavenInterruptibilityOS.evaluate(context, marker, complex, hauntMode, quiet, screen)
 
         // Cast rotation remains independent from speech. A quiet scene can change employees without
