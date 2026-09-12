@@ -75,7 +75,7 @@ object RavenGoblinSystemsRegistryOS {
 
     fun compact(): String {
         val byStage = organs.groupBy { it.stage }
-        return Stage.entries.joinToString(" · ") { stage -> "${stage.name}=${byStage[stage]?.size ?: 0}" }
+        return Stage.values().joinToString(" · ") { stage -> "${stage.name}=${byStage[stage]?.size ?: 0}" }
     }
 
     fun enabledUnder(pressure: RavenOmniRvExpressionBudget.Pressure): List<Organ> = organs.filter { organ ->
