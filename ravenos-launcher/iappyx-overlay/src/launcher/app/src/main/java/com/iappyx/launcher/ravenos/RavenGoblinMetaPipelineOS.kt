@@ -61,29 +61,40 @@ object RavenGoblinMetaPipelineOS {
             )
         )
 
+        val semanticTags = RavenMetaDialogueStateOS.tags(input.event, input.motif, input.callback, input.surface)
+        val eligibleTricks = RavenMetaDialogueStateOS.trickIds(input.occurrence, input.callback, semanticTags)
         val invasive = input.hauntMode.ordinal >= RavenHauntMode.HAUNTED.ordinal
-        val metaEarned = !input.quiet && rendered.trickId.isNotBlank() && invasive && when {
+        val metaEarned = !input.quiet && eligibleTricks.isNotEmpty() && invasive && when {
             input.metaLevel >= 3 -> true
             input.callback.isNotBlank() -> true
             input.occurrence in setOf(2, 3, 5, 8, 13, 21, 34, 55) -> true
             input.surface.uppercase() == "BOARD_MEETING" -> true
             input.semanticFamily.uppercase() == "META" -> true
-            else -> stableIndex("${input.sceneId}|${input.owner}|${rendered.trickId}|${input.occurrence}", 3) == 0
+            else -> stableIndex("${input.sceneId}|${input.owner}|${input.occurrence}", 3) == 0
         }
 
-        val choice = if (metaEarned) {
+        val chosenTrick = if (metaEarned) {
+            RavenMetaTrickHistoryOS.choose(
+                input.context,
+                scope = "${input.owner}_${input.semanticFamily}_${input.surface}",
+                seed = stableHash("${input.sceneId}|${input.event}|${input.occurrence}|${input.previousOwner}"),
+                eligible = eligibleTricks,
+            )
+        } else ""
+
+        val choice = if (chosenTrick.isNotBlank()) {
             val candidates = RavenMetaGrammarOS.candidates(
                 owner = input.owner,
-                trickId = rendered.trickId,
+                trickId = chosenTrick,
                 stage = rendered.stage,
                 motif = input.motif,
-                seed = stableHash("${input.sceneId}|${input.owner}|${input.event}|${input.occurrence}|${rendered.trickId}"),
-                count = 16,
+                seed = stableHash("${input.sceneId}|${input.owner}|${input.event}|${input.occurrence}|$chosenTrick"),
+                count = 20,
             )
             RavenMetaAntiRepeatOS.choose(
                 input.context,
-                scope = "${input.owner}_${rendered.trickId}_${input.semanticFamily}",
-                seed = stableHash("${input.sceneId}|${rendered.stage}|${input.occurrence}|${input.previousOwner}"),
+                scope = "${input.owner}_${chosenTrick}_${input.semanticFamily}",
+                seed = stableHash("${input.sceneId}|${rendered.stage}|${input.occurrence}|${input.previousOwner}|$chosenTrick"),
                 candidates = candidates,
             )
         } else RavenMetaAntiRepeatOS.Choice("", "", 0, false)
@@ -98,14 +109,15 @@ object RavenGoblinMetaPipelineOS {
 
         val tags = linkedSetOf<String>()
         if (rendered.stage.isNotBlank()) tags += "META_STAGE_${safeTag(rendered.stage)}"
-        if (rendered.trickId.isNotBlank()) tags += "META_TRICK_${safeTag(rendered.trickId)}"
+        if (chosenTrick.isNotBlank()) tags += "META_TRICK_${safeTag(chosenTrick)}"
         if (rendered.ensemble.isNotBlank()) tags += "META_ENSEMBLE"
         if (choice.fingerprint.isNotBlank()) tags += "META_ANTIREPEAT"
         if (choice.repeated) tags += "META_REPEAT_FALLBACK"
+        if (chosenTrick.isNotBlank()) tags += "META_FORM_COOLDOWN"
 
         return Output(
             dialogue = composed,
-            trickId = rendered.trickId,
+            trickId = chosenTrick,
             stage = rendered.stage,
             ensemble = rendered.ensemble,
             budgetReason = rendered.budgetReason,
