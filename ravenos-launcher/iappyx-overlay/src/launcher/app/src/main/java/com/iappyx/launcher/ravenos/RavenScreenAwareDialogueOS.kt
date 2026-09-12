@@ -5,9 +5,9 @@ import android.content.Context
 /**
  * Deterministic screen-first writer.
  *
- * This writer talks about the actual visible app/task/subject/selection before it reaches for
- * recurrence, notification, or generic Android-event comedy. It consumes the fused Scene Graph v2
- * at runtime and stores no raw screen text itself.
+ * Visible scene meaning owns the premise. A Room-backed writers' vault supplies anti-repetitive
+ * authored variance on selected turns; owner-native direct lines fill the rest. Raw screen text is
+ * render-time material only and is never persisted by this writer.
  */
 object RavenScreenAwareDialogueOS {
     data class Beat(val text: String, val family: String)
@@ -24,6 +24,19 @@ object RavenScreenAwareDialogueOS {
         val graph = runCatching { RavenSceneGraphOS.observe(context, screen, marker.at) }.getOrNull()
             ?: return Beat("", "SCREEN_FIRST_NONE")
         if (!graph.available) return Beat("", "SCREEN_FIRST_NONE")
+
+        // The Room vault is deliberately spent only on some turns. It owns anti-repeat structural
+        // fingerprints and authored template usage; the direct writer remains available so the
+        // office does not sound like one template engine wearing thirty badges.
+        val vaultEligible = graph.subject.isNotBlank() && (
+            direction.turn % 3 == 0 ||
+                graph.returnCount > 0 && direction.turn % 2 == 0 ||
+                graph.interaction in setOf("SELECT", "SCROLL") && direction.turn % 2 == 1
+            )
+        if (vaultEligible) {
+            val stored = runCatching { RavenDialogueVaultOS.select(context, member, direction, graph, marker.at) }.getOrNull()
+            if (stored != null && stored.text.isNotBlank()) return Beat(stored.text, stored.family)
+        }
 
         val app = graph.app.ifBlank { "the screen" }
         val subject = graph.selected.ifBlank { graph.subject }.replace(Regex("\\s+"), " ").trim().take(92)
