@@ -55,14 +55,22 @@ object RavenWholePhonePanel {
             RavenCallbackMemoryOS.clear()
             RavenEpisodeScriptOS.clear()
             RavenInteractionMemoryOS.clear()
+            RavenBitLedgerOS.clear()
             RavenInterruptibilityOS.clear(activity)
             RavenOfficeGovernor.clearStats(activity)
+        }
+
+        section("META-MAX MACHINE KINGDOM 🎭🪞👑", "Earned dialogue can now use a structural running-bit ledger and Meta-Max showrunner: setup, callback, escalation, delayed brick joke, title card, cutaway, role reversal, continuity roast and fourth-wall emergency. It shapes lines after the existing cadence gate; it does not make the office chatter faster.")
+        button("RESET META-MAX BITS") {
+            RavenBitLedgerOS.clear()
+            RavenOfficeBarService.signal(activity, "SCREEN_SEMANTIC", "state:metamax_reset|source:control_panel")
         }
 
         section("OFFICE SITCOM 🎬🧚", "The Follow-Me employee is a cast position, not the owner of the widget. Scene change, dwell, recurrence, pair chemistry, selected controls and deterministic turn cadence rotate the full routable office. Dialogue is screen-grounded; callbacks evolve without turning every sensor event into chatter.")
         button("RESET SITCOM CAST + RUNNING BITS") {
             RavenSitcomDirectorOS.clear(activity)
             RavenEpisodeScriptOS.clear()
+            RavenBitLedgerOS.clear()
             RavenOfficeBarService.signal(activity, "SCREEN_SEMANTIC", "state:sitcom_reset|source:control_panel")
         }
 
@@ -71,6 +79,7 @@ object RavenWholePhonePanel {
             RavenEpisodeScriptOS.clear()
             RavenScreenMemoryOS.clear()
             RavenInteractionMemoryOS.clear()
+            RavenBitLedgerOS.clear()
             RavenOfficeBarService.signal(activity, "SCREEN_SEMANTIC", "state:episode_reset|source:control_panel")
         }
 
@@ -98,7 +107,7 @@ object RavenWholePhonePanel {
         button("ENABLE LOCAL GOBLIN READ") { RavenGoblinReadOS.setEnabled(activity, true) }
         button("DISABLE GOBLIN READ") { RavenGoblinReadOS.setEnabled(activity, false) }
 
-        section("ACCESSIBILITY READ 🧭🔤", "Owner-armed visible semantics now include bounded roles, selected/focused non-editable controls and structural interaction memory for tap/select/scroll/focus. Editable values and password nodes are excluded. Accessibility and OCR remain two witnesses to one semantic screen; transient keyboard/SystemUI/screenshot layers are demoted when a real application window is visible underneath.")
+        section("ACCESSIBILITY READ 🧭🔤", "Owner-armed visible semantics include bounded roles, selected/focused non-editable controls and structural interaction memory for tap/select/scroll/focus. Editable values and password nodes are excluded. Accessibility and OCR remain two witnesses to one semantic screen; transient keyboard/SystemUI/screenshot layers are demoted when a real application window is visible underneath.")
         button("ENABLE ACCESSIBILITY READ") { RavenAccessibilityReadOS.setEnabled(activity, true) }
         button("DISABLE ACCESSIBILITY READ") { RavenAccessibilityReadOS.setEnabled(activity, false) }
         button("OPEN ACCESSIBILITY AWARENESS") { RavenPermissionDeck.openForegroundAwareness(activity) }
@@ -114,11 +123,12 @@ object RavenWholePhonePanel {
         section("FOREGROUND LEDGER", "Optional Android Usage Access adds a second app-resume signal when One UI Accessibility events are incomplete. App identity/timing only; no content.")
         button("OPEN USAGE ACCESS") { RavenPermissionDeck.openUsageAwareness(activity) }
 
-        section("CALLBACK + SUBJECT MEMORY", "Callback memory tracks loops/returns; screen memory tracks only a few short derived semantic subjects in process memory. Episode Script adds structural continuity and interaction history without storing a raw screen transcript.")
+        section("CALLBACK + SUBJECT MEMORY", "Callback memory tracks loops/returns; screen memory tracks only a few short derived semantic subjects in process memory. Episode Script and Meta-Max Bit Ledger add structural continuity without storing a raw screen/dialogue transcript.")
         button("CLEAR CALLBACK BITS") {
             RavenCallbackMemoryOS.clear()
             RavenEpisodeScriptOS.clear()
             RavenInteractionMemoryOS.clear()
+            RavenBitLedgerOS.clear()
         }
 
         section("GALAXY / BACKGROUND SURVIVAL", RavenGalaxyHauntOS.samsungInstructions(activity))
@@ -145,6 +155,7 @@ object RavenWholePhonePanel {
         view.text = buildString {
             append(awareness.compact())
             append("\n").append(resilience.compact())
+            append("\n").append(RavenBitLedgerOS.compact())
             append("\n").append(RavenUsageSenseOS.compact(activity))
             append("\n").append(RavenNotificationSenseOS.summary(activity))
             append("\n").append(media.compact())
