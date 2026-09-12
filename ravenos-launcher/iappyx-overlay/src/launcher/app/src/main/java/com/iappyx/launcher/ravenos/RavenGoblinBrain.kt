@@ -4,7 +4,7 @@ import android.content.Context
 
 /**
  * Android vertical slice of Goblin Vision.
- * MarkerBus -> senses -> viewport/screen context -> sitcom director -> presentation arbiter -> dialogue -> overlay.
+ * MarkerBus -> senses -> viewport/screen context -> episode script -> sitcom director -> presentation -> overlay.
  */
 object RavenGoblinBrain {
     data class Result(val member: RavenOfficeMember, val packet: RavenReactionPacket)
@@ -25,13 +25,13 @@ object RavenGoblinBrain {
         val callback = RavenCallbackMemoryOS.observe(context, marker, complex)
         val narrative = RavenSessionNarrativeOS.observe(context, marker)
         val screen = RavenScreenContextOS.snapshot(context, marker.at)
+        val script = RavenEpisodeScriptOS.observe(context, screen, marker, narrative)
         // RavenInterruptibilityOS.allow remains the boolean compatibility seam; evaluate returns
         // the typed reason/score used by the presentation arbiter below.
         val screenSpeech = RavenInterruptibilityOS.evaluate(context, marker, complex, hauntMode, quiet, screen)
 
         // Cast rotation remains independent from speech. A quiet scene can change employees without
-        // manufacturing a line, while PHONE mode can still use the old deterministic dialogue when
-        // the screen reader is unavailable.
+        // manufacturing a line. Script memory keeps transient Android layers from becoming the plot.
         val direction = RavenSitcomDirectorOS.direct(
             context = context,
             marker = marker,
@@ -49,6 +49,7 @@ object RavenGoblinBrain {
             else RavenObservationOS.Observation("", "")
         val sitcom = RavenSitcomDialogueOS.compose(dialogueContext, direction)
         val viewportDialogue = RavenViewportDialogueOS.select(context, member, screen, direction)
+        val scriptDialogue = RavenScriptDialogueOS.select(member, screen, script, direction)
         val narrativeBeat = RavenSessionNarrativeOS.beat(member, narrative, marker)
         val meta = RavenMetaCommentaryOS.compose(context, member, marker, complex, episode)
         val sceneBeat = RavenMetaGoblinDialogueOS.select(context, member, marker, complex, episode)
@@ -75,7 +76,7 @@ object RavenGoblinBrain {
         // Preserve both generations:
         // SCREEN = viewport/OCR/Accessibility-aware office sitcom.
         // PHONE = legacy fused-scene/meta/character layer.
-        // CHIP = resident presence with no fabricated line.
+        // SCRIPT = structural continuity can improve either without claiming more sensing authority.
         val screenFallback = omniscience.text.ifBlank {
             fusedScene.text.ifBlank {
                 narrativeBeat.text.ifBlank { sceneBeat.text.ifBlank { meta.text } }
@@ -93,20 +94,28 @@ object RavenGoblinBrain {
         }
 
         val speakNow = displayDecision.speak
+        val useScriptWriter = scriptDialogue.text.isNotBlank() && (
+            script.callbackEarned || script.interruption.isNotBlank() || script.returned ||
+                (script.sceneChanged && direction.turn % 2 == 0) || direction.turn % 5 == 0
+            )
         val useViewportWriter = displayDecision.mode == RavenPresentationArbiterOS.Mode.SCREEN &&
             viewportDialogue.text.isNotBlank() &&
             (direction.turn % 4 == 0 || direction.beat in setOf("COLD_OPEN", "META", "CALLBACK") && direction.turn % 2 == 0)
+
         val stinger = if (speakNow) when (displayDecision.mode) {
-            RavenPresentationArbiterOS.Mode.SCREEN -> if (useViewportWriter) {
-                viewportDialogue.text
-            } else sitcom.primary.ifBlank {
-                contextual.text.ifBlank {
-                    mayhem.text.ifBlank { metaPunch.text.ifBlank { character.text } }
-                }
-            }.trim()
-            RavenPresentationArbiterOS.Mode.PHONE -> mayhem.text.ifBlank {
-                metaPunch.text.ifBlank { character.text }
-            }.trim()
+            RavenPresentationArbiterOS.Mode.SCREEN -> when {
+                useScriptWriter -> scriptDialogue.text
+                useViewportWriter -> viewportDialogue.text
+                else -> sitcom.primary.ifBlank {
+                    contextual.text.ifBlank {
+                        mayhem.text.ifBlank { metaPunch.text.ifBlank { character.text } }
+                    }
+                }.trim()
+            }
+            RavenPresentationArbiterOS.Mode.PHONE -> when {
+                useScriptWriter -> scriptDialogue.text
+                else -> mayhem.text.ifBlank { metaPunch.text.ifBlank { character.text } }.trim()
+            }
             else -> ""
         } else ""
 
@@ -130,15 +139,18 @@ object RavenGoblinBrain {
                 if (isNotEmpty()) append("  ")
                 append(officeAside)
             }
-        }.replace(Regex("\\s+"), " ").trim().take(360)
+        }.replace(Regex("\\s+"), " ").trim().take(430)
 
         if (spoken.isNotBlank()) RavenSitcomDirectorOS.markSpoken(context, marker.at)
 
-        // Only real screen meaning may occupy OBSERVING mode. Missing permissions/readability return
-        // to CHIP; explicit diagnostics live behind SCREEN_DIAGNOSTIC instead of haunting normal use.
+        // Only real screen meaning may occupy OBSERVING mode. Script continuity may enrich the
+        // observation with a short structural cue, but never with raw diagnostics or hidden text.
         val authorNote = when (displayDecision.mode) {
-            RavenPresentationArbiterOS.Mode.SCREEN -> observation.text.take(230)
-            RavenPresentationArbiterOS.Mode.DIAGNOSTIC -> diagnostic.text.take(220)
+            RavenPresentationArbiterOS.Mode.SCREEN -> listOf(
+                observation.text,
+                script.continuity.takeIf { it.isNotBlank() && !observation.text.contains(it, true) }.orEmpty(),
+            ).filter(String::isNotBlank).joinToString("  ").take(300)
+            RavenPresentationArbiterOS.Mode.DIAGNOSTIC -> diagnostic.text.take(240)
             else -> ""
         }
         val viewport = RavenViewportSemanticsOS.latest(context, marker.at)
@@ -146,6 +158,10 @@ object RavenGoblinBrain {
             append(detail)
             append("|screen_kind:").append(screen.semanticKind)
             append("|screen_meta:").append(screen.meta)
+            append("|script_act:").append(script.act)
+            append("|script_dwell:").append(script.dwell)
+            if (script.motif.isNotBlank()) append("|script_motif:").append(script.motif)
+            if (script.interruption.isNotBlank()) append("|script_cameo:").append(script.interruption.replace('|', '/'))
             viewport?.let {
                 append("|screen_task:").append(it.task)
                 if (it.title.isNotBlank()) append("|screen_title:").append(it.title.replace('|', '/').take(90))
@@ -157,6 +173,7 @@ object RavenGoblinBrain {
             "PRESENTATION_${displayDecision.mode.name}",
             displayDecision.reason,
             observation.family.takeIf { authorNote.isNotBlank() && it.isNotBlank() },
+            scriptDialogue.family.takeIf { speakNow && useScriptWriter && it.isNotBlank() },
             sitcom.family.takeIf { speakNow && displayDecision.mode == RavenPresentationArbiterOS.Mode.SCREEN && it.isNotBlank() },
             viewportDialogue.family.takeIf { speakNow && useViewportWriter && it.isNotBlank() },
             "DIRECTOR_${direction.beat}",
@@ -169,7 +186,7 @@ object RavenGoblinBrain {
         val zone = RavenOfficeGeography.zone(member.id, marker, complex)
         val highlight = RavenHighlightOS.score(marker, complex, episode)
         val now = System.currentTimeMillis()
-        val proof = "${sense.route}:${marker.source}:${marker.id}:${marker.key}:show=${displayDecision.mode.name}:sitcom=${direction.sceneId}:${direction.turn}:viewport=${viewport?.task ?: "none"}"
+        val proof = "${sense.route}:${marker.source}:${marker.id}:${marker.key}:show=${displayDecision.mode.name}:sitcom=${direction.sceneId}:${direction.turn}:script=${script.act}:${script.motifCount}:viewport=${viewport?.task ?: "none"}"
         val packet = RavenReactionPacket(
             markerId = marker.id,
             owner = member.id,
@@ -188,13 +205,13 @@ object RavenGoblinBrain {
             authorNote = authorNote,
             dialogueFamily = dialogueFamily,
             occurrence = complex.occurrence,
-            complexTags = complex.tags + setOf("SITCOM", direction.beat, "PRESENTATION_${displayDecision.mode.name}") +
+            complexTags = complex.tags + setOf("SITCOM", direction.beat, "PRESENTATION_${displayDecision.mode.name}", "SCRIPT_ACT_${script.act}") +
                 if (viewport != null) setOf("VIEWPORT", "TASK_${viewport.task}") else emptySet(),
             episode = episode.name,
             highlight = highlight.clazz.name,
             highlightScore = highlight.value,
             interruptible = speakNow,
-            lifetimeMs = if (speakNow) maxOf(visual.lifetimeMs, 6_500L) else 3_000L,
+            lifetimeMs = if (speakNow) maxOf(visual.lifetimeMs, 7_000L) else 3_500L,
             proof = proof,
             effectAuthority = "NONE",
             updatedAt = now,
