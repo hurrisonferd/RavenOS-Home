@@ -64,7 +64,11 @@ object RavenGoblinMetaPipelineOS {
         val semanticTags = RavenMetaDialogueStateOS.tags(input.event, input.motif, input.callback, input.surface)
         val eligibleTricks = RavenMetaDialogueStateOS.trickIds(input.occurrence, input.callback, semanticTags)
         val invasive = input.hauntMode.ordinal >= RavenHauntMode.HAUNTED.ordinal
-        val metaEarned = !input.quiet && eligibleTricks.isNotEmpty() && invasive && when {
+        // rendered.trickId being blank is the authoritative expression-budget signal that meta tails
+        // were shed (quiet, launcher critical, HOT/CRITICAL pressure, etc.). Trick history may rotate
+        // an allowed form, but it may never resurrect a form after the budget said no.
+        val metaBudgetAllows = rendered.trickId.isNotBlank()
+        val metaEarned = metaBudgetAllows && !input.quiet && eligibleTricks.isNotEmpty() && invasive && when {
             input.metaLevel >= 3 -> true
             input.callback.isNotBlank() -> true
             input.occurrence in setOf(2, 3, 5, 8, 13, 21, 34, 55) -> true
