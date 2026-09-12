@@ -4,7 +4,7 @@ import android.content.Context
 
 /**
  * Android vertical slice of the private Goblin Vision stack.
- * MarkerBus -> LocalSense -> ComplexEvent -> rotating cast -> commentary -> expression -> presentation.
+ * MarkerBus -> LocalSense -> ComplexEvent -> rotating cast -> scene fusion -> commentary -> expression.
  */
 object RavenGoblinBrain {
     data class Result(val member: RavenOfficeMember, val packet: RavenReactionPacket)
@@ -24,30 +24,34 @@ object RavenGoblinBrain {
         val sense = RavenLocalSenseOS.resolve(marker)
         val complex = RavenComplexEventOS.analyze(context, marker)
         val episode = RavenEpisodeOS.phase(context, marker, complex)
+        val callback = RavenCallbackMemoryOS.observe(context, marker, complex)
         val member = cast(context, marker, complex, manualOwner, quiet)
         val meta = RavenMetaCommentaryOS.compose(context, member, marker, complex, episode)
         val sceneBeat = RavenMetaGoblinDialogueOS.select(context, member, marker, complex, episode)
+        val fusedScene = RavenMetaSceneOS.compose(context, member, marker, complex, callback)
         val allowed = RavenInterruptibilityOS.allow(context, marker, complex, hauntMode, quiet)
         val visual = RavenVisualAtlas.resolve(member.id, marker, complex)
         val character = RavenDialogueBank.select(member, marker, complex, visual, episode)
 
-        // One compact visible beat: strongest phone truth first, then at most one employee stinger.
+        // One compact visible beat: strongest fused phone truth first, then at most one employee stinger.
         // Rich telemetry and causal detail stay in evidence instead of becoming a visible thesis.
-        val truth = sceneBeat.text.ifBlank { meta.text }.trim()
+        val truth = fusedScene.text.ifBlank { sceneBeat.text.ifBlank { meta.text } }.trim()
         val spoken = if (!allowed) "" else buildString {
             append(truth)
             if (character.text.isNotBlank() && character.text != truth) {
                 if (isNotEmpty()) append("  ")
                 append(character.text.trim())
             }
-        }.replace(Regex("\\s+"), " ").trim().take(168)
+        }.replace(Regex("\\s+"), " ").trim().take(196)
 
-        val authorNote = if (allowed) truth.take(160) else ""
+        val authorNote = if (allowed) truth.take(176) else ""
         val presentation = RavenEmployeePresentation.packet(member, signal, detail, spoken)
-        val dialogueFamily = if (!allowed) "SILENCE" else listOf(meta.family, sceneBeat.family, character.family)
-            .filter { it.isNotBlank() }
-            .distinct()
-            .joinToString("+")
+        val dialogueFamily = if (!allowed) "SILENCE" else listOf(
+            fusedScene.family,
+            meta.family,
+            sceneBeat.family,
+            character.family,
+        ).filter { it.isNotBlank() }.distinct().joinToString("+")
         val zone = RavenOfficeGeography.zone(member.id, marker, complex)
         val highlight = RavenHighlightOS.score(marker, complex, episode)
         val now = System.currentTimeMillis()
@@ -60,7 +64,7 @@ object RavenGoblinBrain {
             accent = presentation.accent,
             lane = presentation.lane,
             signal = signal.trim().uppercase(),
-            detail = detail.take(320),
+            detail = detail.take(360),
             senseRoute = sense.route.name,
             sourceTrusted = sense.trusted,
             visualState = visual.state,
@@ -95,6 +99,7 @@ object RavenGoblinBrain {
         RavenOfficeRegistry.member(manualOwner)?.takeIf { it.routable }?.let { return it }
 
         val domainIds = when {
+            marker.key == "SCREEN_TEXT" -> listOf("PAIMON", "NEO", "MYSTRA", "SYLPH", "JOKER", "KYU", "ATOM")
             "BOUNDARY" in marker.tags -> listOf("QIRA", "KYU", "AHTI", "ERIS")
             "ERROR" in marker.tags && complex.occurrence >= 3 -> listOf("KYU", "PAIMON", "ATOM", "THOR", "ERIS")
             "ERROR" in marker.tags -> listOf("PAIMON", "ATOM", "THOR", "LUCIFER", "KYU")
