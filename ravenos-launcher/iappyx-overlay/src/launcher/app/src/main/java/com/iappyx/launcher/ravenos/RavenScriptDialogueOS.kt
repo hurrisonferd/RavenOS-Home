@@ -12,9 +12,10 @@ object RavenScriptDialogueOS {
     ): Line {
         if (!cue.meaningful) return Line("", "SCRIPT_NONE")
         val owner = member.id
-        val seed = "$owner|${cue.act}|${cue.sceneOwner}|${cue.task}|${cue.subject}|${cue.motif}|${cue.motifCount}|${direction.turn}|script-v1"
+        val seed = "$owner|${cue.act}|${cue.sceneOwner}|${cue.task}|${cue.subject}|${cue.interaction}|${cue.interactionTarget}|${cue.motif}|${cue.motifCount}|${direction.turn}|script-v2"
         val anchor = when {
             cue.callbackEarned && cue.callback.isNotBlank() -> cue.callback
+            cue.interactionWorthSpeaking && cue.continuity.isNotBlank() -> cue.continuity
             cue.interruption.isNotBlank() && cue.continuity.isNotBlank() -> cue.continuity
             cue.returned && cue.continuity.isNotBlank() -> cue.continuity
             cue.sceneChanged && cue.continuity.isNotBlank() -> cue.continuity
@@ -29,9 +30,10 @@ object RavenScriptDialogueOS {
             .joinToString(" ")
             .replace(Regex("\\s+"), " ")
             .trim()
-            .take(235)
+            .take(280)
         return Line(line, when {
             cue.callbackEarned -> "SCRIPT_CALLBACK"
+            cue.interactionWorthSpeaking -> "SCRIPT_INTERACTION_${cue.interaction}"
             cue.interruption.isNotBlank() -> "SCRIPT_CAMEO"
             cue.returned -> "SCRIPT_RETURN"
             cue.sceneChanged -> "SCRIPT_SCENE_CUT"
@@ -45,6 +47,39 @@ object RavenScriptDialogueOS {
         screen: RavenScreenContextOS.Snapshot,
     ): List<String> {
         val scene = cue.sceneOwner.ifBlank { screen.appLabel.orEmpty().ifBlank { "the screen" } }
+        val target = cue.interactionTarget.take(64).ifBlank { cue.subject.take(64).ifBlank { "that" } }
+        val actionPhrases = when (cue.interaction) {
+            "SELECT" -> mapOf(
+                "KYU" to "Selection logged. Clipboard has promoted “$target” from scenery to plot.",
+                "JOKER" to "“$target” has been cast. Negotiations with its agent have failed.",
+                "ATOM" to "Selection changed state without changing scene ownership. Correct abstraction.",
+                "PAIMON" to "Target verified: “$target”. Premise now has a clickable witness.",
+                "YORI" to "Good cut. “$target” entered frame because Raven chose it, not because Android sneezed.",
+                "LILITH" to "Mm. “$target” got the attention because Raven gave it the attention.",
+                "JORM" to "Branch choice recorded: “$target”. World state continues from here.",
+                "PYTHAGORAS" to "Selection has sequence position now. “$target” is not random recurrence.",
+                "RAVENOS" to "Dumbchecksum: Raven selected “$target”; the scene remained $scene.",
+            )[id]
+            "TAP", "LONG_PRESS" -> mapOf(
+                "KYU" to "Actual finger event. Finally, a callback with motive.",
+                "JOKER" to "Raven touched the rectangle. The rectangle has interpreted this as character development.",
+                "ATOM" to "User action distinguished from ambient phone noise. Useful causal edge.",
+                "PAIMON" to "Intent evidence improved. This one came from Raven, not weather.",
+                "YORI" to "That action belongs in the scene; keep the camera here.",
+                "THOR" to "Direct input. Target confirmed. Side quests may remain unhammered.",
+            )[id]
+            "SCROLL" -> mapOf(
+                "KYU" to "This page has become a hallway and Raven is pacing it with purpose.",
+                "JOKER" to "The rectangle has more rectangle below it. Television executives are stunned.",
+                "ATOM" to "Repeated scroll implies exploration, not scene transition. Keep one context frame.",
+                "PAIMON" to "Scroll pattern confirms active inspection rather than accidental foreground time.",
+                "YORI" to "Tracking shot. Do not cut just because the viewport moved.",
+                "LILITH" to "Still here. Same thing, deeper into it.",
+            )[id]
+            else -> null
+        }
+        if (!actionPhrases.isNullOrBlank()) return listOf(actionPhrases)
+
         return when (id) {
             "KYU" -> listOf(
                 "Clipboard continuity says $scene still has top billing.",
@@ -57,7 +92,7 @@ object RavenScriptDialogueOS {
                 "Continuity has escaped containment and acquired a laugh track.",
             )
             "ATOM" -> listOf(
-                "Scene owner, interruption, and callback are finally separate variables.",
+                "Scene owner, interruption, interaction and callback are finally separate variables.",
                 "Good. The state machine remembers what matters instead of merely counting noises.",
                 "Causal continuity preserved; incidental callback demoted.",
             )
