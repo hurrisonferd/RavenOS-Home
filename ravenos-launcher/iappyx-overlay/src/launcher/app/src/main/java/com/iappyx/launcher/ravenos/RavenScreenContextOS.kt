@@ -39,10 +39,19 @@ object RavenScreenContextOS {
         val viewport = RavenViewportSemanticsOS.latest(context, now)
         val ocr = RavenGoblinReadOS.latest(context, now)
         val map = RavenScreenMapOS.latest(context, now)
+        val recentInteraction = RavenInteractionMemoryOS.latest(now)
+        val guardPackage = recentInteraction?.packageName?.takeUnless(::isTransientPackage)
 
-        val accessFresh = access?.takeIf { abs(now - it.capturedAt) <= 45_000L }
+        // A recent interaction is strong evidence about which ordinary app Raven is actually using.
+        // Reject old semantic snapshots from another package instead of letting 45s TTL become
+        // accidental cross-app hallucination. OCR remains an independent pixel witness.
+        val accessFresh = access?.takeIf {
+            abs(now - it.capturedAt) <= 45_000L && (guardPackage.isNullOrBlank() || it.packageName == guardPackage)
+        }
         val viewportFresh = viewport?.takeIf {
-            abs(now - it.capturedAt) <= 45_000L && (accessFresh == null || accessFresh.packageName == it.packageName)
+            abs(now - it.capturedAt) <= 45_000L &&
+                (accessFresh == null || accessFresh.packageName == it.packageName) &&
+                (guardPackage.isNullOrBlank() || it.packageName == guardPackage)
         }
         val ocrFresh = ocr?.takeIf { abs(now - it.capturedAt) <= 45_000L }
         val accessText = accessFresh?.text.orEmpty()
@@ -92,18 +101,21 @@ object RavenScreenContextOS {
                 if (isNotEmpty()) append(" · ")
                 append(it.lowercase().replace('_', ' '))
             }
+            viewportFresh?.selected?.takeIf { it.isNotBlank() && !it.equals(focus, true) }?.let {
+                if (isNotEmpty()) append(" · ")
+                append("selected ").append(it.take(70))
+            }
             viewportFresh?.title?.takeIf { it.isNotBlank() && !it.equals(focus, true) }?.let {
                 if (isNotEmpty()) append(" · ")
                 append(it.take(80))
             }
-        }.take(180)
+        }.take(200)
 
-        // Sensor source is not part of novelty identity. Viewport task is: reading a thread and
-        // composing in the same app are different scenes even when some visible words overlap.
         val signature = if (focus.isBlank()) "" else listOf(
             semantic.kind,
             semantic.label,
             viewportFresh?.task.orEmpty(),
+            viewportFresh?.selected.orEmpty().lowercase().take(64),
             viewportFresh?.title.orEmpty().lowercase().take(64),
             focus.lowercase().replace(Regex("[^a-z0-9 ]"), "").replace(Regex("\\s+"), " ").take(128),
         ).joinToString("|")
@@ -168,13 +180,19 @@ object RavenScreenContextOS {
             val letters = phrase.count(Char::isLetter)
             val words = phrase.split(' ').count { it.length >= 3 }
             val verbs = Regex(
-                "\\b(is|are|was|were|need|needs|want|wants|build|make|improve|show|says|saying|discuss|discussing|fix|working|react|reacting|add|change|compile|read|watch|seeing|aware|reply|review|playing|searching)\\b",
+                "\\b(is|are|was|were|need|needs|want|wants|build|make|improve|show|says|saying|discuss|discussing|fix|working|react|reacting|add|change|compile|read|watch|seeing|aware|reply|review|playing|searching|select|selected)\\b",
                 RegexOption.IGNORE_CASE,
             ).findAll(phrase).count()
             val metaScore = RavenMetaRecursionOS.score(phrase)
             (letters * 2) + (words * 8) + (verbs * 18) + (metaScore * 24) + phrase.length.coerceAtMost(110)
         } ?: corpus
         return chosen.replace(Regex("\\s+"), " ").trim().take(190)
+    }
+
+    private fun isTransientPackage(pkg: String): Boolean {
+        val p = pkg.lowercase()
+        return p == "com.android.systemui" || p.contains("honeyboard") || p.contains("inputmethod") ||
+            p.contains("smartcapture") || p.contains("screenshot") || (p.contains("capture") && p.contains("samsung"))
     }
 
     private fun isChrome(value: String): Boolean {
