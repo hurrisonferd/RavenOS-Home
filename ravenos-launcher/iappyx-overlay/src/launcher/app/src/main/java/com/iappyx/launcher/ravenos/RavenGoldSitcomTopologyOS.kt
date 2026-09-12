@@ -117,11 +117,12 @@ object RavenGoldSitcomTopologyOS {
 
     private fun authorNote(marker: RavenMarkerBus.Marker, script: RavenEpisodeScriptOS.Cue, memory: RavenOfficeSeasonOS.Memory): String {
         val scene = script.sceneOwner.ifBlank { "the phone" }
+        val stats = RavenGoldEpisodeStatsOS.snapshot()
         return when {
             marker.key.uppercase() in setOf("STOP_EYES", "CAPTURE_STOP") ->
-                "🐦‍⬛ RAVENOS — AUTHOR'S NOTE: The eyes closed, but S${memory.season}E${memory.episodeInSeason} keeps its structural receipts. $scene was a scene, not a transcript; callbacks may survive without pretending observation continues."
+                "🐦‍⬛ RAVENOS — AUTHOR'S NOTE: The eyes closed, but S${memory.season}E${memory.episodeInSeason} keeps its structural receipts. $scene was a scene, not a transcript: ${stats.events} events, ${stats.comments} comments, ${stats.callbacks} callbacks, ${stats.silences} silences, ${stats.crosstalk} targeted cross-talk beats. Observation ends here; history does not pretend otherwise."
             else ->
-                "🐦‍⬛ RAVENOS — AUTHOR'S NOTE: This episode settled with ${memory.memberLines} prior lines in the current employee's long arc. The screen supplied events; the office supplied relationships between them."
+                "🐦‍⬛ RAVENOS — AUTHOR'S NOTE: This episode settled after ${stats.events} events, ${stats.comments} comments, ${stats.callbacks} callbacks, ${stats.silences} silences and ${stats.windowSwitches} window/app transitions. The screen supplied events; the cast supplied relationships between them."
         }
     }
 
