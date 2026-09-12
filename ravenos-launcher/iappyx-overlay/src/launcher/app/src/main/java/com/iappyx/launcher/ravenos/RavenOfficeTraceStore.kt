@@ -35,8 +35,8 @@ object RavenOfficeTraceStore {
         hauntMode: RavenHauntMode,
     ) {
         val reaction = parseReactionNote(note)
-        val clippedNote = reaction.text.take(240)
-        if (clippedNote.isBlank()) return
+        val clippedNote = reaction.text.replace(Regex("\\s+"), " ").trim().take(240)
+        if (clippedNote.isBlank() || isFiller(clippedNote)) return
 
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val existing = parseArray(prefs.getString(KEY_TRACE, null))
@@ -82,14 +82,17 @@ object RavenOfficeTraceStore {
     fun recent(context: Context, limit: Int = 8): List<Entry> {
         val array = parseArray(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_TRACE, null))
         val out = ArrayList<Entry>()
-        for (i in 0 until minOf(array.length(), limit.coerceIn(1, MAX_ENTRIES))) {
+        for (i in 0 until array.length()) {
+            if (out.size >= limit.coerceIn(1, MAX_ENTRIES)) break
             val obj = array.optJSONObject(i) ?: continue
+            val note = obj.optString("note", "")
+            if (isFiller(note)) continue
             out += Entry(
                 at = obj.optLong("at", 0L),
                 owner = obj.optString("owner", "?"),
                 signal = obj.optString("signal", "?"),
                 detail = obj.optString("detail", ""),
-                note = obj.optString("note", ""),
+                note = note,
                 haunt = obj.optString("haunt", "?"),
                 repeats = obj.optInt("repeats", 1).coerceAtLeast(1),
                 visual = obj.optString("visual", ""),
@@ -112,6 +115,12 @@ object RavenOfficeTraceStore {
 
     fun clear(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
+    }
+
+    private fun isFiller(raw: String): Boolean {
+        val clean = raw.replace(Regex("\\s+"), " ").trim()
+        if (clean.isBlank() || clean.equals("Noted.", true)) return true
+        return Regex("^[A-Z0-9_-]+\\s+is\\s+watching[.!]?$", RegexOption.IGNORE_CASE).matches(clean)
     }
 
     private fun parseReactionNote(raw: String): ReactionNote {
