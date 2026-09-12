@@ -58,16 +58,12 @@ dependencies {
     implementation 'androidx.dynamicanimation:dynamicanimation:1.0.0'
     implementation 'androidx.palette:palette-ktx:1.0.0'
 
-    // RavenOS local structural memory. Room stores authored dialogue metadata,
-    // expression usage, anti-repeat fingerprints and structural scene history.
-    // No raw screenshots, OCR transcript, editable values or password content.
+    // RavenOS local structural memory + Office Recall. Room stores authored dialogue metadata,
+    // expression usage, anti-repeat fingerprints, structural scene history, and searchable
+    // structural recall rows. No raw screenshots, OCR transcript, editable values, or passwords.
     implementation 'androidx.room:room-runtime:2.8.5'
     implementation 'androidx.room:room-ktx:2.8.5'
     kapt 'androidx.room:room-compiler:2.8.5'
-
-    // RavenOS Office Recall: local-only indexed search over structural sitcom metadata.
-    implementation 'androidx.appsearch:appsearch:1.1.0'
-    implementation 'androidx.appsearch:appsearch-local-storage:1.1.0'
 
     implementation 'androidx.car.app:app:1.4.0'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
