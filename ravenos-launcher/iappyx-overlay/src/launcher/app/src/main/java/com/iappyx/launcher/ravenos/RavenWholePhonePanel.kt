@@ -56,6 +56,8 @@ object RavenWholePhonePanel {
             RavenEpisodeScriptOS.clear()
             RavenInteractionMemoryOS.clear()
             RavenBitLedgerOS.clear()
+            RavenBackstageOS.clear()
+            RavenGoldEpisodeStatsOS.clear()
             RavenInterruptibilityOS.clear(activity)
             RavenOfficeGovernor.clearStats(activity)
         }
@@ -64,12 +66,16 @@ object RavenWholePhonePanel {
         button("RESET LONG-RUNNING SERIES HISTORY") {
             RavenOfficeSeasonOS.clear(activity)
             RavenGoldSitcomTopologyOS.clear(activity)
+            RavenBackstageOS.clear()
+            RavenGoldEpisodeStatsOS.clear()
             RavenOfficeBarService.signal(activity, "SCREEN_SEMANTIC", "state:series_reset|source:control_panel")
         }
 
-        section("GOLD ELF SITCOM TOPOLOGY 🟠🎭", "Gold grammar is now a runtime topology: OPEN → BUILD → CALLBACK / ESCALATE → CLOSE. Targeted crosstalk beats parallel monologue; max two active speakers; pair and partner cooldowns preserve ensemble space; silence remains valid; terminal author note and dumbchecksum only happen after an actual closing event.")
-        button("RESET GOLD CHEMISTRY COOLDOWNS") {
+        section("GOLD ELF SITCOM TOPOLOGY 🟠🎭", "Gold grammar is now a runtime topology: OPEN → BUILD → CALLBACK / ESCALATE → CLOSE. Targeted crosstalk beats parallel monologue; max two active speakers; pair and partner cooldowns preserve ensemble space; silence remains valid; terminal author note and dumbchecksum only happen after an actual closing event. Silent backstage relevance can earn the one crosstalk slot instead of canned pair roulette.")
+        button("RESET GOLD CHEMISTRY + EPISODE STATS") {
             RavenGoldSitcomTopologyOS.clear(activity)
+            RavenBackstageOS.clear()
+            RavenGoldEpisodeStatsOS.clear()
             RavenOfficeBarService.signal(activity, "SCREEN_SEMANTIC", "state:gold_cooldown_reset|source:control_panel")
         }
 
@@ -85,6 +91,8 @@ object RavenWholePhonePanel {
             RavenEpisodeScriptOS.clear()
             RavenBitLedgerOS.clear()
             RavenGoldSitcomTopologyOS.clear(activity)
+            RavenBackstageOS.clear()
+            RavenGoldEpisodeStatsOS.clear()
             RavenOfficeBarService.signal(activity, "SCREEN_SEMANTIC", "state:sitcom_reset|source:control_panel")
         }
 
@@ -95,6 +103,8 @@ object RavenWholePhonePanel {
             RavenInteractionMemoryOS.clear()
             RavenBitLedgerOS.clear()
             RavenGoldSitcomTopologyOS.clear(activity)
+            RavenBackstageOS.clear()
+            RavenGoldEpisodeStatsOS.clear()
             RavenOfficeBarService.signal(activity, "SCREEN_SEMANTIC", "state:episode_reset|source:control_panel")
         }
 
@@ -145,6 +155,8 @@ object RavenWholePhonePanel {
             RavenInteractionMemoryOS.clear()
             RavenBitLedgerOS.clear()
             RavenGoldSitcomTopologyOS.clear(activity)
+            RavenBackstageOS.clear()
+            RavenGoldEpisodeStatsOS.clear()
         }
 
         section("GALAXY / BACKGROUND SURVIVAL", RavenGalaxyHauntOS.samsungInstructions(activity))
@@ -173,6 +185,8 @@ object RavenWholePhonePanel {
             append("\n").append(resilience.compact())
             append("\n").append(RavenOfficeSeasonOS.compact(activity))
             append("\n").append(RavenBitLedgerOS.compact())
+            append("\n").append(RavenBackstageOS.compact())
+            append("\n").append(RavenGoldEpisodeStatsOS.snapshot().compact())
             append("\n").append(RavenUsageSenseOS.compact(activity))
             append("\n").append(RavenNotificationSenseOS.summary(activity))
             append("\n").append(media.compact())
