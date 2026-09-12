@@ -2,7 +2,7 @@ package com.iappyx.launcher.ravenos
 
 import android.content.Context
 
-/** Extra deterministic dialogue bank grounded in the current semantic viewport and visible task. */
+/** Deterministic viewport dialogue grounded in Scene Graph v2 and the local Dialogue Vault. */
 object RavenViewportDialogueOS {
     data class Line(val text: String, val family: String)
 
@@ -13,12 +13,23 @@ object RavenViewportDialogueOS {
         direction: RavenSitcomDirectorOS.Direction,
     ): Line {
         if (!screen.available) return Line("", "VIEWPORT_NONE")
-        val viewport = RavenViewportSemanticsOS.latest(context)
-        val task = viewport?.task.orEmpty().ifBlank { taskFromSummary(screen.semanticSummary) }
-        val app = screen.appLabel.orEmpty().ifBlank { screen.semanticKind.lowercase().replaceFirstChar { it.titlecase() } }
-        val subject = screen.focus.replace(Regex("\\s+"), " ").trim().take(92)
-        val title = viewport?.title.orEmpty().take(72)
-        val seed = "${member.id}|$task|$app|$title|$subject|${direction.turn}|viewport-dialogue-v1"
+        val graph = RavenSceneGraphOS.observe(context, screen)
+
+        // Match GoblinBrain's existing viewport-writer gate so vault usage is only charged when the
+        // line is actually eligible to reach presentation, not on every silent sensor update.
+        val vaultEligible = direction.turn % 4 == 0 ||
+            (direction.beat in setOf("COLD_OPEN", "META", "CALLBACK") && direction.turn % 2 == 0)
+        if (vaultEligible) {
+            RavenDialogueVaultOS.select(context, member, direction, graph)?.let {
+                return Line(it.text, it.family)
+            }
+        }
+
+        val task = graph.task
+        val app = graph.app.ifBlank { screen.semanticKind.lowercase().replaceFirstChar { it.titlecase() } }
+        val subject = graph.subject.ifBlank { screen.focus }.replace(Regex("\\s+"), " ").trim().take(92)
+        val title = graph.title.take(72)
+        val seed = "${member.id}|$task|$app|$title|$subject|${direction.turn}|${graph.signature}|viewport-dialogue-v2"
 
         val truth = when (task) {
             "COMPOSING" -> pick(seed, listOf(
@@ -77,11 +88,11 @@ object RavenViewportDialogueOS {
                 "Scene read: $app / “$subject”.",
             ))
         }
-        val punch = ownerPunch(member.id, task, direction, seed)
-        return Line(listOf(truth, punch).filter(String::isNotBlank).joinToString(" ").take(220), "VIEWPORT_$task")
+        val punch = ownerPunch(member.id, task, direction, graph, seed)
+        return Line(listOf(truth, punch).filter(String::isNotBlank).joinToString(" ").take(240), "VIEWPORT_$task")
     }
 
-    private fun ownerPunch(id: String, task: String, d: RavenSitcomDirectorOS.Direction, seed: String): String {
+    private fun ownerPunch(id: String, task: String, d: RavenSitcomDirectorOS.Direction, graph: RavenSceneGraphOS.Graph, seed: String): String {
         val options = when (id) {
             "KYU" -> listOf("Clipboard says context before bonk.", "Good. We can now bonk the correct problem.", "The toolbar has been denied protagonist status.")
             "JOKER" -> listOf("The fourth wall has requested browser permissions.", "Excellent. The rectangle knows what the other rectangle is doing.", "Containment remains mostly decorative.")
@@ -95,25 +106,9 @@ object RavenViewportDialogueOS {
             "THOR" -> listOf("Target acquired. Hammer remains holstered for one sentence.", "Useful target. Now one strike, not seven callbacks.", "Finally, something with coordinates.")
             else -> listOf("Screen meaning acquired.", "Context locked.", "The glass gets final edit.")
         }
-        val callback = if (d.pairCount in setOf(3, 5, 8, 13)) " Callback #${d.pairCount}." else ""
-        return (pick("$seed|punch|$task", options) + callback).trim()
-    }
-
-    private fun taskFromSummary(summary: String): String {
-        val s = summary.lowercase()
-        return when {
-            "composing" in s -> "COMPOSING"
-            "reading chat" in s -> "READING_CHAT"
-            "debugging" in s -> "DEBUGGING"
-            "configuring" in s -> "CONFIGURING"
-            "searching" in s -> "SEARCHING"
-            "browsing" in s -> "BROWSING"
-            "listening" in s -> "LISTENING"
-            "watching" in s -> "WATCHING"
-            "reading" in s -> "READING"
-            "typing" in s -> "TYPING"
-            else -> "VIEWING"
-        }
+        val returnTag = if (graph.returnCount >= 2) " Structural return #${graph.returnCount}." else ""
+        val callback = if (d.pairCount in setOf(3, 5, 8, 13)) " Pair callback #${d.pairCount}." else ""
+        return (pick("$seed|punch|$task", options) + returnTag + callback).trim()
     }
 
     private fun pick(seed: String, options: List<String>): String {
