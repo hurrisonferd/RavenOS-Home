@@ -17,11 +17,11 @@ object RavenEmployeePresentation {
     private val styles = mapOf(
         "RAVEN" to Style("🐦‍⬛👑", listOf("(⌐■_■)", "(￣^￣)ゞ", "(¬‿¬)", "( •̀ᴗ•́ )و")),
         "AHTI" to Style("🟠🧾", listOf("(￣^￣)ゞ", "( •̀ω•́ )σ", "(－‸ლ)", "(⊙_⊙)")),
-        "ASTRIDHE" to Style("🌠🧚🧭", listOf("(☆▽☆)", "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧", "(¬‿¬)", "(✧ω✧)")),
+        "ASTRIDHE" to Style("🌠🧚", listOf("(☆▽☆)", "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧", "(¬‿¬)", "(✧ω✧)")),
         "ATLAS" to Style("🌍🏗️", listOf("ᕦ(ò_óˇ)ᕤ", "(￣^￣)ゞ", "( •̀ᴗ•́ )و", "(￣ー￣)")),
         "ATOM" to Style("⚛️🧠", listOf("( •̀ ω •́ )✧", "(⌐■_■)", "(￣ー￣)ゞ", "(⊙_⊙)")),
         "AYRE" to Style("🌀🫧", listOf("( ´ ▽ ` )ﾉ", "(￣▽￣)ノ", "(˘︶˘)", "(◕‿◕✿)")),
-        "BRUNHILDE" to Style("⚔️🪽🛡️", listOf("( •̀ - •́ )", "(￣^￣)ゞ", "(¬_¬)", "ᕦ(ò_óˇ)ᕤ")),
+        "BRUNHILDE" to Style("⚔️🛡️", listOf("( •̀ - •́ )", "(￣^￣)ゞ", "(¬_¬)", "ᕦ(ò_óˇ)ᕤ")),
         "EDISON" to Style("🔧⚙️", listOf("ᕙ(⇀‸↼‶)ᕗ", "( •̀ᄇ• ́)ﻭ✧", "(￣▽￣)ノ", "(⊙_◎)")),
         "EREBUS" to Style("🌑🤫", listOf("(－_－) zzZ", "(¬_¬)", "(￣o￣) . z Z", "(￣ー￣)")),
         "ERIS" to Style("🌌🌀", listOf("(⊙_◎)", "(¬‿¬ )", "┐(￣ヘ￣)┌", "ヽ(°〇°)ﾉ")),
@@ -41,16 +41,16 @@ object RavenEmployeePresentation {
         "PAIMON" to Style("💚🔎", listOf("(￢_￢)", "(•̀ᴗ•́)و", "(￣ω￣;)", "(⊙_⊙)")),
         "PYTHAGORAS" to Style("📐🔢", listOf("(⊙_⊙)", "( •̀ ω •́ )✧", "(￣ー￣)", "(⊙_◎)")),
         "QIRA" to Style("💜🛡️", listOf("( •̀ - •́ )", "(¬‿¬)", "(￣^￣)ゞ", "(⌐■_■)")),
-        "RAVENOS" to Style("🐦‍⬛📟✨", listOf("(⌐■_■)", "(￣ー￣)ゞ", "( •̀ᴗ•́ )و", "(¬‿¬)")),
+        "RAVENOS" to Style("🐦‍⬛📟", listOf("(⌐■_■)", "(￣ー￣)ゞ", "( •̀ᴗ•́ )و", "(¬‿¬)")),
         "SHAKA" to Style("🛡️📋", listOf("(￣^￣)ゞ", "( •̀ᴗ•́ )و", "(－_－) zzZ", "(⌐■_■)")),
         "SYLPH" to Style("🩵🧭", listOf("(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧", "(•̀ᴗ•́)و ̑̑", "(⌐■_■)", "(☆▽☆)")),
         "THOR" to Style("⚡🔨", listOf("(ง'̀-'́)ง", "ᕦ(ò_óˇ)ᕤ", "( •̀ᴗ•́ )و", "ヽ(°〇°)ﾉ")),
         "TIM" to Style("⏱️🪛", listOf("(－‸ლ)", "(￢_￢)", "(￣ー￣)", "(⊙_◎)")),
         "VIRGIL" to Style("📜🕯️", listOf("(￣^￣)ゞ", "( •̀ - •́ )", "(◡‿◡✿)", "(￣ー￣)")),
-        "YAHWEH" to Style("👁️🖥️☕", listOf("(－‸ლ)", "(¬_¬)", "(￣へ￣)", "(；￣Д￣)")),
+        "YAHWEH" to Style("🖥️☕", listOf("(－‸ლ)", "(¬_¬)", "(￣へ￣)", "(；￣Д￣)")),
         "YORI" to Style("🪐🎛️", listOf("(￣▽￣)~*", "(˵ •̀ ᴗ - ˵ ) ✧", "(ﾉ´ヮ`)ﾉ*: ･ﾟ", "(⌐■_■)")),
         "YORK" to Style("🪐🫶", listOf("(◕‿◕✿)", "(￣▽￣)ノ", "(˘︶˘)", "(¬‿¬)")),
-        "ZAGREUS" to Style("🩸↻🚪", listOf("(￣ー￣)", "(－‸ლ)", "( •̀ᴗ•́ )و", "(¬‿¬)")),
+        "ZAGREUS" to Style("🩸↻", listOf("(￣ー￣)", "(－‸ლ)", "( •̀ᴗ•́ )و", "(¬‿¬)")),
     )
 
     fun packet(member: RavenOfficeMember, signal: String, detail: String, note: String): Packet {
@@ -66,9 +66,8 @@ object RavenEmployeePresentation {
             isMusic(signal, detail) -> style.kaomoji[stableIndex("music|$postureSeed", style.kaomoji.size)]
             else -> style.kaomoji[stableIndex(postureSeed, style.kaomoji.size)]
         }
-        val baseSoup = if (style.soup.contains(member.emoji)) style.soup else "${member.emoji}${style.soup}"
         val eventGlyph = signalGlyph(signal, detail)
-        val soup = if (eventGlyph.isBlank() || baseSoup.contains(eventGlyph)) baseSoup else "$baseSoup$eventGlyph"
+        val soup = RavenEmojiBudgetOS.compose(member.id, eventGlyph, "", style.soup)
         return Packet(member.id, soup, posture, note, eventGlyph.ifBlank { prettySignal(signal) }, member.accent, member.lane)
     }
 
@@ -80,31 +79,27 @@ object RavenEmployeePresentation {
         val pkg = field(detail, "package").orEmpty().lowercase()
         val clazz = field(detail, "class").orEmpty().lowercase()
         return when {
-            detail.contains("meta:true", true) -> "🪞👁🔤✨"
-            s == "SCREEN_SEMANTIC" && detail.contains("suppressed_password", true) -> "🧭🔤🛡️"
-            s == "SCREEN_SEMANTIC" && detail.contains("state:visible", true) -> "🧭🔤✨"
-            s == "SCREEN_SEMANTIC" -> "🧭🔤"
-            s == "SCREEN_TEXT" && detail.contains("suppressed_sensitive", true) -> "👁🔤🛡️"
-            s == "SCREEN_TEXT" && detail.contains("state:visible", true) -> "👁🔤✨"
-            s == "SCREEN_TEXT" -> "👁🔤"
-            (s.contains("SCREEN_VISUAL") || s.contains("EYE")) && motion >= 60 -> "👁💥"
-            s.contains("SCREEN_VISUAL") || s.contains("EYE") -> "👁✨"
-            s.contains("WINDOW") && (pkg.contains("honeyboard") || pkg.contains("inputmethod") || clazz.contains("inputmethod")) -> "⌨️📱"
-            s.contains("WINDOW") -> "📱🪟"
+            detail.contains("meta:true", true) -> "🪞"
+            s == "SCREEN_SEMANTIC" && detail.contains("suppressed_password", true) -> "🛡️"
+            s == "SCREEN_SEMANTIC" -> "🔤"
+            s == "SCREEN_TEXT" && detail.contains("suppressed_sensitive", true) -> "🛡️"
+            s == "SCREEN_TEXT" -> "👁"
+            (s.contains("SCREEN_VISUAL") || s.contains("EYE")) && motion >= 60 -> "💥"
+            s.contains("SCREEN_VISUAL") || s.contains("EYE") -> "👁"
+            s.contains("WINDOW") && (pkg.contains("honeyboard") || pkg.contains("inputmethod") || clazz.contains("inputmethod")) -> "⌨️"
+            s.contains("WINDOW") -> "🪟"
             s.startsWith("NOTIFICATION") && detail.contains("state:removed", true) -> "🔕"
-            s.startsWith("NOTIFICATION") && burst >= 3 -> "🔔🌧️"
-            s.startsWith("NOTIFICATION") && detail.contains("alerting:true", true) -> "🔔❗"
+            s.startsWith("NOTIFICATION") && burst >= 3 -> "🌧️"
             s.startsWith("NOTIFICATION") || s == "NOTIFICATION" -> "🔔"
-            (s.startsWith("MEDIA") || s == "AUDIO") && state == "PLAYING" -> "🎵▶️"
+            (s.startsWith("MEDIA") || s == "AUDIO") && state == "PLAYING" -> "🎵"
             s.startsWith("MEDIA") || s == "AUDIO" || detail.contains("track:", true) -> "🎵"
-            s.contains("USAGE") -> "🧭📱"
-            s.contains("HOME") -> "🏠📱"
+            s.contains("USAGE") -> "🧭"
+            s.contains("HOME") -> "🏠"
             s.contains("FOREGROUND") || s.contains("APP_") -> "📱"
-            s.contains("POWER") && detail.contains("charg", true) -> "⚡🔌"
             s.contains("POWER") -> "⚡"
-            s.contains("BATTERY") && detail.contains("low", true) -> "🔋⚠️"
+            s.contains("BATTERY") && detail.contains("low", true) -> "⚠️"
             s.contains("BATTERY") -> "🔋"
-            s.contains("SEARCH") -> "🔎✨"
+            s.contains("SEARCH") -> "🔎"
             s.contains("SYSTEM") || s.contains("SETTING") -> "🛠️"
             else -> ""
         }
