@@ -26,9 +26,9 @@ import kotlin.math.abs
 /**
  * Owner-armed whole-screen Goblin Eye.
  *
- * Raw frames stay in memory and are immediately discarded. The default analyzer emits coarse
- * deterministic visual deltas. When Raven separately enables Goblin Read, selected changed frames
- * may also be copied into local ML Kit OCR; the bitmap is recycled after recognition and never saved.
+ * Raw frames stay in memory and are immediately discarded. The analyzer emits coarse deterministic
+ * visual deltas. When Raven separately enables Goblin Read, selected changed frames may also be
+ * copied into local OCR for bounded text + layout semantics; no screenshot is saved.
  */
 class RavenScreenWatchService : Service() {
     private var projection: MediaProjection? = null
@@ -96,9 +96,10 @@ class RavenScreenWatchService : Service() {
         p.registerCallback(projectionCallback, Handler(mainLooper))
 
         val metrics = resources.displayMetrics
-        val width = 240
+        // 360px keeps capture cheap while materially improving OCR over the original 240px eye.
+        val width = 360
         val height = ((metrics.heightPixels.toFloat() / metrics.widthPixels.coerceAtLeast(1)) * width)
-            .toInt().coerceIn(240, 560)
+            .toInt().coerceIn(360, 840)
         val imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
         reader = imageReader
         val thread = HandlerThread("RavenGoblinEye").also { it.start() }
@@ -231,16 +232,12 @@ class RavenScreenWatchService : Service() {
             val buffer = plane.buffer.duplicate().apply { rewind() }
             val padded = Bitmap.createBitmap(paddedWidth, image.height, Bitmap.Config.ARGB_8888)
             padded.copyPixelsFromBuffer(buffer)
-            if (paddedWidth == image.width) {
-                padded
-            } else {
+            if (paddedWidth == image.width) padded else {
                 val cropped = Bitmap.createBitmap(padded, 0, 0, image.width, image.height)
                 padded.recycle()
                 cropped
             }
-        } catch (_: Throwable) {
-            null
-        }
+        } catch (_: Throwable) { null }
     }
 
     private fun perceptualHash(samples: IntArray, count: Int, average: Int): Long {
@@ -291,11 +288,7 @@ class RavenScreenWatchService : Service() {
         )
     }
 
-    private fun stopInternal(
-        explicit: Boolean,
-        stopProjection: Boolean = true,
-        systemStop: Boolean = false,
-    ) {
+    private fun stopInternal(explicit: Boolean, stopProjection: Boolean = true, systemStop: Boolean = false) {
         if (stopping) return
         stopping = true
         val wasActive = projection != null || isActive(this)
@@ -305,9 +298,7 @@ class RavenScreenWatchService : Service() {
         try { reader?.close() } catch (_: Throwable) {}
         reader = null
         try { projection?.unregisterCallback(projectionCallback) } catch (_: Throwable) {}
-        if (stopProjection) {
-            try { projection?.stop() } catch (_: Throwable) {}
-        }
+        if (stopProjection) try { projection?.stop() } catch (_: Throwable) {}
         projection = null
         try { workerThread?.quitSafely() } catch (_: Throwable) {}
         workerThread = null
@@ -330,9 +321,7 @@ class RavenScreenWatchService : Service() {
     @Suppress("DEPRECATION")
     private fun Intent.intentExtra(name: String): Intent? = if (Build.VERSION.SDK_INT >= 33) {
         getParcelableExtra(name, Intent::class.java)
-    } else {
-        getParcelableExtra(name)
-    }
+    } else getParcelableExtra(name)
 
     companion object {
         private const val PREFS = "ravenos_screen_watch_v1"
@@ -352,9 +341,7 @@ class RavenScreenWatchService : Service() {
         }
 
         fun stop(context: Context) {
-            try {
-                context.startService(Intent(context, RavenScreenWatchService::class.java).setAction(ACTION_STOP))
-            } catch (_: Throwable) {}
+            try { context.startService(Intent(context, RavenScreenWatchService::class.java).setAction(ACTION_STOP)) } catch (_: Throwable) {}
         }
     }
 }
