@@ -20,16 +20,14 @@ import kotlin.math.abs
 
 /**
  * GOBLIN VISION cross-app presentation contract.
- *
- * The Meta Goblin is a resident TYPE_APPLICATION_OVERLAY body: CHIP while idle,
- * COMMENT when a phone event earns speech, and FEED when Raven taps it. It never
- * claims secure/system surfaces Android refuses to overlay and never reads the
- * underlying app through this presentation layer.
+ * Resident TYPE_APPLICATION_OVERLAY body: CHIP while idle, COMMENT on earned speech, FEED on tap.
  */
 object RavenGoblinVisionOverlay {
     private const val PREFS = "ravenos_goblin_vision_v1"
     private const val KEY_X = "x"
     private const val KEY_Y = "y"
+    private const val KEY_MANUAL_UNTIL = "manual_until"
+    private const val MANUAL_HOLD_MS = 120_000L
 
     private enum class Mode { CHIP, COMMENT, FEED }
 
@@ -52,14 +50,7 @@ object RavenGoblinVisionOverlay {
     private var lastDetail: String = ""
     private var lastHaunt: RavenHauntMode = RavenHauntMode.HAUNTED
 
-    fun render(
-        context: Context,
-        member: RavenOfficeMember,
-        signal: String,
-        note: String,
-        detail: String,
-        hauntMode: RavenHauntMode,
-    ) {
+    fun render(context: Context, member: RavenOfficeMember, signal: String, note: String, detail: String, hauntMode: RavenHauntMode) {
         val packet = RavenEmployeePresentation.packet(member, signal, detail, note)
         remember(context, member, packet.ownerLine, cleanVisible(packet.note), signal, detail, hauntMode)
         mode = if (lastNote.isBlank()) Mode.CHIP else Mode.COMMENT
@@ -75,15 +66,7 @@ object RavenGoblinVisionOverlay {
         if (spoken.isNotBlank()) scheduleCollapse(context, reaction, hauntMode)
     }
 
-    private fun remember(
-        context: Context,
-        member: RavenOfficeMember,
-        ownerLine: String,
-        note: String,
-        signal: String,
-        detail: String,
-        hauntMode: RavenHauntMode,
-    ) {
+    private fun remember(context: Context, member: RavenOfficeMember, ownerLine: String, note: String, signal: String, detail: String, hauntMode: RavenHauntMode) {
         appContext = context.applicationContext
         lastMember = member
         lastOwnerLine = ownerLine
@@ -100,8 +83,7 @@ object RavenGoblinVisionOverlay {
         val permitted = Settings.canDrawOverlays(context)
         if (!lastHaunt.followMe || !enabled || !permitted) {
             RavenSurfaceIntegrity.mark(
-                context,
-                RavenSurfaceIntegrity.FOLLOW_ME,
+                context, RavenSurfaceIntegrity.FOLLOW_ME,
                 if (RavenFollowMeOverlay.isPending(context)) "PENDING" else "INACTIVE",
                 stateAt,
                 when {
@@ -206,19 +188,28 @@ object RavenGoblinVisionOverlay {
                 }
                 Mode.FEED -> if (lastHaunt == RavenHauntMode.APOCALYPSE) 368 else 346
             }
+            var changed = false
             val width = dp(context, widthDp)
-            if (params.width != width) {
-                params.width = width
-                try { wm?.updateViewLayout(box, params) } catch (_: Throwable) {}
+            if (params.width != width) { params.width = width; changed = true }
+
+            // Auto-placement resumes after a short manual-drag hold. It uses current OCR density
+            // and keyboard semantics to avoid sitting on top of the thing Raven is trying to read.
+            val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            val manualUntil = prefs.getLong(KEY_MANUAL_UNTIL, 0L)
+            if (System.currentTimeMillis() >= manualUntil && mode != Mode.FEED) {
+                val placement = RavenOverlayChoreographyOS.preferred(context)
+                if (abs(params.y - placement.y) > dp(context, 8)) {
+                    params.y = placement.y
+                    prefs.edit().putInt(KEY_Y, params.y).apply()
+                    changed = true
+                }
             }
+            if (changed) try { wm?.updateViewLayout(box, params) } catch (_: Throwable) {}
         }
 
         RavenSurfaceIntegrity.mark(
-            context,
-            RavenSurfaceIntegrity.FOLLOW_ME,
-            "RENDERED",
-            stateAt,
-            "goblin_vision_meta_overlay_v5:${mode.name.lowercase()}",
+            context, RavenSurfaceIntegrity.FOLLOW_ME, "RENDERED", stateAt,
+            "goblin_vision_meta_overlay_v6:${mode.name.lowercase()}",
         )
     }
 
@@ -227,15 +218,11 @@ object RavenGoblinVisionOverlay {
             val line = cleanVisible(entry.note)
             if (line.isBlank()) return@mapNotNull null
             val member = RavenOfficeRegistry.member(entry.owner)
-            val presentation = member?.let {
-                RavenEmployeePresentation.packet(it, entry.signal, entry.detail, line)
-            }
+            val presentation = member?.let { RavenEmployeePresentation.packet(it, entry.signal, entry.detail, line) }
             val who = presentation?.let { "${it.emojiSoup} ${entry.owner} ${it.kaomoji}" } ?: entry.owner
             val repeat = if (entry.repeats > 1) " ×${entry.repeats}" else ""
             "$who$repeat\n${line.take(100)}"
-        }
-        .take(4)
-        .joinToString("\n\n")
+        }.take(4).joinToString("\n\n")
 
     private fun scheduleCollapse(context: Context, reaction: RavenReactionPacket, hauntMode: RavenHauntMode) {
         collapseRunnable?.let(handler::removeCallbacks)
@@ -255,13 +242,7 @@ object RavenGoblinVisionOverlay {
         collapseRunnable = null
         val view = root ?: return
         try { wm?.removeView(view) } catch (_: Throwable) {}
-        root = null
-        statusView = null
-        ownerView = null
-        noteView = null
-        contextView = null
-        lp = null
-        wm = null
+        root = null; statusView = null; ownerView = null; noteView = null; contextView = null; lp = null; wm = null
     }
 
     private fun ensureView(context: Context) {
@@ -274,33 +255,21 @@ object RavenGoblinVisionOverlay {
             isClickable = true
             elevation = dp(context, 12).toFloat()
         }
-        statusView = TextView(context).apply {
-            textSize = 9.5f
-            setTypeface(typeface, Typeface.BOLD)
-        }.also(box::addView)
+        statusView = TextView(context).apply { textSize = 9.5f; setTypeface(typeface, Typeface.BOLD) }.also(box::addView)
         ownerView = TextView(context).apply {
-            textSize = 15f
-            setTypeface(typeface, Typeface.BOLD)
-            setPadding(0, dp(context, 3), 0, 0)
+            textSize = 15f; setTypeface(typeface, Typeface.BOLD); setPadding(0, dp(context, 3), 0, 0)
         }.also(box::addView)
         noteView = TextView(context).apply {
-            textSize = 13.5f
-            setLineSpacing(dp(context, 1).toFloat(), 1.03f)
-            setPadding(0, dp(context, 5), 0, 0)
+            textSize = 13.5f; setLineSpacing(dp(context, 1).toFloat(), 1.03f); setPadding(0, dp(context, 5), 0, 0)
         }.also(box::addView)
         contextView = TextView(context).apply {
-            textSize = 11.5f
-            setLineSpacing(dp(context, 1).toFloat(), 1.02f)
-            setPadding(0, dp(context, 6), 0, 0)
+            textSize = 11.5f; setLineSpacing(dp(context, 1).toFloat(), 1.02f); setPadding(0, dp(context, 6), 0, 0)
         }.also(box::addView)
 
         val params = WindowManager.LayoutParams(
-            dp(context, 302),
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            dp(context, 302), WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.END
@@ -308,37 +277,19 @@ object RavenGoblinVisionOverlay {
             y = prefs.getInt(KEY_Y, dp(context, 104))
         }
         wireDrag(context, box, params)
-        try {
-            manager.addView(box, params)
-            wm = manager
-            root = box
-            lp = params
-        } catch (_: Throwable) {
-            wm = null
-        }
+        try { manager.addView(box, params); wm = manager; root = box; lp = params } catch (_: Throwable) { wm = null }
     }
 
     private fun wireDrag(context: Context, view: View, params: WindowManager.LayoutParams) {
-        var downX = 0f
-        var downY = 0f
-        var startX = 0
-        var startY = 0
-        var moved = false
-        var downAt = 0L
+        var downX = 0f; var downY = 0f; var startX = 0; var startY = 0; var moved = false; var downAt = 0L
         view.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    downX = event.rawX
-                    downY = event.rawY
-                    startX = params.x
-                    startY = params.y
-                    downAt = System.currentTimeMillis()
-                    moved = false
-                    true
+                    downX = event.rawX; downY = event.rawY; startX = params.x; startY = params.y
+                    downAt = System.currentTimeMillis(); moved = false; true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    val dx = event.rawX - downX
-                    val dy = event.rawY - downY
+                    val dx = event.rawX - downX; val dy = event.rawY - downY
                     if (abs(dx) > dp(context, 4) || abs(dy) > dp(context, 4)) moved = true
                     params.x = (startX - dx.toInt()).coerceAtLeast(0)
                     params.y = (startY + dy.toInt()).coerceAtLeast(0)
@@ -346,16 +297,16 @@ object RavenGoblinVisionOverlay {
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                        .putInt(KEY_X, params.x).putInt(KEY_Y, params.y).apply()
+                    val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                    val edit = prefs.edit().putInt(KEY_X, params.x).putInt(KEY_Y, params.y)
+                    if (moved) edit.putLong(KEY_MANUAL_UNTIL, System.currentTimeMillis() + MANUAL_HOLD_MS)
+                    edit.apply()
                     if (!moved) {
                         val held = System.currentTimeMillis() - downAt
                         if (held >= 650L) {
                             try {
-                                context.startActivity(
-                                    Intent(context, RavenHomeActivity::class.java)
-                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
-                                )
+                                context.startActivity(Intent(context, RavenHomeActivity::class.java)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
                             } catch (_: Throwable) {}
                         } else {
                             collapseRunnable?.let(handler::removeCallbacks)
@@ -386,11 +337,7 @@ object RavenGoblinVisionOverlay {
     private fun readableAccent(color: Int): Int {
         val perceived = (Color.red(color) * 299 + Color.green(color) * 587 + Color.blue(color) * 114) / 1000
         if (perceived >= 145) return color
-        return Color.rgb(
-            (Color.red(color) + 255) / 2,
-            (Color.green(color) + 255) / 2,
-            (Color.blue(color) + 255) / 2,
-        )
+        return Color.rgb((Color.red(color) + 255) / 2, (Color.green(color) + 255) / 2, (Color.blue(color) + 255) / 2)
     }
 
     private fun dp(context: Context, value: Int): Int = (value * context.resources.displayMetrics.density).toInt()
