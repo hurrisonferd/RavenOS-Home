@@ -1,0 +1,1 @@
+No more Sat-X receipt files; next write is runtime patch or CI proof.
