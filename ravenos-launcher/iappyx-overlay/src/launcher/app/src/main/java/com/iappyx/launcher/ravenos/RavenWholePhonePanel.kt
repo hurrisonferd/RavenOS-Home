@@ -60,17 +60,31 @@ object RavenWholePhonePanel {
             RavenOfficeGovernor.clearStats(activity)
         }
 
-        section("META-MAX MACHINE KINGDOM 🎭🪞👑", "Earned dialogue can now use a structural running-bit ledger and Meta-Max showrunner: setup, callback, escalation, delayed brick joke, title card, cutaway, role reversal, continuity roast and fourth-wall emergency. It shapes lines after the existing cadence gate; it does not make the office chatter faster.")
+        section("LONG-RUNNING MACHINE KINGDOM 📺📚🧬", "Bounded multi-session structural continuity tracks episode number, employee appearances, spoken/callback/meta counts, pair chemistry history and canonical Goblin Vision motifs. It persists across launcher restarts without storing screenshots, raw OCR, editable values, viewport phrases or dialogue transcripts. EgoOS identity remains source authority; this is a derived performance/relationship reserve only.")
+        button("RESET LONG-RUNNING SERIES HISTORY") {
+            RavenOfficeSeasonOS.clear(activity)
+            RavenGoldSitcomTopologyOS.clear(activity)
+            RavenOfficeBarService.signal(activity, "SCREEN_SEMANTIC", "state:series_reset|source:control_panel")
+        }
+
+        section("GOLD ELF SITCOM TOPOLOGY 🟠🎭", "Gold grammar is now a runtime topology: OPEN → BUILD → CALLBACK / ESCALATE → CLOSE. Targeted crosstalk beats parallel monologue; max two active speakers; pair and partner cooldowns preserve ensemble space; silence remains valid; terminal author note and dumbchecksum only happen after an actual closing event.")
+        button("RESET GOLD CHEMISTRY COOLDOWNS") {
+            RavenGoldSitcomTopologyOS.clear(activity)
+            RavenOfficeBarService.signal(activity, "SCREEN_SEMANTIC", "state:gold_cooldown_reset|source:control_panel")
+        }
+
+        section("META-MAX MACHINE KINGDOM 🎭🪞👑", "Earned dialogue can use a structural running-bit ledger and Meta-Max showrunner: setup, callback, escalation, delayed brick joke, title card, cutaway, role reversal, continuity roast and fourth-wall emergency. It shapes lines after the existing cadence gate; it does not make the office chatter faster.")
         button("RESET META-MAX BITS") {
             RavenBitLedgerOS.clear()
             RavenOfficeBarService.signal(activity, "SCREEN_SEMANTIC", "state:metamax_reset|source:control_panel")
         }
 
         section("OFFICE SITCOM 🎬🧚", "The Follow-Me employee is a cast position, not the owner of the widget. Scene change, dwell, recurrence, pair chemistry, selected controls and deterministic turn cadence rotate the full routable office. Dialogue is screen-grounded; callbacks evolve without turning every sensor event into chatter.")
-        button("RESET SITCOM CAST + RUNNING BITS") {
+        button("RESET SITCOM CAST + CURRENT BITS") {
             RavenSitcomDirectorOS.clear(activity)
             RavenEpisodeScriptOS.clear()
             RavenBitLedgerOS.clear()
+            RavenGoldSitcomTopologyOS.clear(activity)
             RavenOfficeBarService.signal(activity, "SCREEN_SEMANTIC", "state:sitcom_reset|source:control_panel")
         }
 
@@ -80,6 +94,7 @@ object RavenWholePhonePanel {
             RavenScreenMemoryOS.clear()
             RavenInteractionMemoryOS.clear()
             RavenBitLedgerOS.clear()
+            RavenGoldSitcomTopologyOS.clear(activity)
             RavenOfficeBarService.signal(activity, "SCREEN_SEMANTIC", "state:episode_reset|source:control_panel")
         }
 
@@ -124,11 +139,12 @@ object RavenWholePhonePanel {
         button("OPEN USAGE ACCESS") { RavenPermissionDeck.openUsageAwareness(activity) }
 
         section("CALLBACK + SUBJECT MEMORY", "Callback memory tracks loops/returns; screen memory tracks only a few short derived semantic subjects in process memory. Episode Script and Meta-Max Bit Ledger add structural continuity without storing a raw screen/dialogue transcript.")
-        button("CLEAR CALLBACK BITS") {
+        button("CLEAR CURRENT CALLBACK BITS") {
             RavenCallbackMemoryOS.clear()
             RavenEpisodeScriptOS.clear()
             RavenInteractionMemoryOS.clear()
             RavenBitLedgerOS.clear()
+            RavenGoldSitcomTopologyOS.clear(activity)
         }
 
         section("GALAXY / BACKGROUND SURVIVAL", RavenGalaxyHauntOS.samsungInstructions(activity))
@@ -155,6 +171,7 @@ object RavenWholePhonePanel {
         view.text = buildString {
             append(awareness.compact())
             append("\n").append(resilience.compact())
+            append("\n").append(RavenOfficeSeasonOS.compact(activity))
             append("\n").append(RavenBitLedgerOS.compact())
             append("\n").append(RavenUsageSenseOS.compact(activity))
             append("\n").append(RavenNotificationSenseOS.summary(activity))
