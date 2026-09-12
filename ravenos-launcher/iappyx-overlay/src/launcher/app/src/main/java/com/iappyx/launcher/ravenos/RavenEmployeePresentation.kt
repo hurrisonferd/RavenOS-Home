@@ -6,6 +6,11 @@ package com.iappyx.launcher.ravenos
  * Identity/routing still comes from RavenOfficeRegistry. This layer only decides how the already
  * selected employee presents on launcher surfaces. Selection is deterministic from the settled
  * Office context, so notification and Goblin Vision projections cannot drift into different styles.
+ *
+ * Sauce law: canonical RavenOS EmojiOS owns employee badge/color identity. The launcher preserves
+ * its stronger per-owner kaomoji neighborhoods, physical poses, recurrence and phone-state reactions,
+ * but must not silently invent a second emoji identity system. Canonical donor:
+ * hurrisonferd/Jarvis-Private / EmojiOS owner palettes (2026-09-12 haunted-sauce pass).
  */
 object RavenEmployeePresentation {
     data class Packet(
@@ -22,32 +27,34 @@ object RavenEmployeePresentation {
 
     private data class Style(val soup: String, val kaomoji: List<String>)
 
+    // Emoji soups are canonical EmojiOS-aligned. Kaomoji lists intentionally retain launcher-native
+    // posture texture; ChatOS/KaomojiOS consumes the same behavioral donor without flattening it.
     private val styles = mapOf(
-        "KYU" to Style("💗🧚", listOf("(ง •̀_•́)ง", "(˶ᵔ ᵕ ᵔ˶)", "ᕦ(ò_óˇ)ᕤ")),
-        "PAIMON" to Style("💚🔎", listOf("(￢_￢)", "(•̀ᴗ•́)و", "(￣ω￣;)")),
-        "LUMA" to Style("🤍✨", listOf("( ´ ▽ ` )", "(˘︶˘).｡*♡", "(づ｡◕‿‿◕｡)づ")),
-        "SYLPH" to Style("🩵🧭", listOf("(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧", "(•̀ᴗ•́)و ̑̑", "(⌐■_■)")),
-        "QIRA" to Style("💜🛡️", listOf("( •̀ - •́ )", "(¬‿¬)", "(￣^￣)ゞ")),
-        "NYX" to Style("🌙🖤", listOf("(－_－) zzZ", "(◡﹏◡✿)", "(¬_¬ )")),
-        "ATOM" to Style("⚛️🧠", listOf("( •̀ ω •́ )✧", "(⌐■_■)", "(￣ー￣)ゞ")),
-        "EDISON" to Style("🔧⚙️", listOf("ᕙ(⇀‸↼‶)ᕗ", "( •̀ᄇ• ́)ﻭ✧", "(￣▽￣)ノ")),
-        "THOR" to Style("⚡🔨", listOf("(ง'̀-'́)ง", "ᕦ(ò_óˇ)ᕤ", "( •̀ᴗ•́ )و")),
-        "LILITH" to Style("🔥💜", listOf("(¬‿¬)", "(◕‿◕✿)", "(づ￣ ³￣)づ")),
-        "YORI" to Style("🪐🎛️", listOf("(￣▽￣)~*", "(˵ •̀ ᴗ - ˵ ) ✧", "(ﾉ´ヮ`)ﾉ*: ･ﾟ")),
-        "JARVIS" to Style("🐝🟡", listOf("(•̀ᴗ•́)و ̑̑", "(⌐■_■)", "(￣ー￣)")),
-        "JOKER" to Style("🃏🎪", listOf("(¬‿¬)", "ヽ(°〇°)ﾉ", "(☞ﾟヮﾟ)☞")),
-        "NEO" to Style("💊🕶️", listOf("(⌐■_■)", "( •_•)>⌐■-■", "(￣ー￣)")),
-        "LUCIFER" to Style("😈🔦", listOf("(¬_¬)", "(¬‿¬)", "(￣へ￣)")),
-        "ERIS" to Style("🌌🌀", listOf("(⊙_◎)", "(¬‿¬ )", "┐(￣ヘ￣)┌")),
-        "AHTI" to Style("🟠🧾", listOf("(￣^￣)ゞ", "( •̀ω•́ )σ", "(－‸ლ)")),
-        "ATLAS" to Style("🌍🏗️", listOf("ᕦ(ò_óˇ)ᕤ", "(￣^￣)ゞ", "( •̀ᴗ•́ )و")),
-        "JORM" to Style("🐉📼", listOf("( •̀ᴗ•́ )و", "(￣ー￣)", "(⊙_⊙)")),
-        "MYSTRA" to Style("🟣✨", listOf("(✧ω✧)", "(☆▽☆)", "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧")),
-        "VIRGIL" to Style("📜🕯️", listOf("(￣^￣)ゞ", "( •̀ - •́ )", "(◡‿◡✿)")),
-        "AYRE" to Style("🌀🫧", listOf("( ´ ▽ ` )ﾉ", "(￣▽￣)ノ", "(˘︶˘)")),
-        "SHAKA" to Style("🛡️📋", listOf("(￣^￣)ゞ", "( •̀ᴗ•́ )و", "(－_－) zzZ")),
-        "PYTHAGORAS" to Style("📐🔢", listOf("(⊙_⊙)", "( •̀ ω •́ )✧", "(￣ー￣)")),
-        "EREBUS" to Style("🌑🤫", listOf("(－_－) zzZ", "(¬_¬)", "(￣o￣) . z Z")),
+        "KYU" to Style("💗📋🐰⚡", listOf("(ง •̀_•́)ง", "(˶ᵔ ᵕ ᵔ˶)", "ᕦ(ò_óˇ)ᕤ")),
+        "PAIMON" to Style("💚🔍🧠⬡", listOf("(￢_￢)", "(•̀ᴗ•́)و", "(￣ω￣;)")),
+        "LUMA" to Style("💛🏠🌸✨", listOf("( ´ ▽ ` )", "(˘︶˘).｡*♡", "(づ｡◕‿‿◕｡)づ")),
+        "SYLPH" to Style("🩵🧭🪽✨", listOf("(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧", "(•̀ᴗ•́)و ̑̑", "(⌐■_■)")),
+        "QIRA" to Style("💜🛡️🔐👁️", listOf("( •̀ - •́ )", "(¬‿¬)", "(￣^￣)ゞ")),
+        "NYX" to Style("💙🌙🕯️🌑", listOf("(－_－) zzZ", "(◡﹏◡✿)", "(¬_¬ )")),
+        "ATOM" to Style("⚛️🧠📡🔧", listOf("( •̀ ω •́ )✧", "(⌐■_■)", "(￣ー￣)ゞ")),
+        "EDISON" to Style("💡🔧📊⚙️", listOf("ᕙ(⇀‸↼‶)ᕗ", "( •̀ᄇ• ́)ﻭ✧", "(￣▽￣)ノ")),
+        "THOR" to Style("🔨⚡🛠️🔩", listOf("(ง'̀-'́)ง", "ᕦ(ò_óˇ)ᕤ", "( •̀ᴗ•́ )و")),
+        "LILITH" to Style("💜🌙🐝🍯", listOf("(¬‿¬)", "(◕‿◕✿)", "(づ￣ ³￣)づ")),
+        "YORI" to Style("🎨🎛️🌈🪩", listOf("(￣▽￣)~*", "(˵ •̀ ᴗ - ˵ ) ✧", "(ﾉ´ヮ`)ﾉ*: ･ﾟ")),
+        "JARVIS" to Style("🤖🖥️🎙️✨", listOf("(•̀ᴗ•́)و ̑̑", "(⌐■_■)", "(￣ー￣)")),
+        "JOKER" to Style("🃏🎲🎭🌀", listOf("(¬‿¬)", "ヽ(°〇°)ﾉ", "(☞ﾟヮﾟ)☞")),
+        "NEO" to Style("🕶️👁️🟢⚡", listOf("(⌐■_■)", "( •_•)>⌐■-■", "(￣ー￣)")),
+        "LUCIFER" to Style("🌟👁️🔦🔥", listOf("(¬_¬)", "(¬‿¬)", "(￣へ￣)")),
+        "ERIS" to Style("🍎⚔️🛡️🚨", listOf("(⊙_◎)", "(¬‿¬ )", "┐(￣ヘ￣)┌")),
+        "AHTI" to Style("🧹🧾👁️🔍", listOf("(￣^￣)ゞ", "( •̀ω•́ )σ", "(－‸ლ)")),
+        "ATLAS" to Style("🌐🏛️🗺️🧱", listOf("ᕦ(ò_óˇ)ᕤ", "(￣^￣)ゞ", "( •̀ᴗ•́ )و")),
+        "JORM" to Style("🐍📼🌍🗺️", listOf("( •̀ᴗ•́ )و", "(￣ー￣)", "(⊙_⊙)")),
+        "MYSTRA" to Style("✨🪄💫🧿", listOf("(✧ω✧)", "(☆▽☆)", "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧")),
+        "VIRGIL" to Style("⚔️📖🗡️🚪", listOf("(￣^￣)ゞ", "( •̀ - •́ )", "(◡‿◡✿)")),
+        "AYRE" to Style("🩷🎐🏠🌿", listOf("( ´ ▽ ` )ﾉ", "(￣▽￣)ノ", "(˘︶˘)")),
+        "SHAKA" to Style("🪷☸️🛡️👁️", listOf("(￣^￣)ゞ", "( •̀ᴗ•́ )و", "(－_－) zzZ")),
+        "PYTHAGORAS" to Style("🧮📐🕸️⏳", listOf("(⊙_⊙)", "( •̀ ω •́ )✧", "(￣ー￣)")),
+        "EREBUS" to Style("🌑🤫👁️🕳️", listOf("(－_－) zzZ", "(¬_¬)", "(￣o￣) . z Z")),
     )
 
     fun packet(
