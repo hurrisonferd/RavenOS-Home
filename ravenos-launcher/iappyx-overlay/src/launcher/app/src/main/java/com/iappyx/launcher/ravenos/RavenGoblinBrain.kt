@@ -44,17 +44,18 @@ object RavenGoblinBrain {
         val bit = RavenBitLedgerOS.observe(screen, script, direction, marker.at)
         val show = RavenMetaMaxShowrunnerOS.direct(screen, script, direction, bit, mesh)
         val plot = RavenPlotStackOS.snapshot(context, screen, script, bit)
+        val backstage = RavenBackstageOS.observe(screen, script, marker, direction)
 
-        // Multi-session history is deliberately structural. EgoOS remains the identity authority;
-        // this reserve is a launcher-side performance/relationship projection only.
-        val season = RavenOfficeSeasonOS.snapshot(
+        // First snapshot establishes cross-session motif state. Gold may then promote a silently
+        // relevant backstage member into its one crosstalk slot; the final snapshot binds pair
+        // history to the actual chosen partner rather than the pre-Gold candidate.
+        val seasonBase = RavenOfficeSeasonOS.snapshot(
             context = context,
             owner = member.id,
-            secondary = direction.secondary?.id,
+            secondary = null,
             canonicalMotif = script.motif,
             mesh = mesh,
         )
-        val reserve = RavenEgoReserveProjectionOS.project(member, season)
         val gold = RavenGoldSitcomTopologyOS.direct(
             context = context,
             marker = marker,
@@ -62,8 +63,17 @@ object RavenGoblinBrain {
             screen = screen,
             script = script,
             direction = direction,
-            memory = season,
+            memory = seasonBase,
+            backstage = backstage,
         )
+        val season = RavenOfficeSeasonOS.snapshot(
+            context = context,
+            owner = member.id,
+            secondary = gold.secondary?.id,
+            canonicalMotif = script.motif,
+            mesh = mesh,
+        )
+        val reserve = RavenEgoReserveProjectionOS.project(member, season)
         val series = RavenLongSeriesDialogueOS.select(member, screen, script, direction, bit, show, season, reserve, gold)
         RavenOfficeSeasonOS.markPresence(context, member.id, direction.sceneChanged, direction.rotated)
 
@@ -203,6 +213,8 @@ object RavenGoblinBrain {
 
         if (spoken.isNotBlank()) {
             RavenSitcomDirectorOS.markSpoken(context, marker.at)
+            RavenBackstageOS.markSpoken(member.id)
+            RavenBackstageOS.markSpoken(gold.secondary?.id)
             if (!terminalScene) {
                 RavenOfficeSeasonOS.markSpoken(
                     context = context,
@@ -258,6 +270,10 @@ object RavenGoblinBrain {
             append("|member_lines:").append(season.memberLines)
             append("|pair_lifetime:").append(season.pairCount)
             append("|motif_lifetime:").append(season.motifLifetimeCount)
+            if (backstage.candidate != null) {
+                append("|backstage_candidate:").append(backstage.candidate.id)
+                append("|backstage_pressure:").append(backstage.pressure)
+            }
             append("|rv_mesh:").append(mesh.mode)
             append("|plot_score:").append(plot.score)
             if (plot.bPlot.isNotBlank()) append("|plot_b:").append(plot.bPlot.replace('|', '/').take(100))
@@ -285,6 +301,7 @@ object RavenGoblinBrain {
             "GOLD_${gold.phase}",
             "EGO_${reserve.state}",
             "SERIES_S${season.season}E${season.episodeInSeason}",
+            "BACKSTAGE_${backstage.pressure}",
             "METAMAX_L${show.level}_${show.form}",
             "PLOT_${plot.score}",
             "DIRECTOR_${direction.beat}",
@@ -297,7 +314,7 @@ object RavenGoblinBrain {
         val zone = RavenOfficeGeography.zone(member.id, marker, complex)
         val highlight = RavenHighlightOS.score(marker, complex, episode)
         val now = System.currentTimeMillis()
-        val proof = "${sense.route}:${marker.source}:${marker.id}:${marker.key}:show=${displayDecision.mode.name}:sitcom=${direction.sceneId}:${direction.turn}:script=${script.act}:${script.motifCount}:action=${script.interaction}:bit=${bit.count}:${bit.tier}:meta=${show.level}:${show.form}:gold=${gold.phase}:series=${season.season}x${season.episodeInSeason}:ego=${reserve.state}:plot=${plot.score}:rv=${mesh.mode}:viewport=${viewport?.task ?: "none"}"
+        val proof = "${sense.route}:${marker.source}:${marker.id}:${marker.key}:show=${displayDecision.mode.name}:sitcom=${direction.sceneId}:${direction.turn}:script=${script.act}:${script.motifCount}:action=${script.interaction}:bit=${bit.count}:${bit.tier}:meta=${show.level}:${show.form}:gold=${gold.phase}:series=${season.season}x${season.episodeInSeason}:ego=${reserve.state}:backstage=${backstage.pressure}:plot=${plot.score}:rv=${mesh.mode}:viewport=${viewport?.task ?: "none"}"
         val packet = RavenReactionPacket(
             markerId = marker.id,
             owner = member.id,
@@ -323,6 +340,7 @@ object RavenGoblinBrain {
             ) + (if (bit.active) setOf("BIT_${bit.tier}") else emptySet()) +
                 (if (plot.crossover) setOf("PLOT_CROSSOVER") else emptySet()) +
                 (if (season.motifReturningAcrossSessions) setOf("CROSS_SESSION_CALLBACK") else emptySet()) +
+                (if (backstage.candidate != null) setOf("BACKSTAGE_READY") else emptySet()) +
                 if (viewport != null) setOf("VIEWPORT", "TASK_${viewport.task}") else emptySet(),
             episode = episode.name,
             highlight = highlight.clazz.name,
