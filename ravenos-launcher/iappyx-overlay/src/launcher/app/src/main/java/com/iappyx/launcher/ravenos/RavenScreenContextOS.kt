@@ -67,25 +67,26 @@ object RavenScreenContextOS {
         val top = if (useAccess) "" else ocrFresh?.top.orEmpty().cleanZone()
         val middle = if (useAccess) "" else ocrFresh?.middle.orEmpty().cleanZone()
         val bottom = if (useAccess) "" else ocrFresh?.bottom.orEmpty().cleanZone()
-        val focus = chooseFocus(rawText)
         val meta = rawText.isNotBlank() && RavenMetaRecursionOS.detect(rawText)
+        val focus = if (meta) RavenMetaRecursionOS.focus(rawText).orEmpty() else chooseFocus(rawText)
+        val resolvedFocus = focus.ifBlank { chooseFocus(rawText) }
         val quiet = map?.quietZone(keyboard) ?: ocrFresh?.leastBusyZone() ?: "top"
         val blocks = map?.blocks?.size ?: ocrFresh?.blockCount ?: accessFresh?.nodeCount ?: 0
-        val signature = if (focus.isBlank()) "" else listOf(
+        val signature = if (resolvedFocus.isBlank()) "" else listOf(
             semantic.kind,
             semantic.label,
-            focus.lowercase().replace(Regex("[^a-z0-9 ]"), "").replace(Regex("\\s+"), " ").take(96),
+            resolvedFocus.lowercase().replace(Regex("[^a-z0-9 ]"), "").replace(Regex("\\s+"), " ").take(96),
             source,
         ).joinToString("|")
 
         return Snapshot(
-            available = rawText.isNotBlank() && focus.isNotBlank(),
+            available = rawText.isNotBlank() && resolvedFocus.isNotBlank(),
             appLabel = semantic.label.takeIf { it.isNotBlank() },
             packageName = pkg,
             semanticKind = semantic.kind,
             semanticSummary = semantic.summary,
             text = rawText,
-            focus = focus,
+            focus = resolvedFocus,
             top = top,
             middle = middle,
             bottom = bottom,
