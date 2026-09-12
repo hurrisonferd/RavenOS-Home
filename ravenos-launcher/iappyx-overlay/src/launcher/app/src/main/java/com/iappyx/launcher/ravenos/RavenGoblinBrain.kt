@@ -30,8 +30,6 @@ object RavenGoblinBrain {
         // the typed reason/score used by the presentation arbiter below.
         val screenSpeech = RavenInterruptibilityOS.evaluate(context, marker, complex, hauntMode, quiet, screen)
 
-        // Cast rotation remains independent from speech. A quiet scene can change employees without
-        // manufacturing a line. Script memory keeps transient Android layers from becoming the plot.
         val direction = RavenSitcomDirectorOS.direct(
             context = context,
             marker = marker,
@@ -73,10 +71,6 @@ object RavenGoblinBrain {
             quiet = quiet,
         )
 
-        // Preserve both generations:
-        // SCREEN = viewport/OCR/Accessibility-aware office sitcom.
-        // PHONE = legacy fused-scene/meta/character layer.
-        // SCRIPT = structural continuity can improve either without claiming more sensing authority.
         val screenFallback = omniscience.text.ifBlank {
             fusedScene.text.ifBlank {
                 narrativeBeat.text.ifBlank { sceneBeat.text.ifBlank { meta.text } }
@@ -95,7 +89,7 @@ object RavenGoblinBrain {
 
         val speakNow = displayDecision.speak
         val useScriptWriter = scriptDialogue.text.isNotBlank() && (
-            script.callbackEarned || script.interruption.isNotBlank() || script.returned ||
+            script.callbackEarned || script.interactionWorthSpeaking || script.interruption.isNotBlank() || script.returned ||
                 (script.sceneChanged && direction.turn % 2 == 0) || direction.turn % 5 == 0
             )
         val useViewportWriter = displayDecision.mode == RavenPresentationArbiterOS.Mode.SCREEN &&
@@ -143,8 +137,6 @@ object RavenGoblinBrain {
 
         if (spoken.isNotBlank()) RavenSitcomDirectorOS.markSpoken(context, marker.at)
 
-        // Only real screen meaning may occupy OBSERVING mode. Script continuity may enrich the
-        // observation with a short structural cue, but never with raw diagnostics or hidden text.
         val authorNote = when (displayDecision.mode) {
             RavenPresentationArbiterOS.Mode.SCREEN -> listOf(
                 observation.text,
@@ -162,9 +154,13 @@ object RavenGoblinBrain {
             append("|script_dwell:").append(script.dwell)
             if (script.motif.isNotBlank()) append("|script_motif:").append(script.motif)
             if (script.interruption.isNotBlank()) append("|script_cameo:").append(script.interruption.replace('|', '/'))
+            if (script.interaction.isNotBlank()) append("|script_interaction:").append(script.interaction)
+            if (script.interactionTarget.isNotBlank()) append("|script_target:").append(script.interactionTarget.replace('|', '/').take(90))
+            if (script.interactionDirection.isNotBlank()) append("|script_direction:").append(script.interactionDirection)
             viewport?.let {
                 append("|screen_task:").append(it.task)
                 if (it.title.isNotBlank()) append("|screen_title:").append(it.title.replace('|', '/').take(90))
+                if (it.selected.isNotBlank()) append("|screen_selected:").append(it.selected.replace('|', '/').take(90))
             }
         }
         val basePresentation = RavenEmployeePresentation.packet(member, signal, presentationDetail, spoken.ifBlank { authorNote })
@@ -186,7 +182,7 @@ object RavenGoblinBrain {
         val zone = RavenOfficeGeography.zone(member.id, marker, complex)
         val highlight = RavenHighlightOS.score(marker, complex, episode)
         val now = System.currentTimeMillis()
-        val proof = "${sense.route}:${marker.source}:${marker.id}:${marker.key}:show=${displayDecision.mode.name}:sitcom=${direction.sceneId}:${direction.turn}:script=${script.act}:${script.motifCount}:viewport=${viewport?.task ?: "none"}"
+        val proof = "${sense.route}:${marker.source}:${marker.id}:${marker.key}:show=${displayDecision.mode.name}:sitcom=${direction.sceneId}:${direction.turn}:script=${script.act}:${script.motifCount}:action=${script.interaction}:viewport=${viewport?.task ?: "none"}"
         val packet = RavenReactionPacket(
             markerId = marker.id,
             owner = member.id,
