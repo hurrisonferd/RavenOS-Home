@@ -4,6 +4,7 @@ import android.app.Activity
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -33,9 +34,9 @@ object RavenHomeWhisper {
         val density = activity.resources.displayMetrics.density
         content.addView(
             card,
-            FrameLayout.LayoutParams((220 * density).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply {
-                topMargin = (86 * density).toInt()
-                marginEnd = (12 * density).toInt()
+            FrameLayout.LayoutParams((268 * density).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply {
+                topMargin = (82 * density).toInt()
+                marginEnd = (10 * density).toInt()
             },
         )
         viewRef = WeakReference(card)
@@ -43,15 +44,21 @@ object RavenHomeWhisper {
 
     fun render(member: RavenOfficeMember, note: String, signal: String, detail: String, mode: RavenHauntMode) {
         val view = viewRef?.get() ?: return
+        val clean = cleanVisible(note)
+        val presentation = RavenEmployeePresentation.packet(member, signal, detail, clean)
         view.post {
-            view.render(member, note, signal, detail, mode)
+            if (clean.isBlank()) {
+                view.visibility = View.GONE
+                return@post
+            }
+            view.render(member, presentation.ownerLine, clean, mode)
             val stateAt = RavenOfficeStateStore.read(view.context)?.updatedAt ?: 0L
             RavenSurfaceIntegrity.mark(
                 view.context,
                 RavenSurfaceIntegrity.HOME_WHISPER,
                 if (mode == RavenHauntMode.CALM) "INACTIVE" else "RENDERED",
                 stateAt,
-                mode.label,
+                "${mode.label}:integrated_expression_v5",
             )
         }
     }
@@ -65,99 +72,103 @@ object RavenHomeWhisper {
         }
     }
 
+    private fun cleanVisible(raw: String): String {
+        val clean = raw.replace(Regex("\\s+"), " ").trim()
+        if (clean.isBlank() || clean.equals("Noted.", true)) return ""
+        if (Regex("^[A-Z0-9_-]+\\s+is\\s+watching[.!]?$", RegexOption.IGNORE_CASE).matches(clean)) return ""
+        return clean
+    }
+
     private const val TAG = "ravenos_home_whisper"
 
     private class WhisperView(activity: Activity) : LinearLayout(activity) {
         private val owner = TextView(activity)
         private val note = TextView(activity)
-        private val context = TextView(activity)
         private val density = resources.displayMetrics.density
 
         init {
             orientation = VERTICAL
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-            elevation = dp(7).toFloat()
+            setPadding(dp(15), dp(12), dp(15), dp(13))
+            elevation = dp(10).toFloat()
+
             owner.textSize = 15f
             owner.setTypeface(owner.typeface, Typeface.BOLD)
+            owner.maxLines = 2
+            owner.ellipsize = TextUtils.TruncateAt.END
             addView(owner, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
-            note.textSize = 12f
-            note.setPadding(0, dp(4), 0, 0)
+
+            note.textSize = 13.5f
+            note.setLineSpacing(dp(1).toFloat(), 1.03f)
+            note.setPadding(0, dp(5), 0, 0)
             addView(note, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
-            context.textSize = 9f
-            context.setPadding(0, dp(5), 0, 0)
-            addView(context, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         }
 
-        fun render(member: RavenOfficeMember, authorNote: String, signal: String, detail: String, mode: RavenHauntMode) {
+        fun render(member: RavenOfficeMember, ownerLine: String, message: String, mode: RavenHauntMode) {
             if (mode == RavenHauntMode.CALM) {
                 visibility = View.GONE
                 return
             }
             applyModeGeometry(mode)
             visibility = View.VISIBLE
-            val textColor = contrastText(member.accent)
-            val secondary = if (textColor == Color.BLACK) 0xA8000000.toInt() else 0xC8FFFFFF.toInt()
+
+            val accent = readableAccent(member.accent)
             background = GradientDrawable().apply {
-                cornerRadius = dp(if (mode == RavenHauntMode.APOCALYPSE) 24 else 16).toFloat()
-                setColor(withAlpha(member.accent, when (mode) {
-                    RavenHauntMode.LIVED_IN -> 150
-                    RavenHauntMode.HAUNTED -> 184
-                    RavenHauntMode.FERAL -> 212
-                    RavenHauntMode.APOCALYPSE -> 232
-                    RavenHauntMode.CALM -> 0
-                }))
-                setStroke(dp(if (mode.ordinal >= RavenHauntMode.FERAL.ordinal) 2 else 1), withAlpha(textColor, 58))
+                cornerRadius = dp(if (mode == RavenHauntMode.APOCALYPSE) 24 else 18).toFloat()
+                setColor(Color.argb(if (mode.ordinal >= RavenHauntMode.FERAL.ordinal) 244 else 232, 16, 16, 23))
+                setStroke(dp(if (mode.ordinal >= RavenHauntMode.FERAL.ordinal) 2 else 1), withAlpha(accent, 225))
             }
-            owner.text = "${member.emoji} ${member.id}"
-            owner.setTextColor(textColor)
-            note.text = authorNote
-            note.setTextColor(textColor)
+
+            owner.text = ownerLine
+            owner.setTextColor(accent)
+
+            note.text = message
+            note.setTextColor(0xFFF8F8FC.toInt())
             note.maxLines = when (mode) {
-                RavenHauntMode.LIVED_IN -> 1
-                RavenHauntMode.HAUNTED -> 2
-                RavenHauntMode.FERAL -> 3
-                RavenHauntMode.APOCALYPSE -> 4
+                RavenHauntMode.LIVED_IN -> 3
+                RavenHauntMode.HAUNTED -> 4
+                RavenHauntMode.FERAL -> 4
+                RavenHauntMode.APOCALYPSE -> 5
                 RavenHauntMode.CALM -> 1
             }
-            context.visibility = if (mode.ordinal >= RavenHauntMode.HAUNTED.ordinal) View.VISIBLE else View.GONE
-            context.setTextColor(secondary)
-            context.text = buildString {
-                append(signal.replace('_', ' ').lowercase()).append(" · ").append(member.lane)
-                if (detail.isNotBlank() && mode.ordinal >= RavenHauntMode.FERAL.ordinal) {
-                    append("\n").append(detail.take(if (mode == RavenHauntMode.APOCALYPSE) 130 else 85))
-                }
-            }
+            note.ellipsize = TextUtils.TruncateAt.END
         }
 
         private fun applyModeGeometry(mode: RavenHauntMode) {
             val lp = layoutParams as? FrameLayout.LayoutParams ?: return
             lp.width = dp(when (mode) {
-                RavenHauntMode.CALM -> 180
-                RavenHauntMode.LIVED_IN -> 188
-                RavenHauntMode.HAUNTED -> 220
-                RavenHauntMode.FERAL -> 248
-                RavenHauntMode.APOCALYPSE -> 278
+                RavenHauntMode.CALM -> 220
+                RavenHauntMode.LIVED_IN -> 256
+                RavenHauntMode.HAUNTED -> 292
+                RavenHauntMode.FERAL -> 318
+                RavenHauntMode.APOCALYPSE -> 340
             })
             lp.topMargin = dp(when (mode) {
-                RavenHauntMode.APOCALYPSE -> 76
-                RavenHauntMode.FERAL -> 80
-                else -> 86
+                RavenHauntMode.APOCALYPSE -> 72
+                RavenHauntMode.FERAL -> 76
+                else -> 82
             })
-            lp.marginEnd = dp(if (mode == RavenHauntMode.APOCALYPSE) 8 else 12)
+            lp.marginEnd = dp(if (mode == RavenHauntMode.APOCALYPSE) 6 else 10)
             layoutParams = lp
             setPadding(
+                dp(if (mode.ordinal >= RavenHauntMode.FERAL.ordinal) 16 else 14),
+                dp(if (mode.ordinal >= RavenHauntMode.FERAL.ordinal) 13 else 11),
+                dp(if (mode.ordinal >= RavenHauntMode.FERAL.ordinal) 16 else 14),
                 dp(if (mode.ordinal >= RavenHauntMode.FERAL.ordinal) 14 else 12),
-                dp(if (mode.ordinal >= RavenHauntMode.FERAL.ordinal) 12 else 10),
-                dp(if (mode.ordinal >= RavenHauntMode.FERAL.ordinal) 14 else 12),
-                dp(if (mode.ordinal >= RavenHauntMode.FERAL.ordinal) 12 else 10),
             )
         }
 
         private fun withAlpha(color: Int, alpha: Int): Int = Color.argb(alpha.coerceIn(0, 255), Color.red(color), Color.green(color), Color.blue(color))
-        private fun contrastText(color: Int): Int {
+
+        private fun readableAccent(color: Int): Int {
             val perceived = (Color.red(color) * 299 + Color.green(color) * 587 + Color.blue(color) * 114) / 1000
-            return if (perceived >= 175) Color.BLACK else Color.WHITE
+            if (perceived >= 145) return color
+            return Color.rgb(
+                (Color.red(color) + 255) / 2,
+                (Color.green(color) + 255) / 2,
+                (Color.blue(color) + 255) / 2,
+            )
         }
+
         private fun dp(value: Int): Int = (value * density).toInt()
     }
 }

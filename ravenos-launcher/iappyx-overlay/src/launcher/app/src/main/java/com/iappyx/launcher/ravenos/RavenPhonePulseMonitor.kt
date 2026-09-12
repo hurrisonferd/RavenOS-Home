@@ -9,9 +9,8 @@ import android.os.Handler
 import android.os.Looper
 
 /**
- * Cheap deterministic heartbeat for phone state Android does not expose through one clean callback.
- * Polls only coarse local state: music-active, public volume/ringer levels, and battery percentage.
- * No screen pixels, text, keystrokes, microphone, or network content.
+ * Cheap deterministic heartbeat for coarse phone state plus Android media-session semantics.
+ * No screen pixels, keystrokes, microphone, or network content are read here.
  */
 object RavenPhonePulseMonitor {
     private val handler = Handler(Looper.getMainLooper())
@@ -27,6 +26,7 @@ object RavenPhonePulseMonitor {
         val ringer: Int,
         val battery: Int,
         val charging: Boolean,
+        val mediaSession: RavenMediaSessionSenseOS.Snapshot,
     )
 
     private val tick = object : Runnable {
@@ -61,7 +61,15 @@ object RavenPhonePulseMonitor {
 
     fun compact(context: Context): String {
         val s = snapshot(context.applicationContext)
-        return "MUSIC=${if (s.music) "ON" else "OFF"} · MEDIA=${s.media}% · RING=${s.ring}% · ALARM=${s.alarm}% · BAT=${s.battery}%${if (s.charging) "⚡" else ""}"
+        return buildString {
+            append("MUSIC=").append(if (s.music) "ON" else "OFF")
+            append(" · MEDIA=").append(s.media).append('%')
+            append(" · RING=").append(s.ring).append('%')
+            append(" · ALARM=").append(s.alarm).append('%')
+            append(" · BAT=").append(s.battery).append('%')
+            if (s.charging) append('⚡')
+            append("\n").append(s.mediaSession.compact())
+        }
     }
 
     private fun emitChanges(context: Context, old: Snapshot, new: Snapshot) {
@@ -83,6 +91,12 @@ object RavenPhonePulseMonitor {
         if (crossedLow || recoveredLow) {
             RavenOfficeBarService.signal(context, "BATTERY", "${if (crossedLow) "low" else "recovered"}:${new.battery}%")
         }
+
+        val oldSession = old.mediaSession
+        val newSession = new.mediaSession
+        if (newSession.available && oldSession.semanticKey() != newSession.semanticKey()) {
+            RavenOfficeBarService.signal(context, "MEDIA_SESSION", RavenMediaSessionSenseOS.signalDetail(newSession))
+        }
     }
 
     private fun snapshot(context: Context): Snapshot {
@@ -101,6 +115,7 @@ object RavenPhonePulseMonitor {
             ringer = audio.ringerMode,
             battery = battery,
             charging = charging,
+            mediaSession = RavenMediaSessionSenseOS.snapshot(context),
         )
     }
 

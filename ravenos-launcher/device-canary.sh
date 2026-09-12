@@ -36,13 +36,19 @@ PATH_RESULT="$(adb shell pm path "$PKG" | tr -d '\r')"
 [[ "$PATH_RESULT" == package:* ]] || { echo "FAIL: $PKG not installed" >&2; exit 1; }
 echo "PASS: $PATH_RESULT"
 
-printf '\n[3/8] verify package identity + wallpaper service\n'
+printf '\n[3/8] verify package identity + services\n'
 PACKAGE_DUMP="$(adb shell dumpsys package "$PKG" 2>/dev/null | tr -d '\r')"
 grep -m1 -E 'versionName=|versionCode=' <<<"$PACKAGE_DUMP" || true
 if grep -q 'IappyxWallpaperService' <<<"$PACKAGE_DUMP"; then
   echo "PASS: RavenOS live-wallpaper service registered"
 else
   echo "FAIL: RavenOS live-wallpaper service not registered" >&2
+  exit 1
+fi
+if grep -q 'RavenScreenWatchService' <<<"$PACKAGE_DUMP"; then
+  echo "PASS: owner-armed Goblin Eye service registered"
+else
+  echo "FAIL: Goblin Eye MediaProjection service not registered" >&2
   exit 1
 fi
 echo "PASS: package=$PKG"
@@ -61,19 +67,25 @@ else
   echo "Action: System Deck -> MAKE RAVENOS DEFAULT HOME"
 fi
 
-printf '\n[6/8] Office Bar notification channel\n'
-if adb shell dumpsys notification 2>/dev/null | grep -q 'ravenos_office_bar'; then
+printf '\n[6/8] Office Bar / Goblin Eye notification channels\n'
+NOTIF_DUMP="$(adb shell dumpsys notification 2>/dev/null || true)"
+if grep -q 'ravenos_office_bar' <<<"$NOTIF_DUMP"; then
   echo "PASS: RavenOS Office Bar channel observed"
 else
   echo "PENDING: Office Bar channel not observed yet"
   echo "Action: open System Deck -> WAKE OFFICE BAR"
+fi
+if grep -q 'ravenos_goblin_eye' <<<"$NOTIF_DUMP"; then
+  echo "PASS: Goblin Eye channel already observed"
+else
+  echo "PENDING: Goblin Eye channel appears after first owner-armed capture session"
 fi
 
 printf '\n[7/8] awareness grants\n'
 NOTIF_LISTENERS="$(adb shell settings get secure enabled_notification_listeners 2>/dev/null | tr -d '\r' || true)"
 ACCESSIBILITY="$(adb shell settings get secure enabled_accessibility_services 2>/dev/null | tr -d '\r' || true)"
 if grep -q "$PKG" <<<"$NOTIF_LISTENERS"; then
-  echo "PASS: notification awareness enabled"
+  echo "PASS: notification + media-session awareness enabled"
 else
   echo "PENDING: notification awareness disabled"
 fi
@@ -124,8 +136,22 @@ On-device checks:
  36. Raven Search: office sleep -> Office Bar and Follow-Me must report INACTIVE on the integrity ledger; ordinary signals do not revive them. `office wake` restores presence.
  37. While Office wallpaper is hidden behind another app, leave it for a minute; return Home and confirm it resumes current Office state rather than continuously burning visible animation work off-screen.
  38. Reboot once awake and once asleep: awake restores after BOOT_COMPLETED; explicit sleep survives reboot.
+
+Whole-phone Goblin Vision checks:
+ 39. Native Home -> R Menu -> 👁 Whole-phone senses. Status should show RavenOS readiness plus NOTIFICATION SENSE, MEDIA SESSION, Galaxy/Android readiness, and EYE state.
+ 40. Notification Sense defaults to SOURCE. Post notifications from several apps; Office reactions may use package/category/importance/conversation/alerting/burst metadata but must not quote title/body. Switch to SEMANTIC LOCAL and verify a title may appear locally; switch back to SOURCE and confirm title/body disappear from new reactions.
+ 41. With notification access granted, play Suno/Spotify/YouTube Music. Whole-phone panel -> REFRESH MEDIA STATE should identify active playback state and track metadata when the app exposes a MediaSession. Pause/resume/change tracks and confirm MEDIA_SESSION reactions evolve without microphone capture.
+ 42. Tap 👁 ARM GOBLIN EYE. Android must show its own screen-capture consent UI. Before owner approval, EYE remains OFF and no visual markers may be claimed.
+ 43. Approve the capture. A second persistent notification should say "Goblin Eye armed" and Whole-phone Senses should show EYE=ON. The service must state raw frames are not persisted.
+ 44. With Goblin Eye armed, move Chrome/Suno/Home/Settings through visibly different screens. Office Feed should gain SCREEN_VISUAL reactions containing LOCAL_VISION proof and coarse motion/delta/luma evidence. They must not claim OCR text or identify pixel semantics that the deterministic analyzer did not derive.
+ 45. Leave one app visually stable for several seconds. Goblin Eye should become quiet rather than generating commentary every sample. Then perform a large screen transition and confirm the next earned reaction resumes.
+ 46. Enable Appear-on-top + Follow-Me in HAUNTED/FERAL. Goblin Vision text overlay and eligible Watchlet art should follow over ordinary apps while Android SystemUI/notification shade remains represented by the Office notification rather than a fake over-SystemUI overlay.
+ 47. Trigger a real notification burst from one source. Office Feed should reflect burst count / alerting / interruption-filter metadata instead of producing identical source-only rows. Remove/dismiss notifications and verify NOTIFICATION_REMOVED can produce payoff/closure rather than another POSTED line.
+ 48. On Galaxy devices, Whole-phone Senses -> GALAXY / BACKGROUND SURVIVAL should identify the model and whether battery optimization exemption is confirmed. Manually add RavenOS Launcher to Samsung's Never sleeping apps list when persistent haunting is desired.
+ 49. Tap STOP GOBLIN EYE (panel or persistent notification). EYE must return OFF, the Goblin Eye foreground notification disappears, and no new SCREEN_VISUAL markers are produced after the capture session ends.
+ 50. Restart Goblin Eye later. Android must ask for capture consent again; RavenOS must not silently reuse the previous MediaProjection grant.
 EOF
 
 echo
 echo "DEVICE_CANARY_SOURCE_COMPLETE=true"
-echo "RUNTIME_RESULT=REQUIRES_HUMAN_OBSERVATION_FOR_ERGONOMICS_QUICK_DECK_HOME_WIDGET_WALLPAPER_CONSUMPTION_OVERLAY_INTEGRITY_CADENCE_SCREEN_POWER_TRACE_AND_REBOOT_EDGES"
+echo "RUNTIME_RESULT=REQUIRES_HUMAN_OBSERVATION_FOR_ERGONOMICS_QUICK_DECK_HOME_WIDGET_WALLPAPER_OVERLAY_INTEGRITY_CADENCE_SCREEN_POWER_TRACE_REBOOT_NOTIFICATION_RANKING_MEDIA_SESSION_GOBLIN_EYE_AND_GALAXY_SURVIVAL_EDGES"

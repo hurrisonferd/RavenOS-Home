@@ -1,0 +1,55 @@
+name: RavenOS Launcher Compile Diagnostic
+
+on:
+  pull_request:
+    paths:
+      - 'ravenos-launcher/**'
+      - '.github/workflows/ravenos-launcher-compile-log.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile-diagnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout with pinned launcher chassis
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Apply RavenOS Launcher overlay
+        run: python3 ravenos-launcher/apply-ravenos-overlay.py
+
+      - name: Apply RavenOS ergonomics patch
+        run: python3 ravenos-launcher/patch-ravenos-ergonomics.py faeryware/house/iappyxOS-Launcher
+
+      - name: Capture Kotlin compile diagnostics
+        working-directory: faeryware/house/iappyxOS-Launcher/src/launcher
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          set +e
+          ./gradlew :app:compileDebugKotlin --stacktrace --console=plain > "$GITHUB_WORKSPACE/RavenOS-Kotlin-Compile.log" 2>&1
+          STATUS=$?
+          echo "$STATUS" > "$GITHUB_WORKSPACE/RavenOS-Kotlin-Compile.status"
+          tail -n 300 "$GITHUB_WORKSPACE/RavenOS-Kotlin-Compile.log" || true
+          exit 0
+
+      - name: Upload Kotlin compile diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: RavenOS-Kotlin-Compile-Diagnostic
+          path: |
+            RavenOS-Kotlin-Compile.log
+            RavenOS-Kotlin-Compile.status

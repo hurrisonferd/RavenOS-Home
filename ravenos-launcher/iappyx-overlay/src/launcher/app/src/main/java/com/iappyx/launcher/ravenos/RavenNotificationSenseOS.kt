@@ -1,0 +1,156 @@
+package com.iappyx.launcher.ravenos
+
+import android.app.Notification
+import android.app.NotificationManager
+import android.content.Context
+import android.os.Build
+import android.service.notification.NotificationListenerService
+import android.service.notification.StatusBarNotification
+
+/** Notification-awareness layer with owner-selected local privacy depth. */
+object RavenNotificationSenseOS {
+    enum class PrivacyMode { SOURCE, SEMANTIC, FULL_LOCAL }
+
+    private const val PREFS = "ravenos_notification_sense_v1"
+    private const val KEY_MODE = "privacy_mode"
+    private const val KEY_LAST_PACKAGE = "last_package"
+    private const val KEY_LAST_AT = "last_at"
+    private const val KEY_BURST = "burst"
+    private const val KEY_POSTED_PREFIX = "posted_at_"
+    private const val BURST_MS = 12_000L
+
+    fun mode(context: Context): PrivacyMode = runCatching {
+        PrivacyMode.valueOf(
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString(KEY_MODE, PrivacyMode.SOURCE.name) ?: PrivacyMode.SOURCE.name,
+        )
+    }.getOrDefault(PrivacyMode.SOURCE)
+
+    fun setMode(context: Context, mode: PrivacyMode) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putString(KEY_MODE, mode.name).apply()
+        RavenOfficeBarService.signal(context, "SYSTEM_DECK", "notification-sense:${mode.name.lowercase()}")
+    }
+
+    fun cycle(context: Context): PrivacyMode {
+        val values = PrivacyMode.values()
+        val next = values[(mode(context).ordinal + 1) % values.size]
+        setMode(context, next)
+        return next
+    }
+
+    fun onPosted(
+        context: Context,
+        sbn: StatusBarNotification,
+        rankingMap: NotificationListenerService.RankingMap?,
+        interruptionFilter: Int,
+    ) {
+        if (!RavenHauntModeStore.get(context).notificationRouting) return
+        val n = sbn.notification ?: return
+        val ranking = NotificationListenerService.Ranking()
+        val ranked = runCatching { rankingMap?.getRanking(sbn.key, ranking) == true }.getOrDefault(false)
+        val importance = if (ranked) ranking.importance else NotificationManager.IMPORTANCE_UNSPECIFIED
+        val conversation = ranked && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && ranking.isConversation
+        val ambient = ranked && ranking.isAmbient
+        val matchesFilter = !ranked || ranking.matchesInterruptionFilter()
+        val channel = if (ranked) ranking.channel?.id.orEmpty() else ""
+        val rank = if (ranked) ranking.rank else -1
+        val ongoing = (n.flags and Notification.FLAG_ONGOING_EVENT) != 0
+        val groupSummary = (n.flags and Notification.FLAG_GROUP_SUMMARY) != 0
+        val category = n.category.orEmpty()
+        val alerting = matchesFilter && !ambient && importance >= NotificationManager.IMPORTANCE_DEFAULT && !ongoing
+        val burst = nextBurst(context, sbn.packageName, sbn.postTime)
+        rememberPosted(context, sbn.key, System.currentTimeMillis())
+        val privacy = mode(context)
+        val extras = n.extras
+        val title = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty().trim()
+        val body = (
+            extras?.getCharSequence(Notification.EXTRA_BIG_TEXT)
+                ?: extras?.getCharSequence(Notification.EXTRA_TEXT)
+                ?: extras?.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)
+            )?.toString().orEmpty().trim()
+
+        val detail = buildString {
+            append("package:").append(sbn.packageName)
+            append("|state:posted")
+            append("|category:").append(category.ifBlank { "none" })
+            append("|importance:").append(importance)
+            append("|conversation:").append(conversation)
+            append("|ambient:").append(ambient)
+            append("|matches_filter:").append(matchesFilter)
+            append("|alerting:").append(alerting)
+            append("|ongoing:").append(ongoing)
+            append("|group_summary:").append(groupSummary)
+            append("|rank:").append(rank)
+            append("|burst:").append(burst)
+            append("|interruption_filter:").append(interruptionFilter)
+            if (channel.isNotBlank()) append("|channel:").append(clean(channel, 64))
+            when (privacy) {
+                PrivacyMode.SOURCE -> Unit
+                PrivacyMode.SEMANTIC -> if (title.isNotBlank()) append("|title:").append(clean(title, 100))
+                PrivacyMode.FULL_LOCAL -> {
+                    if (title.isNotBlank()) append("|title:").append(clean(title, 100))
+                    if (body.isNotBlank()) append("|body:").append(clean(body, 180))
+                }
+            }
+            append("|privacy:").append(privacy.name)
+        }
+        RavenOfficeBarService.signal(context, "NOTIFICATION_SENSE", detail)
+    }
+
+    fun onRemoved(context: Context, sbn: StatusBarNotification) {
+        if (!RavenHauntModeStore.get(context).notificationRouting) return
+        val lifetime = takeLifetime(context, sbn.key, System.currentTimeMillis())
+        val category = sbn.notification?.category.orEmpty().ifBlank { "none" }
+        RavenOfficeBarService.signal(
+            context,
+            "NOTIFICATION_SENSE",
+            buildString {
+                append("package:").append(sbn.packageName)
+                append("|state:removed")
+                append("|category:").append(category)
+                append("|payoff:true")
+                lifetime?.let { append("|lifetime_ms:").append(it) }
+                append("|privacy:").append(mode(context).name)
+            },
+        )
+    }
+
+    fun summary(context: Context): String = "NOTIFICATION SENSE ${mode(context).name} + SHADE GEOMETRY"
+
+    private fun nextBurst(context: Context, pkg: String, at: Long): Int {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val lastPkg = prefs.getString(KEY_LAST_PACKAGE, "") ?: ""
+        val lastAt = prefs.getLong(KEY_LAST_AT, 0L)
+        val old = prefs.getInt(KEY_BURST, 0)
+        val burst = if (pkg == lastPkg && at - lastAt in 0..BURST_MS) old + 1 else 1
+        prefs.edit().putString(KEY_LAST_PACKAGE, pkg).putLong(KEY_LAST_AT, at).putInt(KEY_BURST, burst).apply()
+        return burst
+    }
+
+    private fun rememberPosted(context: Context, key: String?, at: Long) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putLong(KEY_POSTED_PREFIX + stableHash(key.orEmpty()), at).apply()
+    }
+
+    private fun takeLifetime(context: Context, key: String?, now: Long): Long? {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val storedKey = KEY_POSTED_PREFIX + stableHash(key.orEmpty())
+        val at = prefs.getLong(storedKey, -1L)
+        prefs.edit().remove(storedKey).apply()
+        return at.takeIf { it > 0L }?.let { (now - it).coerceAtLeast(0L) }
+    }
+
+    private fun clean(raw: String, max: Int): String = raw
+        .replace('|', ' ')
+        .replace('\n', ' ')
+        .replace('\r', ' ')
+        .trim()
+        .take(max)
+
+    private fun stableHash(text: String): String {
+        var hash = 0x811C9DC5.toInt()
+        for (c in text) { hash = hash xor c.code; hash *= 16777619 }
+        return (hash and Int.MAX_VALUE).toString(16)
+    }
+}

@@ -19,6 +19,11 @@ object RavenEvidenceBoard {
         val start = (ring.length() - MAX).coerceAtLeast(0)
         for (i in start until ring.length()) trimmed.put(ring.opt(i))
         prefs.edit().putString(KEY_RING, trimmed.toString()).apply()
+
+        // Settlement fan-out: both stores are structural enrichment only. They never gate reply
+        // presentation and deliberately exclude raw screen transcript/dialogue from durable recall.
+        runCatching { RavenDialogueVaultOS.recordReaction(context, packet) }
+        runCatching { RavenOfficeRecallOS.indexReaction(context, packet) }
     }
 
     fun last(context: Context): JSONObject? {

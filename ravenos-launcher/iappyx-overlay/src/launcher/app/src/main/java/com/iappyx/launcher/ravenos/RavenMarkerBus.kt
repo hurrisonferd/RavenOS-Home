@@ -4,13 +4,7 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 
-/**
- * Android Goblin Vision MarkerBus.
- *
- * Raw launcher/device callbacks are normalized into small typed markers before any comedy,
- * employee casting, optional vision, or model-facing path gets a vote. The bus is local,
- * deterministic, bounded, and carries no effect authority.
- */
+/** Raw Android callbacks become typed local markers before comedy, casting, or presentation. */
 object RavenMarkerBus {
     private const val PREFS = "ravenos_marker_bus_v1"
     private const val KEY_RING = "ring"
@@ -26,13 +20,8 @@ object RavenMarkerBus {
         val tags: Set<String>,
     ) {
         fun toJson(): JSONObject = JSONObject()
-            .put("id", id)
-            .put("key", key)
-            .put("detail", detail)
-            .put("source", source)
-            .put("at", at)
-            .put("salience", salience)
-            .put("tags", JSONArray(tags.toList()))
+            .put("id", id).put("key", key).put("detail", detail).put("source", source)
+            .put("at", at).put("salience", salience).put("tags", JSONArray(tags.toList()))
     }
 
     @Synchronized
@@ -43,7 +32,7 @@ object RavenMarkerBus {
         val marker = Marker(
             id = "$at-${stableHash("$key|$detail|$source")}",
             key = key,
-            detail = detail.take(320),
+            detail = detail.take(520),
             source = source,
             at = at,
             salience = salience(key, tags),
@@ -73,13 +62,9 @@ object RavenMarkerBus {
             val arr = obj.optJSONArray("tags")
             if (arr != null) for (j in 0 until arr.length()) arr.optString(j).takeIf { it.isNotBlank() }?.let(tags::add)
             out += Marker(
-                id = obj.optString("id"),
-                key = obj.optString("key"),
-                detail = obj.optString("detail"),
-                source = obj.optString("source", "ANDROID"),
-                at = obj.optLong("at"),
-                salience = obj.optInt("salience", 1),
-                tags = tags,
+                id = obj.optString("id"), key = obj.optString("key"), detail = obj.optString("detail"),
+                source = obj.optString("source", "ANDROID"), at = obj.optLong("at"),
+                salience = obj.optInt("salience", 1), tags = tags,
             )
         }
         return out
@@ -90,9 +75,14 @@ object RavenMarkerBus {
     }
 
     private fun normalizeKey(raw: String, detail: String): String = when (raw.trim().uppercase()) {
-        "FOREGROUND_APP", "APP_LAUNCH" -> "APP_ENTER"
-        "NOTIFICATION" -> "NOTIFICATION_POSTED"
+        "FOREGROUND_APP", "FOREGROUND_USAGE", "APP_LAUNCH" -> "APP_ENTER"
+        "FOREGROUND_WINDOW" -> "WINDOW_CHANGE"
+        "NOTIFICATION", "NOTIFICATION_SENSE" -> if (detail.contains("state:removed", true)) "NOTIFICATION_REMOVED" else "NOTIFICATION_POSTED"
         "MEDIA", "MUSIC" -> if (detail.contains("inactive", true) || detail.contains("stopped", true)) "MEDIA_IDLE" else "MEDIA_ACTIVE"
+        "MEDIA_SESSION" -> "MEDIA_SESSION"
+        "SCREEN_VISUAL" -> "SCREEN_VISUAL"
+        "SCREEN_TEXT" -> "SCREEN_TEXT"
+        "SCREEN_SEMANTIC" -> "SCREEN_SEMANTIC"
         "POWER" -> "POWER_CHANGED"
         "BATTERY" -> "BATTERY_CHANGED"
         "HOME" -> "HOME_ENTER"
@@ -107,20 +97,28 @@ object RavenMarkerBus {
         val tags = linkedSetOf<String>()
         when {
             key.startsWith("APP_") -> tags += "APP"
+            key == "WINDOW_CHANGE" -> { tags += "APP"; tags += "WINDOW" }
             key.startsWith("NOTIFICATION") -> tags += "NOTIFICATION"
             key.startsWith("MEDIA") -> tags += "MEDIA"
+            key == "SCREEN_VISUAL" -> tags += "VISION"
+            key == "SCREEN_TEXT" -> { tags += "VISION"; tags += "TEXT" }
+            key == "SCREEN_SEMANTIC" -> { tags += "VISION"; tags += "SEMANTIC"; tags += "TEXT" }
             key.startsWith("BATTERY") || key.startsWith("POWER") -> tags += "POWER"
             key.contains("ERROR") || key.contains("FAIL") || key.contains("CONFLICT") -> tags += "ERROR"
             key.contains("HOME") -> tags += "HOME"
         }
         val d = detail.lowercase()
-        if (listOf("spotify", "music", "soundcloud", "youtube.music", "audio").any(d::contains)) tags += "MUSIC"
-        if (key == "MEDIA_IDLE") tags += "MEDIA_STOP"
+        if (listOf("spotify", "music", "soundcloud", "youtube.music", "audio", "state:playing", "track:").any(d::contains)) tags += "MUSIC"
+        if (key == "MEDIA_IDLE" || d.contains("state:paused") || d.contains("state:stopped")) tags += "MEDIA_STOP"
+        if (d.contains("state:changed") && key == "SCREEN_VISUAL") tags += "VISUAL_CHANGE"
+        if (key in setOf("SCREEN_TEXT", "SCREEN_SEMANTIC") && d.contains("state:visible")) tags += "VISIBLE_TEXT"
+        if (key in setOf("SCREEN_TEXT", "SCREEN_SEMANTIC") && (d.contains("suppressed_sensitive") || d.contains("suppressed_password"))) tags += "BOUNDARY"
+        if (d.contains("meta:true")) tags += "META_RECURSION"
         if (listOf("github", "gitlab", "termux", "studio", "code", "build").any(d::contains)) tags += "BUILD"
         if (listOf("chrome", "firefox", "browser", "opera", "reddit", "wikipedia").any(d::contains)) tags += "DISCOVERY"
         if (listOf("permission", "settings", "auth", "security", "wallet", "bank").any(d::contains)) tags += "BOUNDARY"
-        if (listOf("gmail", "messages", "discord", "slack", "telegram", "whatsapp").any(d::contains)) tags += "COMMUNICATION"
-        if (listOf("low", "critical", "fail", "error", "denied").any(d::contains)) tags += "ATTENTION"
+        if (listOf("gmail", "messages", "discord", "slack", "telegram", "whatsapp", "conversation:true").any(d::contains)) tags += "COMMUNICATION"
+        if (listOf("low", "critical", "fail", "error", "denied", "alerting:true").any(d::contains)) tags += "ATTENTION"
         if (listOf("success", "passed", "complete", "green", "done").any(d::contains)) tags += "SUCCESS"
         if (listOf("charging", "restored", "recovered").any(d::contains)) tags += "RECOVERY"
         return tags
@@ -132,6 +130,10 @@ object RavenMarkerBus {
         if ("ATTENTION" in tags) score += 3
         if ("SUCCESS" in tags) score += 2
         if ("BOUNDARY" in tags) score += 2
+        if ("VISIBLE_TEXT" in tags) score += 2
+        if ("META_RECURSION" in tags) score += 4
+        if ("VISION" in tags) score += 1
+        if (key == "WINDOW_CHANGE") score -= 1
         if (key == "HOME_ENTER" || key == "ROOM_CHANGED" || key == "MEDIA_IDLE") score -= 1
         return score.coerceIn(0, 10)
     }
@@ -140,10 +142,7 @@ object RavenMarkerBus {
 
     private fun stableHash(text: String): String {
         var hash = 0x811C9DC5.toInt()
-        for (c in text) {
-            hash = hash xor c.code
-            hash *= 16777619
-        }
+        for (c in text) { hash = hash xor c.code; hash *= 16777619 }
         return (hash and Int.MAX_VALUE).toString(16)
     }
 }

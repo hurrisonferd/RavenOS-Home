@@ -25,6 +25,7 @@ import kotlin.math.abs
 object RavenFollowMeOverlay {
     private const val PREFS = "ravenos_follow_me_v1"
     private const val KEY_ENABLED = "enabled"
+    private const val KEY_PENDING = "pending_permission_enable"
     private const val KEY_X = "x"
     private const val KEY_Y = "y"
 
@@ -35,20 +36,68 @@ object RavenFollowMeOverlay {
     private var noteView: TextView? = null
     private var contextView: TextView? = null
 
-    fun isEnabled(context: Context): Boolean = context
+    /**
+     * Reconciles the Android overlay grant with Raven's prior ENABLE FOLLOW-ME request.
+     * This fixes the old two-tap trap: Raven can request Follow-Me, grant Android access,
+     * and the next real phone event arms the overlay without requiring a second button press.
+     */
+    fun isEnabled(context: Context): Boolean {
+        val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_ENABLED, false)) return true
+        val pending = prefs.getBoolean(KEY_PENDING, false)
+        if (pending && Settings.canDrawOverlays(context)) {
+            prefs.edit().putBoolean(KEY_ENABLED, true).putBoolean(KEY_PENDING, false).apply()
+            RavenSurfaceIntegrity.mark(
+                context,
+                RavenSurfaceIntegrity.FOLLOW_ME,
+                "ARMED",
+                RavenOfficeStateStore.read(context)?.updatedAt ?: 0L,
+                "overlay_permission_grant_reconciled",
+            )
+            return true
+        }
+        return false
+    }
+
+    fun isPending(context: Context): Boolean = context.applicationContext
         .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        .getBoolean(KEY_ENABLED, false)
+        .getBoolean(KEY_PENDING, false)
+
+    fun status(context: Context): String = when {
+        isEnabled(context) && Settings.canDrawOverlays(context) -> "FOLLOW-ME=ON · OVERLAY=GRANTED"
+        isPending(context) && !Settings.canDrawOverlays(context) -> "FOLLOW-ME=PENDING · OVERLAY=NEEDS GRANT"
+        Settings.canDrawOverlays(context) -> "FOLLOW-ME=OFF · OVERLAY=GRANTED"
+        else -> "FOLLOW-ME=OFF · OVERLAY=NOT GRANTED"
+    }
 
     fun enable(context: Context): Boolean {
-        if (!Settings.canDrawOverlays(context)) return false
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putBoolean(KEY_ENABLED, true).apply()
+        val app = context.applicationContext
+        val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (!Settings.canDrawOverlays(context)) {
+            prefs.edit().putBoolean(KEY_ENABLED, false).putBoolean(KEY_PENDING, true).apply()
+            RavenSurfaceIntegrity.mark(
+                context,
+                RavenSurfaceIntegrity.FOLLOW_ME,
+                "PENDING",
+                RavenOfficeStateStore.read(context)?.updatedAt ?: 0L,
+                "raven_requested_follow_me_waiting_for_android_overlay_grant",
+            )
+            return false
+        }
+        prefs.edit().putBoolean(KEY_ENABLED, true).putBoolean(KEY_PENDING, false).apply()
+        RavenSurfaceIntegrity.mark(
+            context,
+            RavenSurfaceIntegrity.FOLLOW_ME,
+            "ARMED",
+            RavenOfficeStateStore.read(context)?.updatedAt ?: 0L,
+            "enabled_by_raven",
+        )
         return true
     }
 
     fun disable(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putBoolean(KEY_ENABLED, false).apply()
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_ENABLED, false).putBoolean(KEY_PENDING, false).apply()
         RavenSurfaceIntegrity.mark(
             context,
             RavenSurfaceIntegrity.FOLLOW_ME,
@@ -73,13 +122,14 @@ object RavenFollowMeOverlay {
         if (!hauntMode.followMe || !enabled || !permitted) {
             val reason = when {
                 !hauntMode.followMe -> "suppressed:${hauntMode.label}"
+                !enabled && isPending(context) -> "pending_overlay_permission"
                 !enabled -> "disabled"
                 else -> "overlay_permission_missing"
             }
             RavenSurfaceIntegrity.mark(
                 context,
                 RavenSurfaceIntegrity.FOLLOW_ME,
-                "INACTIVE",
+                if (isPending(context)) "PENDING" else "INACTIVE",
                 stateAt,
                 reason,
             )
@@ -99,22 +149,26 @@ object RavenFollowMeOverlay {
             return
         }
 
-        val textColor = contrastText(member.accent)
-        val secondary = if (textColor == Color.BLACK) 0xAA000000.toInt() else 0xCCFFFFFF.toInt()
+        val accent = readableAccent(member.accent)
         root?.background = GradientDrawable().apply {
             cornerRadius = dp(context, if (hauntMode == RavenHauntMode.APOCALYPSE) 24 else 18).toFloat()
-            setColor(withAlpha(member.accent, if (hauntMode == RavenHauntMode.APOCALYPSE) 248 else 238))
-            setStroke(dp(context, if (hauntMode.ordinal >= RavenHauntMode.FERAL.ordinal) 2 else 1), withAlpha(textColor, 82))
+            setColor(Color.argb(if (hauntMode == RavenHauntMode.APOCALYPSE) 248 else 240, 16, 16, 23))
+            setStroke(dp(context, if (hauntMode.ordinal >= RavenHauntMode.FERAL.ordinal) 2 else 1), withAlpha(accent, 225))
         }
         ownerView?.apply {
             text = "${member.emoji} ${member.id} · ${hauntMode.label}"
-            setTextColor(textColor)
+            setTextColor(accent)
             textSize = if (hauntMode == RavenHauntMode.APOCALYPSE) 17f else 15f
         }
         noteView?.apply {
             text = note
-            setTextColor(textColor)
-            maxLines = hauntMode.overlayDetailLines.coerceAtLeast(1)
+            setTextColor(0xFFF8F8FC.toInt())
+            maxLines = when (hauntMode) {
+                RavenHauntMode.HAUNTED -> 4
+                RavenHauntMode.FERAL -> 6
+                RavenHauntMode.APOCALYPSE -> 8
+                else -> 3
+            }
         }
         contextView?.apply {
             text = buildString {
@@ -123,18 +177,18 @@ object RavenFollowMeOverlay {
                 append(member.lane)
                 if (detail.isNotBlank() && hauntMode.overlayDetailLines >= 2) {
                     append("\n")
-                    append(detail.take(if (hauntMode == RavenHauntMode.APOCALYPSE) 150 else 90))
+                    append(detail.take(if (hauntMode == RavenHauntMode.APOCALYPSE) 190 else 130))
                 }
             }
-            maxLines = if (hauntMode == RavenHauntMode.APOCALYPSE) 4 else 2
-            setTextColor(secondary)
+            maxLines = if (hauntMode == RavenHauntMode.APOCALYPSE) 5 else 3
+            setTextColor(0xFFD4D4DE.toInt())
         }
 
         params?.let { lp ->
             val desiredWidth = when (hauntMode) {
-                RavenHauntMode.HAUNTED -> 286
-                RavenHauntMode.FERAL -> 320
-                RavenHauntMode.APOCALYPSE -> 350
+                RavenHauntMode.HAUNTED -> 300
+                RavenHauntMode.FERAL -> 330
+                RavenHauntMode.APOCALYPSE -> 356
                 else -> 286
             }
             val pxWidth = dp(context, desiredWidth)
@@ -149,7 +203,7 @@ object RavenFollowMeOverlay {
             RavenSurfaceIntegrity.FOLLOW_ME,
             "RENDERED",
             stateAt,
-            "overlay_view",
+            "overlay_view_cross_app",
         )
     }
 
@@ -172,27 +226,27 @@ object RavenFollowMeOverlay {
 
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(context, 14), dp(context, 10), dp(context, 14), dp(context, 10))
+            setPadding(dp(context, 15), dp(context, 12), dp(context, 15), dp(context, 13))
             isClickable = true
-            elevation = dp(context, 8).toFloat()
+            elevation = dp(context, 10).toFloat()
         }
         ownerView = TextView(context).apply {
             textSize = 15f
             setTypeface(typeface, Typeface.BOLD)
         }.also(container::addView)
         noteView = TextView(context).apply {
-            textSize = 12f
-            maxLines = 3
-            setPadding(0, dp(context, 3), 0, 0)
+            textSize = 13f
+            maxLines = 6
+            setPadding(0, dp(context, 4), 0, 0)
         }.also(container::addView)
         contextView = TextView(context).apply {
             textSize = 10f
-            maxLines = 2
-            setPadding(0, dp(context, 4), 0, 0)
+            maxLines = 3
+            setPadding(0, dp(context, 6), 0, 0)
         }.also(container::addView)
 
         val lp = WindowManager.LayoutParams(
-            dp(context, 286),
+            dp(context, 300),
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -200,8 +254,8 @@ object RavenFollowMeOverlay {
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.END
-            x = prefs.getInt(KEY_X, dp(context, 12))
-            y = prefs.getInt(KEY_Y, dp(context, 150))
+            x = prefs.getInt(KEY_X, dp(context, 10))
+            y = prefs.getInt(KEY_Y, dp(context, 112))
         }
         params = lp
         wireDragAndOpen(context, container, lp)
@@ -269,9 +323,14 @@ object RavenFollowMeOverlay {
         Color.blue(color),
     )
 
-    private fun contrastText(color: Int): Int {
+    private fun readableAccent(color: Int): Int {
         val perceived = (Color.red(color) * 299 + Color.green(color) * 587 + Color.blue(color) * 114) / 1000
-        return if (perceived >= 175) Color.BLACK else Color.WHITE
+        if (perceived >= 145) return color
+        return Color.rgb(
+            (Color.red(color) + 255) / 2,
+            (Color.green(color) + 255) / 2,
+            (Color.blue(color) + 255) / 2,
+        )
     }
 
     private fun dp(context: Context, value: Int): Int =

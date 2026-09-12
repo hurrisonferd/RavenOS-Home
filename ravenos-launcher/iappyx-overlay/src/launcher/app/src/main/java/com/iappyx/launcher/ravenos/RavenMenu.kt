@@ -11,12 +11,7 @@ import androidx.appcompat.app.AlertDialog
 import com.iappyx.launcher.LauncherActivity
 import java.lang.ref.WeakReference
 
-/**
- * Explicit launcher escape hatch.
- *
- * Gestures remain fast shortcuts, but Raven never has to remember them: the small edge tab
- * opens every primary destination and long-press opens gesture configuration directly.
- */
+/** Explicit launcher escape hatch; gestures remain optional shortcuts. */
 object RavenMenu {
     private const val TAG = "ravenos_edge_menu"
     private var tabRef: WeakReference<TextView>? = null
@@ -60,6 +55,7 @@ object RavenMenu {
 
     fun open(activity: LauncherActivity) {
         val items = arrayOf(
+            "👁  Whole-phone senses",
             "⚡  Quick Deck",
             "⌂  Home",
             "▦  Apps",
@@ -75,15 +71,16 @@ object RavenMenu {
             .setMessage(RavenGesturePrefs.summary(activity))
             .setItems(items) { _, which ->
                 when (which) {
-                    0 -> RavenQuickControls.show(activity)
-                    1 -> activity.ravenOpenHome()
-                    2 -> activity.ravenOpenApps()
-                    3 -> activity.ravenOpenSearch()
-                    4 -> activity.ravenOpenSystemDeck()
-                    5 -> RavenGesturePrefs.showDialog(activity)
-                    6 -> RavenOfficeBarService.cycleHaunt(activity)
-                    7 -> RavenOfficeBarService.auto(activity)
-                    8 -> RavenOfficeBarService.disable(activity)
+                    0 -> RavenWholePhonePanel.show(activity)
+                    1 -> RavenQuickControls.show(activity)
+                    2 -> activity.ravenOpenHome()
+                    3 -> activity.ravenOpenApps()
+                    4 -> activity.ravenOpenSearch()
+                    5 -> activity.ravenOpenSystemDeck()
+                    6 -> RavenGesturePrefs.showDialog(activity)
+                    7 -> RavenOfficeBarService.cycleHaunt(activity)
+                    8 -> RavenOfficeBarService.auto(activity)
+                    9 -> RavenOfficeBarService.disable(activity)
                 }
             }
             .setNegativeButton("Close", null)

@@ -127,3 +127,7 @@ print("RavenOS ergonomics patch applied: edge menu + configurable vertical gestu
 # local builds cannot accidentally produce different RavenOS launchers.
 ec = Path(__file__).resolve().with_name("patch-ravenos-ecology.py")
 subprocess.check_call(["python3", str(ec), str(root)])
+
+# Whole-phone awareness is another fail-closed layer over the same reviewed donor.
+whole = Path(__file__).resolve().with_name("patch-ravenos-whole-phone.py")
+subprocess.check_call(["python3", str(whole), str(root)])
