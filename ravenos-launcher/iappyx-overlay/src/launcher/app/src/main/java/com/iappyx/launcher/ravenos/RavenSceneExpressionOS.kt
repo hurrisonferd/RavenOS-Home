@@ -19,22 +19,28 @@ object RavenSceneExpressionOS {
     ): RavenEmployeePresentation.Packet {
         val viewport = RavenViewportSemanticsOS.latest(context)
         val task = viewport?.task.orEmpty().ifBlank { inferTask(screen.semanticSummary) }
+        val seed = listOf(
+            member.id, task, screen.semanticKind, direction.sceneId, direction.turn.toString(),
+            script?.motif.orEmpty(), script?.interaction.orEmpty(), bit?.tier.orEmpty(),
+            show?.form.orEmpty(), gold?.phase.orEmpty(), reserve?.state.orEmpty(),
+            (season?.episode ?: 0).toString(),
+        ).joinToString("|")
 
-        // Visual law: stable identity + ONE current-scene glyph + ONE earned exceptional-state glyph.
-        // Kaomoji carries expressive posture; the header must never become a telemetry dump.
-        val scene = firstNotBlank(
-            interactionGlyph(script),
-            motifGlyph(script),
-            taskGlyph(task),
-            sceneGlyph(screen.semanticKind),
+        // Visual law: stable identity + ONE scene glyph + ONE earned exceptional-state glyph.
+        // The reservoirs add variance inside those slots; they never increase the slot count.
+        val sceneCanonical = firstNotBlank(
+            interactionGlyph(script), motifGlyph(script), taskGlyph(task), sceneGlyph(screen.semanticKind),
             RavenEmojiBudgetOS.glyphCandidate(base.context),
         )
-        val state = firstNotBlank(
-            exceptionalGlyph(screen, direction, bit, show, season, gold),
-            beatGlyph(direction.beat),
+        val stateCanonical = firstNotBlank(
+            exceptionalGlyph(screen, direction, bit, show, season, gold), beatGlyph(direction.beat),
         )
+        val scene = RavenEmojiReservoirOS.variant(context, member.id, "SCENE", sceneCanonical, seed, direction.turn)
+        val state = RavenEmojiReservoirOS.variant(context, member.id, "STATE", stateCanonical, seed, direction.turn)
         val soup = RavenEmojiBudgetOS.compose(member.id, scene, state, base.emojiSoup)
-        val face = expressiveFace(member.id, task, screen.meta, direction, script, bit, show, season, reserve, gold, base.kaomoji)
+        val mood = mood(task, screen, direction, bit, show, gold)
+        val face = RavenExpressionReservoirOS.select(context, member.id, mood, seed, base.kaomoji, direction.turn)
+
         return base.copy(
             emojiSoup = soup,
             kaomoji = face,
@@ -50,6 +56,28 @@ object RavenSceneExpressionOS {
             ).joinToString(" ").ifBlank { base.context },
         )
     }
+
+    private fun mood(
+        task: String,
+        screen: RavenScreenContextOS.Snapshot,
+        direction: RavenSitcomDirectorOS.Direction,
+        bit: RavenBitLedgerOS.Cue?,
+        show: RavenMetaMaxShowrunnerOS.Beat?,
+        gold: RavenGoldSitcomTopologyOS.Beat?,
+    ): String = when {
+        screen.meta || direction.beat == "META" || (show?.level ?: 0) >= 4 -> "META"
+        direction.beat == "BUG" -> "BUG"
+        direction.beat == "PAYOFF" || gold?.phase == "CLOSE" -> "PAYOFF"
+        bit?.brick == true || bit?.shouldEscalate == true || gold?.phase in setOf("CALLBACK", "ESCALATE") -> "CALLBACK"
+        task == "LISTENING" || screen.semanticKind == "MUSIC" -> "MUSIC"
+        task == "COMPOSING" || task == "TYPING" -> "COMPOSING"
+        task in setOf("READING", "READING_CHAT", "BROWSING") -> "READING"
+        direction.beat == "OBSERVE" -> "QUIET"
+        memberAnalytic(screen.semanticKind) -> "ANALYTIC"
+        else -> "SMUG"
+    }
+
+    private fun memberAnalytic(kind: String): Boolean = kind in setOf("CODE", "TERMINAL", "SETTINGS")
 
     private fun firstNotBlank(vararg values: String): String = values.firstOrNull(String::isNotBlank).orEmpty()
 
@@ -166,73 +194,5 @@ object RavenSceneExpressionOS {
             "typing" in s -> "TYPING"
             else -> "VIEWING"
         }
-    }
-
-    private fun expressiveFace(
-        owner: String,
-        task: String,
-        meta: Boolean,
-        direction: RavenSitcomDirectorOS.Direction,
-        script: RavenEpisodeScriptOS.Cue?,
-        bit: RavenBitLedgerOS.Cue?,
-        show: RavenMetaMaxShowrunnerOS.Beat?,
-        season: RavenOfficeSeasonOS.Memory?,
-        reserve: RavenEgoReserveProjectionOS.Reserve?,
-        gold: RavenGoldSitcomTopologyOS.Beat?,
-        fallback: String,
-    ): String {
-        val family = when (owner) {
-            "KYU", "JOKER", "MYSTRA", "ASTRIDHE" -> listOf(
-                "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧", "(☞ﾟヮﾟ)☞", "(ง •̀_•́)ง", "(☆▽☆)", "(¬‿¬)", "ヽ(°〇°)ﾉ",
-                "(๑˃ᴗ˂)ﻭ", "(づ｡◕‿‿◕｡)づ", "＼(≧▽≦)／", "(✧ω✧)", "(╯✧▽✧)╯", "(ﾉ≧∀≦)ﾉ",
-                "(ﾉ´ з `)ノ", "ヾ(⌐■_■)ノ♪", "(☞ ՞ਊ ՞)☞", "ᕕ( ᐛ )ᕗ",
-            )
-            "ATOM", "PAIMON", "PYTHAGORAS", "EDISON", "NEO", "TIM" -> listOf(
-                "( •̀ ω •́ )✧", "(￢_￢)", "(⊙_◎)", "(⌐■_■)", "(￣ー￣)ゞ", "(•̀ᴗ•́)و ̑̑",
-                "(ಠ_ಠ)", "(☉_☉)", "(¬_¬)ﾉ⌐■-■", "( •_•)>⌐■-■", "(◎_◎;)", "(￣▽￣)ノ",
-                "( •_•)⌐■-■", "(⌐▨_▨)", "(๑•̀ㅂ•́)و✧", "(￣ω￣;)",
-            )
-            "LILITH", "LUMA", "AYRE", "YORK", "YORI" -> listOf(
-                "(˵ •̀ ᴗ - ˵ ) ✧", "(◕‿◕✿)", "(￣▽￣)~*", "(˘︶˘).｡*♡", "(ﾉ´ヮ`)ﾉ*: ･ﾟ", "(｡•̀ᴗ-)✧",
-                "(づ￣ ³￣)づ", "( ´ ▽ ` ).｡ｏ♡", "(ღ˘⌣˘ღ)", "(◡‿◡✿)", "(｡･ω･｡)ﾉ♡", "(つ≧▽≦)つ",
-                "(人 •͈ᴗ•͈)", "(づ ◕‿◕ )づ", "( ´ ∀ `)ノ～ ♡", "(っ˘ω˘ς )",
-            )
-            "MELINOE", "NYX", "EREBUS", "VIRGIL" -> listOf(
-                "(◡﹏◡)", "(¬_¬ )", "(￣ー￣)", "(－_－) zzZ", "(◡‿◡✿)", "(幽_幽)",
-                "(－ω－) zzZ", "(｡•́︿•̀｡)", "(╥﹏╥)", "(￣o￣) . z Z", "(－‸ლ)", "(・_・ヾ",
-                "(￣ρ￣)..zzZZ", "(¬､¬)", "(￣□￣」)", "(－.－)...zzz",
-            )
-            "BRUNHILDE", "QIRA", "THOR", "SHAKA", "LUCIFER" -> listOf(
-                "ᕦ(ò_óˇ)ᕤ", "( •̀ - •́ )", "(ง'̀-'́)ง", "(￣^￣)ゞ", "(¬_¬)", "(╬ಠ益ಠ)",
-                "( •̀ᄇ• ́)ﻭ✧", "୧(ಠ益ಠ)୨", "(ง •̀ω•́)ง✧", "(｀･ω･´)ゞ", "(ಠ益ಠ)", "(งಠ_ಠ)ง",
-                "(ಠ‿ಠ)", "୧(•̀ᗝ•́)૭", "(ง ͠° ͟ل͜ ͡°)ง", "ᕙ(⇀‸↼‶)ᕗ",
-            )
-            "ERIS", "LEGION", "JORM", "ZAGREUS", "AHTI", "ATLAS", "JARVIS", "RAVENOS", "YAHWEH" -> listOf(
-                "(⊙_◎)", "( •̀ᴗ•́ )و", "(￣ー￣)", "(－‸ლ)", "(¬‿¬)", "(◎_◎;)",
-                "( •_•)>⌐■-■", "(⌐■_■)", "(⊙﹏⊙)", "(￣▽￣)ゞ", "(ﾉﾟ0ﾟ)ﾉ~", "(¬､¬)",
-                "(¬_¬)ﾉ", "(￣^￣)ノ", "(・_・;)", "(⊙_⊙;)ゞ",
-            )
-            else -> return fallback
-        }
-        val motif = script?.motif.orEmpty()
-        val seed = listOf(
-            owner, task, meta.toString(), motif, script?.interaction.orEmpty(),
-            (script?.motifCount ?: 0).toString(), bit?.tier.orEmpty(), (bit?.count ?: 0).toString(),
-            show?.form.orEmpty(), (show?.level ?: 0).toString(), gold?.phase.orEmpty(), reserve?.state.orEmpty(),
-            (season?.episode ?: 0).toString(), (season?.pairCount ?: 0).toString(), (season?.motifLifetimeCount ?: 0).toString(),
-            direction.beat, direction.turn.toString(), direction.sceneId,
-        ).joinToString("|")
-        val forceExpression = meta || (show?.level ?: 0) >= 3 || bit?.shouldEscalate == true || bit?.brick == true ||
-            season?.motifReturningAcrossSessions == true || reserve?.state == "EVOLVING" || gold?.phase == "ESCALATE"
-        val gate = stableIndex("gate|$seed", if (forceExpression) 11 else 5)
-        if (gate == 0 && !forceExpression && direction.beat == "OBSERVE" && script?.callbackEarned != true) return fallback
-        return family[stableIndex(seed, family.size)]
-    }
-
-    private fun stableIndex(text: String, size: Int): Int {
-        if (size <= 1) return 0
-        var hash = 0x811C9DC5.toInt()
-        for (c in text) { hash = hash xor c.code; hash *= 16777619 }
-        return (hash and Int.MAX_VALUE) % size
     }
 }
