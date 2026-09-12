@@ -28,6 +28,7 @@ object RavenGoblinBrain {
         val callback = RavenCallbackMemoryOS.observe(context, marker, complex)
         val narrative = RavenSessionNarrativeOS.observe(context, marker)
         val screen = RavenScreenContextOS.snapshot(context, marker.at)
+        // RavenInterruptibilityOS.allow remains the boolean compatibility seam; evaluate returns the typed reason/score used here.
         val speech = RavenInterruptibilityOS.evaluate(context, marker, complex, hauntMode, quiet, screen)
 
         // Evidence-only events must not rotate the visible resident every time Android twitches.
@@ -147,6 +148,8 @@ object RavenGoblinBrain {
             screen.semanticKind == "SETTINGS" -> listOf("KYU", "PAIMON", "QIRA", "EDISON", "THOR", "YAHWEH", "ATOM")
             screen.semanticKind in setOf("MUSIC", "VIDEO") -> listOf("YORI", "LUMA", "SYLPH", "AYRE", "JOKER", "MYSTRA")
             screen.semanticKind in setOf("MAIL", "MESSAGING") -> listOf("QIRA", "LILITH", "KYU", "JARVIS", "BRUNHILDE", "LEGION")
+            screen.semanticKind in setOf("CODE", "TERMINAL") -> listOf("ATOM", "EDISON", "PYTHAGORAS", "TIM", "YAHWEH", "AHTI", "THOR")
+            screen.semanticKind in setOf("BROWSER", "COMMUNITY", "STORE", "FILES", "GALLERY", "CAMERA", "HOME") -> listOf("SYLPH", "MYSTRA", "PAIMON", "YORI", "JOKER", "ASTRIDHE", "RAVENOS")
             shade.active && shade.payoff -> listOf("MELINOE", "ZAGREUS", "NYX", "AHTI", "RAVENOS")
             shade.active && shade.salience == RavenShadeSenseOS.Salience.HIGH -> listOf("BRUNHILDE", "KYU", "QIRA", "PAIMON", "NYX", "LEGION")
             marker.key == "SCREEN_SEMANTIC" -> listOf("PAIMON", "ATOM", "NEO", "KYU", "MYSTRA", "JOKER", "QIRA", "MELINOE")
