@@ -4,15 +4,10 @@ import android.content.Context
 
 /**
  * Android vertical slice of Goblin Vision.
- * MarkerBus -> senses -> screen context -> complex event -> cast -> observation -> dialogue -> overlay.
+ * MarkerBus -> senses -> screen context -> sitcom director -> observation -> dialogue -> overlay.
  */
 object RavenGoblinBrain {
     data class Result(val member: RavenOfficeMember, val packet: RavenReactionPacket)
-
-    private const val CAST_PREFS = "ravenos_goblin_cast_v2"
-    private const val KEY_LAST_OWNER = "last_owner"
-    private const val KEY_LAST_SCREEN_SIGNATURE = "last_screen_signature"
-    private const val KEY_LAST_ROTATION_AT = "last_rotation_at"
 
     fun react(
         context: Context,
@@ -33,35 +28,23 @@ object RavenGoblinBrain {
         // RavenInterruptibilityOS.allow remains the boolean compatibility seam; evaluate returns the typed reason/score used here.
         val speech = RavenInterruptibilityOS.evaluate(context, marker, complex, hauntMode, quiet, screen)
 
-        val castPrefs = context.getSharedPreferences(CAST_PREFS, Context.MODE_PRIVATE)
-        val previousSignature = castPrefs.getString(KEY_LAST_SCREEN_SIGNATURE, "").orEmpty()
-        val currentSignature = screen.signature
-        val subjectChanged = screen.available && currentSignature.isNotBlank() && currentSignature != previousSignature
-        val lastRotationAt = castPrefs.getLong(KEY_LAST_ROTATION_AT, 0L)
-        val residentAge = if (lastRotationAt <= 0L) Long.MAX_VALUE else marker.at - lastRotationAt
-        val staleResident = manualOwner == null && residentAge >= residentResidenceMs(hauntMode) &&
-            (screen.available || marker.key in setOf("SCREEN_TEXT", "SCREEN_SEMANTIC", "SCREEN_VISUAL"))
-        val blindScreenRecast = manualOwner == null && !screen.available &&
-            marker.key in setOf("SCREEN_TEXT", "SCREEN_SEMANTIC", "SCREEN_VISUAL") && complex.occurrence % 6 == 0
-
-        // Evidence-only callbacks can hold the current resident, but a genuinely new screen subject,
-        // a stale screen resident, or repeated blind vision events are allowed to recast. This prevents
-        // the Follow-Me pill from freezing forever on whichever employee happened to be visible first.
-        val holdResident = !speech.speak && !quiet && !subjectChanged && !staleResident && !blindScreenRecast
-        val previousMember = if (holdResident) {
-            RavenOfficeStateStore.read(context)?.owner
-                ?.let(RavenOfficeRegistry::member)
-                ?.takeIf { it.routable }
-        } else null
-        val member = previousMember ?: cast(context, marker, shade, complex, manualOwner, quiet, screen)
-
-        castPrefs.edit().apply {
-            if (currentSignature.isNotBlank()) putString(KEY_LAST_SCREEN_SIGNATURE, currentSignature)
-            if (previousMember == null) putLong(KEY_LAST_ROTATION_AT, marker.at)
-        }.apply()
+        // The resident is now a cast position, not ownership of the widget. The director can rotate a
+        // quiet office on semantic scene changes, dwell and deterministic sitcom cadence even when
+        // the interruptibility layer correctly suppresses full dialogue.
+        val direction = RavenSitcomDirectorOS.direct(
+            context = context,
+            marker = marker,
+            complex = complex,
+            screen = screen,
+            haunt = hauntMode,
+            manualOwner = manualOwner,
+            quiet = quiet,
+        )
+        val member = direction.primary
 
         val dialogueContext = RavenDialogueContextOS.compose(context, member, marker, complex, episode, screen, callback, narrative)
         val observation = RavenObservationOS.observe(context, dialogueContext, hauntMode)
+        val sitcom = RavenSitcomDialogueOS.compose(dialogueContext, direction)
         val narrativeBeat = RavenSessionNarrativeOS.beat(member, narrative, marker)
         val meta = RavenMetaCommentaryOS.compose(context, member, marker, complex, episode)
         val sceneBeat = RavenMetaGoblinDialogueOS.select(context, member, marker, complex, episode)
@@ -75,7 +58,8 @@ object RavenGoblinBrain {
         val interruption = RavenOfficeInterruptionOS.select(context, member, marker, complex)
 
         // Screen-grounded observation is the stable resident layer. Character speech is rarer and
-        // sits downstream of it. This keeps the office visibly aware without returning to callback spam.
+        // sits downstream of it. The sitcom director may earn a screen-grounded line sooner than a
+        // low-value Android event, but never when no trustworthy screen meaning exists.
         val fallbackTruth = omniscience.text.ifBlank {
             fusedScene.text.ifBlank {
                 narrativeBeat.text.ifBlank { sceneBeat.text.ifBlank { meta.text } }
@@ -86,14 +70,21 @@ object RavenGoblinBrain {
         val exceptional = screen.meta || "META_RECURSION" in marker.tags ||
             "BOUNDARY" in marker.tags || "ERROR" in marker.tags || "PAYOFF" in complex.tags
         val earnedComedy = screen.available || exceptional
-        val stinger = if (speech.speak && earnedComedy) {
-            contextual.text.ifBlank {
-                mayhem.text.ifBlank { metaPunch.text.ifBlank { character.text } }
+        val speakNow = !quiet && earnedComedy && (speech.speak || direction.shouldSpeak)
+        val stinger = if (speakNow) {
+            sitcom.primary.ifBlank {
+                contextual.text.ifBlank {
+                    mayhem.text.ifBlank { metaPunch.text.ifBlank { character.text } }
+                }
             }.trim()
         } else ""
-        val officeAside = if (speech.speak && screen.meta && exceptional) interruption.text.trim() else ""
+        val officeAside = if (speakNow) {
+            sitcom.secondary.ifBlank {
+                if (screen.meta && exceptional) interruption.text.trim() else ""
+            }
+        } else ""
 
-        val spoken = if (!speech.speak) "" else buildString {
+        val spoken = if (!speakNow) "" else buildString {
             val speechTruth = if (contextual.truth.isNotBlank()) contextual.truth else truth
             append(speechTruth)
             if (stinger.isNotBlank() && stinger != speechTruth) {
@@ -104,21 +95,26 @@ object RavenGoblinBrain {
                 if (isNotEmpty()) append("  ")
                 append(officeAside)
             }
-        }.replace(Regex("\\s+"), " ").trim().take(280)
+        }.replace(Regex("\\s+"), " ").trim().take(340)
 
-        val authorNote = observation.text.take(190)
+        if (spoken.isNotBlank()) RavenSitcomDirectorOS.markSpoken(context, marker.at)
+
+        val authorNote = observation.text.take(220)
         val presentation = RavenEmployeePresentation.packet(member, signal, detail, spoken.ifBlank { authorNote })
         val dialogueFamily = listOfNotNull(
             observation.family.takeIf { it.isNotBlank() },
-            if (speech.speak) contextual.family.takeIf { it.isNotBlank() } else null,
-            if (speech.speak) omniscience.family.takeIf { it.isNotBlank() } else null,
-            if (speech.speak) fusedScene.family.takeIf { it.isNotBlank() } else null,
+            sitcom.family.takeIf { speakNow && it.isNotBlank() },
+            "DIRECTOR_${direction.beat}",
+            "CAST_${direction.reason.uppercase().replace('-', '_')}",
+            if (speakNow) contextual.family.takeIf { it.isNotBlank() } else null,
+            if (speakNow) omniscience.family.takeIf { it.isNotBlank() } else null,
+            if (speakNow) fusedScene.family.takeIf { it.isNotBlank() } else null,
             speech.reason.takeIf { it.isNotBlank() },
         ).distinct().joinToString("+")
         val zone = RavenOfficeGeography.zone(member.id, marker, complex)
         val highlight = RavenHighlightOS.score(marker, complex, episode)
         val now = System.currentTimeMillis()
-        val proof = "${sense.route}:${marker.source}:${marker.id}:${marker.key}"
+        val proof = "${sense.route}:${marker.source}:${marker.id}:${marker.key}:sitcom=${direction.sceneId}:${direction.turn}"
         val packet = RavenReactionPacket(
             markerId = marker.id,
             owner = member.id,
@@ -137,88 +133,17 @@ object RavenGoblinBrain {
             authorNote = authorNote,
             dialogueFamily = dialogueFamily,
             occurrence = complex.occurrence,
-            complexTags = complex.tags,
+            complexTags = complex.tags + setOf("SITCOM", direction.beat),
             episode = episode.name,
             highlight = highlight.clazz.name,
             highlightScore = highlight.value,
-            interruptible = speech.speak,
-            lifetimeMs = if (speech.speak) visual.lifetimeMs else 5_000L,
+            interruptible = speakNow,
+            lifetimeMs = if (speakNow) maxOf(visual.lifetimeMs, 6_500L) else 7_000L,
             proof = proof,
             effectAuthority = "NONE",
             updatedAt = now,
         )
         RavenEvidenceBoard.record(context, packet)
         return Result(member, packet)
-    }
-
-    private fun cast(
-        context: Context,
-        marker: RavenMarkerBus.Marker,
-        shade: RavenShadeSenseOS.Snapshot,
-        complex: RavenComplexEventOS.Result,
-        manualOwner: String?,
-        quiet: Boolean,
-        screen: RavenScreenContextOS.Snapshot,
-    ): RavenOfficeMember {
-        if (quiet) return RavenOfficeRegistry.member("NYX")!!
-        RavenOfficeRegistry.member(manualOwner)?.takeIf { it.routable }?.let { return it }
-
-        val domainIds = when {
-            screen.meta -> listOf("JOKER", "KYU", "NEO", "ATOM", "PAIMON", "LILITH", "JORM", "LEGION", "RAVENOS", "YORK")
-            screen.semanticKind == "CHATGPT" -> listOf("ATOM", "KYU", "PAIMON", "JOKER", "NEO", "YORK", "LILITH", "MYSTRA", "PYTHAGORAS")
-            screen.semanticKind == "SETTINGS" -> listOf("KYU", "PAIMON", "QIRA", "EDISON", "THOR", "YAHWEH", "ATOM")
-            screen.semanticKind in setOf("MUSIC", "VIDEO") -> listOf("YORI", "LUMA", "SYLPH", "AYRE", "JOKER", "MYSTRA")
-            screen.semanticKind in setOf("MAIL", "MESSAGING") -> listOf("QIRA", "LILITH", "KYU", "JARVIS", "BRUNHILDE", "LEGION")
-            screen.semanticKind in setOf("CODE", "TERMINAL") -> listOf("ATOM", "EDISON", "PYTHAGORAS", "TIM", "YAHWEH", "AHTI", "THOR")
-            screen.semanticKind in setOf("BROWSER", "COMMUNITY", "STORE", "FILES", "GALLERY", "CAMERA", "HOME") -> listOf("SYLPH", "MYSTRA", "PAIMON", "YORI", "JOKER", "ASTRIDHE", "RAVENOS")
-            shade.active && shade.payoff -> listOf("MELINOE", "ZAGREUS", "NYX", "AHTI", "RAVENOS")
-            shade.active && shade.salience == RavenShadeSenseOS.Salience.HIGH -> listOf("BRUNHILDE", "KYU", "QIRA", "PAIMON", "NYX", "LEGION")
-            marker.key == "SCREEN_SEMANTIC" -> listOf("PAIMON", "ATOM", "NEO", "KYU", "MYSTRA", "JOKER", "QIRA", "MELINOE")
-            marker.key == "SCREEN_TEXT" -> listOf("PAIMON", "NEO", "MYSTRA", "SYLPH", "JOKER", "KYU", "ATOM", "ASTRIDHE")
-            "BOUNDARY" in marker.tags -> listOf("QIRA", "KYU", "AHTI", "ERIS", "BRUNHILDE", "LEGION")
-            "ERROR" in marker.tags && complex.occurrence >= 3 -> listOf("KYU", "PAIMON", "ATOM", "THOR", "ERIS", "TIM", "ZAGREUS")
-            "ERROR" in marker.tags -> listOf("PAIMON", "ATOM", "THOR", "LUCIFER", "KYU", "TIM", "ZAGREUS")
-            "RECOVERY" in marker.tags -> listOf("LUMA", "NYX", "AYRE", "LILITH", "ZAGREUS", "RAVENOS")
-            "VISION" in marker.tags -> listOf("PAIMON", "SYLPH", "NEO", "NYX", "MYSTRA", "JOKER", "ASTRIDHE", "MELINOE")
-            "DISCOVERY" in marker.tags || "APP_SWITCH_BURST" in complex.tags -> listOf("SYLPH", "PAIMON", "NEO", "JOKER", "ERIS", "ASTRIDHE", "ZAGREUS")
-            "MUSIC" in marker.tags -> listOf("LUMA", "YORI", "SYLPH", "AYRE", "LILITH", "JOKER", "RAVENOS")
-            "COMMUNICATION" in marker.tags -> listOf("QIRA", "KYU", "LILITH", "JARVIS", "JOKER", "LEGION", "BRUNHILDE")
-            "BUILD" in marker.tags -> listOf("ATOM", "EDISON", "THOR", "PAIMON", "PYTHAGORAS", "ATLAS", "TIM", "YAHWEH")
-            marker.key == "SYSTEM_DECK_OPENED" -> listOf("YAHWEH", "EDISON", "TIM", "JARVIS", "KYU", "RAVENOS")
-            else -> emptyList()
-        }
-
-        val roster = RavenOfficeRegistry.routableMembers
-        val domain = domainIds.mapNotNull(RavenOfficeRegistry::member).filter { it.routable }
-        val last = context.getSharedPreferences(CAST_PREFS, Context.MODE_PRIVATE).getString(KEY_LAST_OWNER, null)
-        val pool = when {
-            roster.isEmpty() -> domain
-            complex.occurrence % 4 == 0 && screen.available -> roster
-            domain.isNotEmpty() -> domain
-            else -> roster
-        }
-        val withoutRepeat = pool.filterNot { it.id == last }.ifEmpty { pool }
-        val chosen = if (withoutRepeat.isNotEmpty()) {
-            withoutRepeat[stableIndex("${screen.signature}|${marker.key}|${complex.occurrence}|office-v4", withoutRepeat.size)]
-        } else RavenOfficeRegistry.route(marker.key, marker.detail)
-
-        context.getSharedPreferences(CAST_PREFS, Context.MODE_PRIVATE)
-            .edit().putString(KEY_LAST_OWNER, chosen.id).apply()
-        return chosen
-    }
-
-    private fun residentResidenceMs(haunt: RavenHauntMode): Long = when (haunt) {
-        RavenHauntMode.CALM -> 75_000L
-        RavenHauntMode.LIVED_IN -> 55_000L
-        RavenHauntMode.HAUNTED -> 38_000L
-        RavenHauntMode.FERAL -> 24_000L
-        RavenHauntMode.APOCALYPSE -> 15_000L
-    }
-
-    private fun stableIndex(text: String, size: Int): Int {
-        if (size <= 1) return 0
-        var hash = 0x811C9DC5.toInt()
-        for (c in text) { hash = hash xor c.code; hash *= 16777619 }
-        return (hash and Int.MAX_VALUE) % size
     }
 }
