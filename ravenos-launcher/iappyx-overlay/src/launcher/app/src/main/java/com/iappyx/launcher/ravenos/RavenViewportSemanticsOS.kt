@@ -18,6 +18,8 @@ object RavenViewportSemanticsOS {
         val packageName: String,
         val title: String,
         val subject: String,
+        val selected: String,
+        val focused: String,
         val task: String,
         val roleSummary: String,
         val phrases: String,
@@ -30,6 +32,9 @@ object RavenViewportSemanticsOS {
         val role: String,
         val top: Int,
         val bottom: Int,
+        val selected: Boolean,
+        val focused: Boolean,
+        val checked: Boolean,
         val score: Int,
     )
 
@@ -49,6 +54,8 @@ object RavenViewportSemanticsOS {
             packageName = pkg,
             title = p.getString("title", "").orEmpty(),
             subject = subject,
+            selected = p.getString("selected", "").orEmpty(),
+            focused = p.getString("focused", "").orEmpty(),
             task = p.getString("task", "VIEWING").orEmpty(),
             roleSummary = p.getString("roles", "").orEmpty(),
             phrases = p.getString("phrases", "").orEmpty(),
@@ -78,6 +85,7 @@ object RavenViewportSemanticsOS {
             val lower = text.lowercase()
             val heading = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && runCatching { node.isHeading }.getOrDefault(false)
             return when {
+                node.isSelected -> "SELECTED"
                 heading -> "HEADING"
                 id.contains("tab") || lower.endsWith(" tab") || lower.startsWith("tab ") -> "TAB"
                 cls.contains("button") || node.isClickable && text.length <= 48 -> "BUTTON"
@@ -87,7 +95,7 @@ object RavenViewportSemanticsOS {
             }
         }
 
-        fun score(text: String, role: String, top: Int, bottom: Int): Int {
+        fun score(text: String, role: String, top: Int, bottom: Int, selected: Boolean, focused: Boolean, checked: Boolean): Int {
             val center = (top + bottom) / 2
             val centerBias = when {
                 center in (screenHeight / 5)..(screenHeight * 4 / 5) -> 32
@@ -95,6 +103,7 @@ object RavenViewportSemanticsOS {
                 else -> 16
             }
             val roleWeight = when (role) {
+                "SELECTED" -> 82
                 "HEADING" -> 62
                 "TAB" -> 42
                 "LINK" -> 22
@@ -102,15 +111,16 @@ object RavenViewportSemanticsOS {
                 "IMAGE_LABEL" -> 10
                 else -> 28
             }
+            val stateWeight = (if (selected) 88 else 0) + (if (focused) 52 else 0) + (if (checked) 20 else 0)
             val lengthWeight = when (text.length) {
                 in 24..150 -> 38
                 in 12..220 -> 24
                 else -> 8
             }
-            val verbWeight = Regex("\\b(is|are|was|were|need|want|build|make|show|look|read|watch|discuss|fix|working|add|change|reply|message|playing|search|download)\\b", RegexOption.IGNORE_CASE)
+            val verbWeight = Regex("\\b(is|are|was|were|need|want|build|make|show|look|read|watch|discuss|fix|working|add|change|reply|message|playing|search|download|select|selected|open|close)\\b", RegexOption.IGNORE_CASE)
                 .findAll(text).count() * 18
             val metaWeight = RavenMetaRecursionOS.score(text) * 28
-            return centerBias + roleWeight + lengthWeight + verbWeight + metaWeight
+            return centerBias + roleWeight + stateWeight + lengthWeight + verbWeight + metaWeight
         }
 
         fun walk(node: AccessibilityNodeInfo?, depth: Int) {
@@ -124,7 +134,13 @@ object RavenViewportSemanticsOS {
             if (node.isScrollable) scrollablePresent = true
 
             if (node.isVisibleToUser && !node.isEditable) {
-                val candidates = listOf(node.text, node.contentDescription)
+                val extras = buildList<CharSequence?> {
+                    add(node.text)
+                    add(node.contentDescription)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) add(runCatching { node.paneTitle }.getOrNull())
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) add(runCatching { node.stateDescription }.getOrNull())
+                }
+                val candidates = extras
                     .mapNotNull { it?.toString()?.replace(Regex("\\s+"), " ")?.trim() }
                     .filter { it.length in 2..220 }
                     .distinct()
@@ -132,9 +148,12 @@ object RavenViewportSemanticsOS {
                 for (text in candidates) {
                     if (facts.any { it.text.equals(text, true) }) continue
                     val role = roleFor(node, text)
+                    val selected = node.isSelected
+                    val focused = node.isFocused
+                    val checked = node.isCheckable && node.isChecked
                     addRole(role)
-                    facts += Fact(text, role, rect.top, rect.bottom, score(text, role, rect.top, rect.bottom))
-                    if (facts.size >= 64) break
+                    facts += Fact(text, role, rect.top, rect.bottom, selected, focused, checked, score(text, role, rect.top, rect.bottom, selected, focused, checked))
+                    if (facts.size >= 72) break
                 }
             }
             val count = node.childCount.coerceAtMost(40)
@@ -156,24 +175,43 @@ object RavenViewportSemanticsOS {
             .sortedByDescending { it.score }
         if (meaningful.isEmpty()) return null
 
+        val selectedLabel = meaningful.firstOrNull { it.selected }?.text.orEmpty()
+        val focusedLabel = meaningful.firstOrNull { it.focused }?.text.orEmpty()
         val title = meaningful.firstOrNull { it.role == "HEADING" }?.text
             ?: meaningful.firstOrNull { it.role == "TAB" && it.text.length > 3 }?.text
             ?: meaningful.firstOrNull { it.top in 0..(screenHeight / 3) && it.text.length in 4..100 }?.text
             ?: ""
-        val subject = (meaningful.firstOrNull { it.text != title } ?: meaningful.first()).text.take(190)
-        val phrasePack = meaningful.take(12).map { it.text }.distinct().joinToString(" · ").take(720)
-        val allText = meaningful.take(24).joinToString(" ") { it.text }.lowercase()
+        val subject = when {
+            selectedLabel.isNotBlank() && selectedLabel != title -> selectedLabel
+            focusedLabel.isNotBlank() && focusedLabel != title -> focusedLabel
+            else -> (meaningful.firstOrNull { it.text != title } ?: meaningful.first()).text
+        }.take(190)
+        val phrasePack = meaningful.take(14).map { it.text }.distinct().joinToString(" · ").take(820)
+        val allText = meaningful.take(28).joinToString(" ") { it.text }.lowercase()
         val task = inferTask(packageName, allText, editablePresent, inputFocused, scrollablePresent, roles.keys)
-        val roleSummary = roles.entries.sortedByDescending { it.value }.take(5)
+        val roleSummary = roles.entries.sortedByDescending { it.value }.take(6)
             .joinToString(",") { "${it.key}:${it.value}" }
         val meta = RavenMetaRecursionOS.detect("$title $subject $phrasePack")
         val now = System.currentTimeMillis()
-        val viewport = Viewport(packageName, title.take(120), subject, task, roleSummary, phrasePack, now, meta)
+        val viewport = Viewport(
+            packageName = packageName,
+            title = title.take(120),
+            subject = subject,
+            selected = selectedLabel.take(120),
+            focused = focusedLabel.take(120),
+            task = task,
+            roleSummary = roleSummary,
+            phrases = phrasePack,
+            capturedAt = now,
+            meta = meta,
+        )
 
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString("package", viewport.packageName)
             .putString("title", viewport.title)
             .putString("subject", viewport.subject)
+            .putString("selected", viewport.selected)
+            .putString("focused", viewport.focused)
             .putString("task", viewport.task)
             .putString("roles", viewport.roleSummary)
             .putString("phrases", viewport.phrases)
