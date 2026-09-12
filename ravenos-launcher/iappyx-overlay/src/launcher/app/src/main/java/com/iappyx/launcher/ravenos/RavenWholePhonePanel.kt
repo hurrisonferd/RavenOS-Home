@@ -61,7 +61,11 @@ object RavenWholePhonePanel {
         button("👁 ARM GOBLIN EYE") { RavenPermissionDeck.armGoblinEye(activity) }
         button("STOP GOBLIN EYE") { RavenPermissionDeck.stopGoblinEye(activity) }
 
-        section("CROSS-APP GOBLIN", "Follow-Me is the persistent TYPE_APPLICATION_OVERLAY speech bubble over ordinary apps. Android-protected secure, lock, permission and some system surfaces remain outside overlay authority.")
+        section("GOBLIN READ 👁🔤", "Optional local OCR layered on Goblin Eye. Changed frames may become short visible-text snippets for meta commentary. Raw frames are discarded; obvious credential/verification surfaces are suppressed. Requires Goblin Eye to be armed separately.")
+        button("ENABLE LOCAL GOBLIN READ") { RavenGoblinReadOS.setEnabled(activity, true) }
+        button("DISABLE GOBLIN READ") { RavenGoblinReadOS.setEnabled(activity, false) }
+
+        section("CROSS-APP META GOBLIN", "Follow-Me is the persistent TYPE_APPLICATION_OVERLAY body over ordinary apps: compact employee chip while idle, expanded comment on meaningful state, tap for recent hauntings. Android-protected secure, lock, permission and some system surfaces remain outside overlay authority.")
         button("OPEN APPEAR-ON-TOP ACCESS") { RavenPermissionDeck.openOverlayAccess(activity) }
         button("ENABLE FOLLOW-ME") {
             if (!RavenFollowMeOverlay.enable(activity)) RavenPermissionDeck.openOverlayAccess(activity)
@@ -69,11 +73,14 @@ object RavenWholePhonePanel {
         }
         button("HIDE FOLLOW-ME") { RavenFollowMeOverlay.disable(activity) }
 
-        section("FOREGROUND AWARENESS", "Accessibility reads package/window/class transitions only. Window-content retrieval stays disabled, so RavenOS can notice surface changes without reading app text.")
+        section("FOREGROUND AWARENESS", "Accessibility reads package/window/class transitions only. Window-content retrieval stays disabled; Goblin Read handles explicitly armed visual text locally instead.")
         button("OPEN ACCESSIBILITY AWARENESS") { RavenPermissionDeck.openForegroundAwareness(activity) }
 
         section("FOREGROUND LEDGER", "Optional Android Usage Access adds a second app-resume signal when One UI window events are incomplete. App identity/timing only; no content.")
         button("OPEN USAGE ACCESS") { RavenPermissionDeck.openUsageAwareness(activity) }
+
+        section("CALLBACK MEMORY", "Session-bounded deterministic recurrence memory. It remembers patterns such as repeated app returns and a track surviving multiple scene cuts; it does not store a transcript.")
+        button("CLEAR CALLBACK BITS") { RavenCallbackMemoryOS.clear() }
 
         section("GALAXY / BACKGROUND SURVIVAL", RavenGalaxyHauntOS.samsungInstructions(activity))
         button("BATTERY OPTIMIZATION") { RavenPermissionDeck.openBatteryOptimization(activity) }
@@ -99,6 +106,7 @@ object RavenWholePhonePanel {
             append("\n").append(RavenUsageSenseOS.compact(activity))
             append("\n").append(RavenNotificationSenseOS.summary(activity))
             append("\n").append(media.compact())
+            append("\n").append(RavenGoblinReadOS.compact(activity))
             append("\n").append(RavenFollowMeOverlay.status(activity))
             append("\n").append(galaxy.compact())
         }
