@@ -19,7 +19,7 @@ object RavenAppSemanticsOS {
         keyboardLike: Boolean,
     ): Scene {
         val pkg = packageName.orEmpty().lowercase()
-        val app = appLabel?.takeIf { it.isNotBlank() } ?: friendlyPackage(packageName.orEmpty())
+        val app = trustedLabel(packageName, appLabel)
         val text = visibleText.orEmpty().lowercase()
 
         fun has(vararg terms: String) = terms.any(text::contains)
@@ -104,10 +104,25 @@ object RavenAppSemanticsOS {
         }
     }
 
+    private fun trustedLabel(packageName: String?, candidate: String?): String {
+        val label = candidate.orEmpty().trim()
+        val lower = label.lowercase()
+        val transient = lower.contains("system deck") || lower.contains("system ui") ||
+            lower.contains("smartcapture") || lower.contains("smart capture") ||
+            lower.contains("keyboard") || lower.contains("honeyboard")
+        return when {
+            packageName.isNullOrBlank() -> label
+            transient -> friendlyPackage(packageName)
+            label.isBlank() -> friendlyPackage(packageName)
+            else -> label
+        }
+    }
+
     private fun friendlyPackage(pkg: String): String = when (pkg) {
         "com.android.systemui" -> "System UI"
         "com.samsung.android.honeyboard" -> "Samsung Keyboard"
         "com.sec.android.app.launcher" -> "One UI Home"
+        "com.android.chrome" -> "Chrome"
         else -> pkg.substringAfterLast('.').replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
     }
 }
