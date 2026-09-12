@@ -59,7 +59,9 @@ object RavenEmployeePresentation {
         val style = styles[member.id] ?: Style(member.emoji, listOf("(•̀ᴗ•́)و", "(￣ー￣)", "(・_・;)"))
         val postureSeed = "${member.id}|${signal.uppercase()}|${semanticBand(detail)}"
         val posture = when {
-            isBoundary(signal, detail) -> style.kaomoji.last()
+            isBoundary(signal, detail) -> boundaryPosture(style, postureSeed)
+            isHighMotion(signal, detail) -> style.kaomoji[stableIndex("impact|$postureSeed", style.kaomoji.size)]
+            isAlertBurst(signal, detail) -> style.kaomoji[stableIndex("alarm|$postureSeed", style.kaomoji.size)]
             isVision(signal) -> style.kaomoji[stableIndex("vision|$postureSeed", style.kaomoji.size)]
             isMusic(signal, detail) -> style.kaomoji[stableIndex("music|$postureSeed", style.kaomoji.size)]
             else -> style.kaomoji[stableIndex(postureSeed, style.kaomoji.size)]
@@ -80,22 +82,43 @@ object RavenEmployeePresentation {
 
     fun signalGlyph(signal: String, detail: String = ""): String {
         val s = signal.trim().uppercase()
+        val burst = field(detail, "burst")?.toIntOrNull() ?: 0
+        val motion = field(detail, "motion")?.toIntOrNull() ?: 0
+        val state = field(detail, "state")?.uppercase().orEmpty()
         return when {
-            s.contains("SCREEN_VISUAL") || s.contains("EYE") -> "👁"
-            s.startsWith("MEDIA") || s == "AUDIO" || detail.contains("track:", true) -> "🎵"
+            (s.contains("SCREEN_VISUAL") || s.contains("EYE")) && motion >= 60 -> "👁💥"
+            s.contains("SCREEN_VISUAL") || s.contains("EYE") -> "👁✨"
+            s.startsWith("NOTIFICATION") && burst >= 3 -> "🔔🌧️"
+            s.startsWith("NOTIFICATION") && detail.contains("alerting:true", true) -> "🔔❗"
             s.startsWith("NOTIFICATION") || s == "NOTIFICATION" -> "🔔"
-            s.contains("FOREGROUND") || s.contains("APP_") || s.contains("HOME") || s.contains("WINDOW") -> "📱"
+            (s.startsWith("MEDIA") || s == "AUDIO") && state == "PLAYING" -> "🎵▶️"
+            s.startsWith("MEDIA") || s == "AUDIO" || detail.contains("track:", true) -> "🎵"
+            s.contains("WINDOW") -> "📱🪟"
+            s.contains("FOREGROUND") || s.contains("APP_") || s.contains("HOME") -> "📱"
+            s.contains("POWER") && detail.contains("charg", true) -> "⚡🔌"
             s.contains("POWER") -> "⚡"
+            s.contains("BATTERY") && detail.contains("low", true) -> "🔋⚠️"
             s.contains("BATTERY") -> "🔋"
-            s.contains("SEARCH") -> "🔎"
+            s.contains("SEARCH") -> "🔎✨"
             s.contains("SYSTEM") || s.contains("SETTING") -> "🛠️"
             else -> ""
         }
     }
 
+    private fun boundaryPosture(style: Style, seed: String): String {
+        val glasses = style.kaomoji.firstOrNull { it.contains("■") }
+        return glasses ?: style.kaomoji[stableIndex("boundary|$seed", style.kaomoji.size)]
+    }
+
     private fun isVision(signal: String): Boolean = signal.uppercase().contains("SCREEN_VISUAL") || signal.uppercase().contains("EYE")
     private fun isMusic(signal: String, detail: String): Boolean = signal.uppercase().startsWith("MEDIA") || signal.uppercase() == "AUDIO" || detail.contains("track:", true)
     private fun isBoundary(signal: String, detail: String): Boolean = signal.uppercase().contains("PERMISSION") || detail.contains("denied", true) || detail.contains("blocked", true)
+    private fun isHighMotion(signal: String, detail: String): Boolean = isVision(signal) && (field(detail, "motion")?.toIntOrNull() ?: 0) >= 60
+    private fun isAlertBurst(signal: String, detail: String): Boolean = signal.uppercase().contains("NOTIFICATION") && ((field(detail, "burst")?.toIntOrNull() ?: 0) >= 3 || detail.contains("alerting:true", true))
+
+    private fun field(detail: String, name: String): String? =
+        Regex("(?:^|\\|)${Regex.escape(name)}:([^|]*)")
+            .find(detail)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() }
 
     private fun semanticBand(detail: String): String = detail
         .replace(Regex("position[^|]*", RegexOption.IGNORE_CASE), "position")
