@@ -61,9 +61,10 @@ dependencies {
     // RavenOS local structural memory + Office Recall. Room stores authored dialogue metadata,
     // expression usage, anti-repeat fingerprints, structural scene history, and searchable
     // structural recall rows. No raw screenshots, OCR transcript, editable values, or passwords.
-    implementation 'androidx.room:room-runtime:2.8.5'
-    implementation 'androidx.room:room-ktx:2.8.5'
-    kapt 'androidx.room:room-compiler:2.8.5'
+    // 2.6.1 is intentionally pinned to the launcher's Kotlin 1.9 toolchain.
+    implementation 'androidx.room:room-runtime:2.6.1'
+    implementation 'androidx.room:room-ktx:2.6.1'
+    kapt 'androidx.room:room-compiler:2.6.1'
 
     implementation 'androidx.car.app:app:1.4.0'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
