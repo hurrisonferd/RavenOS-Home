@@ -50,9 +50,13 @@ object RavenGoblinVisionOverlay {
     private var lastSignal: String = ""
     private var lastDetail: String = ""
     private var lastHaunt: RavenHauntMode = RavenHauntMode.HAUNTED
+    private var lastGoldTag: String = ""
+    private var lastSeriesTag: String = ""
+    private var lastMetaTag: String = ""
 
     fun render(context: Context, member: RavenOfficeMember, signal: String, note: String, detail: String, hauntMode: RavenHauntMode) {
         val packet = RavenEmployeePresentation.packet(member, signal, detail, note)
+        lastGoldTag = ""; lastSeriesTag = ""; lastMetaTag = ""
         remember(context, member, packet.ownerLine, cleanVisible(packet.note), cleanVisible(packet.note), signal, detail, hauntMode)
         mode = when {
             lastNote.isNotBlank() -> Mode.COMMENT
@@ -66,6 +70,9 @@ object RavenGoblinVisionOverlay {
         val member = RavenOfficeRegistry.member(reaction.owner) ?: return
         val spoken = cleanVisible(reaction.dialogue)
         val observation = cleanVisible(reaction.authorNote)
+        lastGoldTag = reaction.complexTags.firstOrNull { it.startsWith("GOLD_") }.orEmpty().removePrefix("GOLD_")
+        lastSeriesTag = reaction.complexTags.firstOrNull { it.startsWith("SERIES_") }.orEmpty().removePrefix("SERIES_")
+        lastMetaTag = reaction.complexTags.firstOrNull { it.startsWith("METAMAX_L") }.orEmpty().removePrefix("METAMAX_")
         remember(context, member, reaction.ownerLine, spoken, observation, reaction.signal, reaction.detail, hauntMode)
         mode = when {
             spoken.isNotBlank() -> Mode.COMMENT
@@ -123,14 +130,31 @@ object RavenGoblinVisionOverlay {
             return
         }
 
-        val accent = readableAccent(member.accent)
-        box.background = GradientDrawable().apply {
-            cornerRadius = dp(context, if (lastHaunt.ordinal >= RavenHauntMode.FERAL.ordinal) 24 else 18).toFloat()
-            setColor(Color.argb(if (lastHaunt.ordinal >= RavenHauntMode.FERAL.ordinal) 247 else 238, 14, 14, 20))
-            setStroke(dp(context, if (lastHaunt.ordinal >= RavenHauntMode.FERAL.ordinal) 2 else 1), withAlpha(accent, 235))
+        val paletteDetail = buildString {
+            append(lastDetail)
+            if (lastGoldTag.isNotBlank()) append("|gold_phase:").append(lastGoldTag)
+            if (lastMetaTag.isNotBlank()) append("|meta_tag:").append(lastMetaTag)
         }
+        val palette = RavenOverlayPaletteOS.resolve(member.accent, mode.name, lastSignal, paletteDetail)
+        val corner = when (mode) {
+            Mode.CHIP -> if (lastHaunt.ordinal >= RavenHauntMode.FERAL.ordinal) 25 else 22
+            Mode.OBSERVING -> 21
+            Mode.COMMENT -> 22
+            Mode.FEED -> 24
+        }
+        val strokeDp = when (mode) {
+            Mode.COMMENT, Mode.FEED -> 2
+            else -> 1
+        }
+        box.background = GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            intArrayOf(withAlpha(palette.start, 247), withAlpha(palette.end, 242)),
+        ).apply {
+            cornerRadius = dp(context, corner).toFloat()
+            setStroke(dp(context, strokeDp), withAlpha(palette.stroke, 242))
+        }
+        box.elevation = dp(context, if (mode == Mode.COMMENT) 18 else if (mode == Mode.FEED) 16 else 12).toFloat()
 
-        val eventGlyph = RavenEmployeePresentation.signalGlyph(lastSignal, lastDetail)
         when (mode) {
             Mode.CHIP -> {
                 statusView?.visibility = View.GONE
@@ -140,7 +164,7 @@ object RavenGoblinVisionOverlay {
                     textSize = 14.5f
                     maxLines = 2
                     ellipsize = TextUtils.TruncateAt.END
-                    setTextColor(accent)
+                    setTextColor(palette.owner)
                 }
                 noteView?.visibility = View.GONE
                 contextView?.visibility = View.GONE
@@ -148,8 +172,8 @@ object RavenGoblinVisionOverlay {
             Mode.OBSERVING -> {
                 statusView?.apply {
                     visibility = View.VISIBLE
-                    text = "👁 WATCHING THE GLASS"
-                    setTextColor(0xFFBFC0CC.toInt())
+                    text = statusLabel("WATCHING THE GLASS")
+                    setTextColor(palette.status)
                 }
                 ownerView?.apply {
                     visibility = View.VISIBLE
@@ -157,23 +181,23 @@ object RavenGoblinVisionOverlay {
                     textSize = 15f
                     maxLines = 2
                     ellipsize = TextUtils.TruncateAt.END
-                    setTextColor(accent)
+                    setTextColor(palette.owner)
                 }
                 noteView?.apply {
                     visibility = if (lastObservation.isBlank()) View.GONE else View.VISIBLE
                     text = lastObservation
-                    textSize = 12.9f
-                    maxLines = 4
+                    textSize = 13f
+                    maxLines = 5
                     ellipsize = TextUtils.TruncateAt.END
-                    setTextColor(0xFFE7E7EF.toInt())
+                    setTextColor(palette.body)
                 }
                 contextView?.visibility = View.GONE
             }
             Mode.COMMENT -> {
                 statusView?.apply {
                     visibility = View.VISIBLE
-                    text = listOf("👁 META GOBLIN", eventGlyph).filter { it.isNotBlank() }.joinToString("  ")
-                    setTextColor(0xFFBFC0CC.toInt())
+                    text = statusLabel("META GOBLIN")
+                    setTextColor(palette.status)
                 }
                 ownerView?.apply {
                     visibility = View.VISIBLE
@@ -181,7 +205,7 @@ object RavenGoblinVisionOverlay {
                     textSize = if (lastHaunt == RavenHauntMode.APOCALYPSE) 17f else 15.5f
                     maxLines = 2
                     ellipsize = TextUtils.TruncateAt.END
-                    setTextColor(accent)
+                    setTextColor(palette.owner)
                 }
                 noteView?.apply {
                     visibility = if (lastNote.isBlank()) View.GONE else View.VISIBLE
@@ -190,12 +214,12 @@ object RavenGoblinVisionOverlay {
                     maxLines = when (lastHaunt) {
                         RavenHauntMode.CALM -> 5
                         RavenHauntMode.LIVED_IN -> 6
-                        RavenHauntMode.HAUNTED -> 6
-                        RavenHauntMode.FERAL -> 7
-                        RavenHauntMode.APOCALYPSE -> 8
+                        RavenHauntMode.HAUNTED -> 7
+                        RavenHauntMode.FERAL -> 8
+                        RavenHauntMode.APOCALYPSE -> 9
                     }
                     ellipsize = TextUtils.TruncateAt.END
-                    setTextColor(0xFFF8F8FC.toInt())
+                    setTextColor(palette.body)
                 }
                 contextView?.apply {
                     val contextLine = lastObservation.takeIf { observation ->
@@ -206,14 +230,14 @@ object RavenGoblinVisionOverlay {
                     textSize = 10.8f
                     maxLines = 4
                     ellipsize = TextUtils.TruncateAt.END
-                    setTextColor(0xFFBFC0CC.toInt())
+                    setTextColor(palette.context)
                 }
             }
             Mode.FEED -> {
                 statusView?.apply {
                     visibility = View.VISIBLE
-                    text = "👁 OFFICE · RECENT HAUNTINGS"
-                    setTextColor(0xFFBFC0CC.toInt())
+                    text = statusLabel("OFFICE · RECENT HAUNTINGS")
+                    setTextColor(palette.status)
                 }
                 ownerView?.apply {
                     visibility = View.VISIBLE
@@ -221,7 +245,7 @@ object RavenGoblinVisionOverlay {
                     textSize = 15f
                     maxLines = 2
                     ellipsize = TextUtils.TruncateAt.END
-                    setTextColor(accent)
+                    setTextColor(palette.owner)
                 }
                 noteView?.visibility = View.GONE
                 contextView?.apply {
@@ -229,15 +253,13 @@ object RavenGoblinVisionOverlay {
                     visibility = if (feed.isBlank()) View.GONE else View.VISIBLE
                     text = feed
                     textSize = 11.5f
-                    maxLines = 16
+                    maxLines = 18
                     ellipsize = TextUtils.TruncateAt.END
-                    setTextColor(0xFFF0F0F6.toInt())
+                    setTextColor(palette.body)
                 }
             }
         }
 
-        // The overlay is part of the captured display. Register what we just drew so Goblin Read can
-        // discard its own bubble instead of creating a fake recursive conversation with itself.
         RavenOverlayEchoOS.record(
             statusView?.text?.toString().orEmpty(),
             ownerView?.text?.toString().orEmpty(),
@@ -251,26 +273,26 @@ object RavenGoblinVisionOverlay {
             val desiredWidthDp = when (mode) {
                 Mode.CHIP -> when (lastHaunt) {
                     RavenHauntMode.CALM -> 252
-                    RavenHauntMode.LIVED_IN -> 278
-                    RavenHauntMode.HAUNTED -> 312
-                    RavenHauntMode.FERAL -> 334
-                    RavenHauntMode.APOCALYPSE -> 350
+                    RavenHauntMode.LIVED_IN -> 286
+                    RavenHauntMode.HAUNTED -> 320
+                    RavenHauntMode.FERAL -> 340
+                    RavenHauntMode.APOCALYPSE -> 354
                 }
                 Mode.OBSERVING -> when (lastHaunt) {
-                    RavenHauntMode.CALM -> 292
-                    RavenHauntMode.LIVED_IN -> 316
-                    RavenHauntMode.HAUNTED -> 338
-                    RavenHauntMode.FERAL -> 354
-                    RavenHauntMode.APOCALYPSE -> 370
+                    RavenHauntMode.CALM -> 300
+                    RavenHauntMode.LIVED_IN -> 324
+                    RavenHauntMode.HAUNTED -> 346
+                    RavenHauntMode.FERAL -> 360
+                    RavenHauntMode.APOCALYPSE -> 374
                 }
                 Mode.COMMENT -> when (lastHaunt) {
-                    RavenHauntMode.CALM -> 310
-                    RavenHauntMode.LIVED_IN -> 332
-                    RavenHauntMode.HAUNTED -> 352
-                    RavenHauntMode.FERAL -> 366
-                    RavenHauntMode.APOCALYPSE -> 378
+                    RavenHauntMode.CALM -> 318
+                    RavenHauntMode.LIVED_IN -> 340
+                    RavenHauntMode.HAUNTED -> 358
+                    RavenHauntMode.FERAL -> 370
+                    RavenHauntMode.APOCALYPSE -> 380
                 }
-                Mode.FEED -> 378
+                Mode.FEED -> 382
             }
             val widthDp = desiredWidthDp.coerceAtMost(maxWidthDp)
             var changed = false
@@ -292,8 +314,15 @@ object RavenGoblinVisionOverlay {
 
         RavenSurfaceIntegrity.mark(
             context, RavenSurfaceIntegrity.FOLLOW_ME, "RENDERED", stateAt,
-            "goblin_vision_meta_overlay_v9:${mode.name.lowercase()}",
+            "goblin_vision_meta_overlay_v10:${mode.name.lowercase()}",
         )
+    }
+
+    private fun statusLabel(base: String): String {
+        val parts = mutableListOf("👁 $base")
+        if (lastSeriesTag.isNotBlank()) parts += lastSeriesTag.replace('_', ' ')
+        if (lastGoldTag.isNotBlank() && lastGoldTag !in setOf("BUILD", "OPEN")) parts += "GOLD ${lastGoldTag.replace('_', ' ')}"
+        return parts.take(3).joinToString(" · ")
     }
 
     private fun miniFeed(context: Context): String = RavenOfficeTraceStore.recent(context, 8)
@@ -302,9 +331,11 @@ object RavenGoblinVisionOverlay {
             if (line.isBlank()) return@mapNotNull null
             val member = RavenOfficeRegistry.member(entry.owner)
             val presentation = member?.let { RavenEmployeePresentation.packet(it, entry.signal, entry.detail, line) }
-            val who = presentation?.let { "${it.emojiSoup} ${entry.owner} ${it.kaomoji}" } ?: entry.owner
+            val who = presentation?.let {
+                "${RavenEmojiBudgetOS.identity(entry.owner, it.emojiSoup)} ${entry.owner} ${it.kaomoji}"
+            } ?: entry.owner
             val repeat = if (entry.repeats > 1) " ×${entry.repeats}" else ""
-            "$who$repeat\n${clipAtWord(line, 150)}"
+            "$who$repeat\n${clipAtWord(line, 165)}"
         }.take(4).joinToString("\n\n")
 
     private fun scheduleCollapse(context: Context, reaction: RavenReactionPacket, hauntMode: RavenHauntMode) {
@@ -353,7 +384,7 @@ object RavenGoblinVisionOverlay {
         }.also(box::addView)
 
         val params = WindowManager.LayoutParams(
-            dp(context, 332), WindowManager.LayoutParams.WRAP_CONTENT,
+            dp(context, 340), WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT,
@@ -432,12 +463,6 @@ object RavenGoblinVisionOverlay {
     private fun withAlpha(color: Int, alpha: Int): Int = Color.argb(
         alpha.coerceIn(0, 255), Color.red(color), Color.green(color), Color.blue(color),
     )
-
-    private fun readableAccent(color: Int): Int {
-        val perceived = (Color.red(color) * 299 + Color.green(color) * 587 + Color.blue(color) * 114) / 1000
-        if (perceived >= 145) return color
-        return Color.rgb((Color.red(color) + 255) / 2, (Color.green(color) + 255) / 2, (Color.blue(color) + 255) / 2)
-    }
 
     private fun dp(context: Context, value: Int): Int = (value * context.resources.displayMetrics.density).toInt()
 }
