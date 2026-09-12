@@ -168,7 +168,7 @@ object RavenGoblinBrain {
             }
         }
         val basePresentation = RavenEmployeePresentation.packet(member, signal, presentationDetail, spoken.ifBlank { authorNote })
-        val employeePresentation = RavenSceneExpressionOS.decorate(context, basePresentation, member, screen, direction)
+        val employeePresentation = RavenSceneExpressionOS.decorate(context, basePresentation, member, screen, direction, script)
         val dialogueFamily = listOfNotNull(
             "PRESENTATION_${displayDecision.mode.name}",
             displayDecision.reason,
