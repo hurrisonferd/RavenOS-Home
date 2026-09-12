@@ -1,6 +1,6 @@
 package com.iappyx.launcher.ravenos
 
-/** Known deterministic phone state outranks optional OCR/vision/model interpretation. */
+/** Known deterministic phone state outranks optional interpretation. */
 object RavenLocalSenseOS {
     enum class Route {
         LAUNCHER_NATIVE,
@@ -9,6 +9,7 @@ object RavenLocalSenseOS {
         NOTIFICATION_SOURCE,
         TRIGGER_PACK,
         LOCAL_OCR,
+        ACCESSIBILITY_SEMANTIC,
         LOCAL_VISION,
         DELIBERATION_ELIGIBLE,
         SILENCE,
@@ -30,10 +31,14 @@ object RavenLocalSenseOS {
                 Decision(Route.NOTIFICATION_SOURCE, true, reason = "notification-listener metadata/ranking")
             key == "SCREEN_VISUAL" ->
                 Decision(Route.LOCAL_VISION, true, reason = "owner-armed MediaProjection visual delta; raw frame not persisted")
+            key == "SCREEN_TEXT" ->
+                Decision(Route.LOCAL_OCR, true, reason = "owner-armed local OCR from transient MediaProjection frame")
+            key == "SCREEN_SEMANTIC" ->
+                Decision(Route.ACCESSIBILITY_SEMANTIC, true, reason = "owner-armed visible Accessibility semantics; editable/password values excluded")
             key.startsWith("MEDIA") ->
                 Decision(Route.MEDIA_SESSION, true, reason = "media semantic state")
-            key.startsWith("BATTERY") || key.startsWith("POWER") || key == "DEVICE" || key == "NIGHT" ->
-                Decision(Route.ANDROID_CALLBACK, true, reason = "android lifecycle callback")
+            key.startsWith("BATTERY") || key.startsWith("POWER") || key == "DEVICE" || key == "NIGHT" || key == "WINDOW_CHANGE" ->
+                Decision(Route.ANDROID_CALLBACK, true, reason = "android lifecycle/window callback")
             key == "APP_ENTER" ->
                 Decision(Route.TRIGGER_PACK, true, reason = "package/app trigger")
             marker.source.equals("LOCAL_OCR", true) ->
