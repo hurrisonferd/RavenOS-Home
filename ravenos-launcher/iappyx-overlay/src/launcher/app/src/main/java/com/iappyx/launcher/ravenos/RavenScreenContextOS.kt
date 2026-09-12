@@ -30,6 +30,7 @@ object RavenScreenContextOS {
         val blockCount: Int,
         val quietZone: String,
         val signature: String,
+        val confidence: Int,
     )
 
     fun snapshot(context: Context, now: Long = System.currentTimeMillis()): Snapshot {
@@ -46,7 +47,7 @@ object RavenScreenContextOS {
             useAccess -> accessFresh!!.text
             ocrFresh != null -> ocrFresh.text
             else -> ""
-        }.replace(Regex("\\s+"), " ").trim().take(300)
+        }.replace(Regex("\\s+"), " ").trim().take(420)
 
         val source = when {
             useAccess -> "ACCESSIBILITY"
@@ -67,26 +68,33 @@ object RavenScreenContextOS {
         val top = if (useAccess) "" else ocrFresh?.top.orEmpty().cleanZone()
         val middle = if (useAccess) "" else ocrFresh?.middle.orEmpty().cleanZone()
         val bottom = if (useAccess) "" else ocrFresh?.bottom.orEmpty().cleanZone()
+        val focus = chooseFocus(rawText)
         val meta = rawText.isNotBlank() && RavenMetaRecursionOS.detect(rawText)
-        val focus = if (meta) RavenMetaRecursionOS.focus(rawText).orEmpty() else chooseFocus(rawText)
-        val resolvedFocus = focus.ifBlank { chooseFocus(rawText) }
         val quiet = map?.quietZone(keyboard) ?: ocrFresh?.leastBusyZone() ?: "top"
         val blocks = map?.blocks?.size ?: ocrFresh?.blockCount ?: accessFresh?.nodeCount ?: 0
-        val signature = if (resolvedFocus.isBlank()) "" else listOf(
+        val confidence = when {
+            rawText.isBlank() || focus.isBlank() -> 0
+            useAccess && age <= 4_000L -> 96
+            useAccess -> 90
+            ocrFresh != null && age <= 5_000L && blocks >= 2 -> 86
+            ocrFresh != null && blocks >= 1 -> 78
+            else -> 62
+        }
+        val signature = if (focus.isBlank()) "" else listOf(
             semantic.kind,
             semantic.label,
-            resolvedFocus.lowercase().replace(Regex("[^a-z0-9 ]"), "").replace(Regex("\\s+"), " ").take(96),
+            focus.lowercase().replace(Regex("[^a-z0-9 ]"), "").replace(Regex("\\s+"), " ").take(112),
             source,
         ).joinToString("|")
 
         return Snapshot(
-            available = rawText.isNotBlank() && resolvedFocus.isNotBlank(),
+            available = rawText.isNotBlank() && focus.isNotBlank(),
             appLabel = semantic.label.takeIf { it.isNotBlank() },
             packageName = pkg,
             semanticKind = semantic.kind,
             semanticSummary = semantic.summary,
             text = rawText,
-            focus = resolvedFocus,
+            focus = focus,
             top = top,
             middle = middle,
             bottom = bottom,
@@ -98,6 +106,7 @@ object RavenScreenContextOS {
             blockCount = blocks,
             quietZone = quiet,
             signature = signature,
+            confidence = confidence,
         )
     }
 
@@ -106,22 +115,26 @@ object RavenScreenContextOS {
         val chrome = setOf(
             "back", "home", "search", "more", "share", "copy", "cancel", "done", "ok", "close",
             "settings", "menu", "edit", "send", "next", "previous", "open", "notifications",
+            "new chat", "voice", "attach", "tools", "regenerate",
         )
         val phrases = text
-            .split(" · ", "\n")
-            .map { it.replace(Regex("\\s+"), " ").trim().trim('·', '-', '|') }
-            .filter { it.length in 3..140 }
+            .split(" · ", "\n", ". ", "! ", "? ")
+            .map { it.replace(Regex("\\s+"), " ").trim().trim('·', '-', '|', ':') }
+            .filter { it.length in 3..180 }
             .distinct()
             .filterNot { it.lowercase() in chrome }
             .filterNot { it.matches(Regex("^[0-9:./ -]+$")) }
             .filterNot { it.equals("ChatGPT can make mistakes", ignoreCase = true) }
-        val chosen = phrases.maxByOrNull { phrase ->
+        val metaFirst = phrases.firstOrNull { RavenMetaRecursionOS.detect(it) }
+        val chosen = metaFirst ?: phrases.maxByOrNull { phrase ->
             val letters = phrase.count(Char::isLetter)
             val words = phrase.split(' ').count { it.length >= 3 }
-            (letters * 2) + (words * 8) + phrase.length.coerceAtMost(72)
+            val verbs = Regex("\\b(is|are|was|were|need|needs|want|wants|build|make|improve|show|says|saying|discuss|discussing|fix|working|react|reacting)\\b", RegexOption.IGNORE_CASE)
+                .findAll(phrase).count()
+            (letters * 2) + (words * 8) + (verbs * 18) + phrase.length.coerceAtMost(92)
         } ?: text
-        return chosen.replace(Regex("\\s+"), " ").trim().take(112)
+        return chosen.replace(Regex("\\s+"), " ").trim().take(150)
     }
 
-    private fun String.cleanZone(): String = replace(Regex("\\s+"), " ").trim().take(96)
+    private fun String.cleanZone(): String = replace(Regex("\\s+"), " ").trim().take(112)
 }
