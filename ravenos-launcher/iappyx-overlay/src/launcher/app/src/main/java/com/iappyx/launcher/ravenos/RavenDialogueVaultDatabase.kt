@@ -15,8 +15,9 @@ import androidx.room.RoomDatabase
  * Local structural store for the RavenOS writers' room.
  *
  * Privacy boundary: this database stores authored templates, structural fingerprints, expression
- * usage and typed scene metadata. It MUST NOT store screenshots, raw OCR transcripts, editable
- * values, password text, notification bodies, or arbitrary visible-screen phrases.
+ * usage, typed scene metadata, and searchable structural recall metadata. It MUST NOT store
+ * screenshots, raw OCR transcripts, editable values, password text, notification bodies, or
+ * arbitrary visible-screen phrases.
  */
 @Entity(tableName = "dialogue_templates")
 data class RavenDialogueTemplateEntity(
@@ -71,6 +72,18 @@ data class RavenSceneHistoryEntity(
     val at: Long,
 )
 
+@Entity(tableName = "recall_moments")
+data class RavenRecallMomentEntity(
+    @PrimaryKey val id: String,
+    val owner: String,
+    val signal: String,
+    val family: String,
+    val scene: String,
+    val motif: String,
+    val episode: String,
+    val at: Long,
+)
+
 @Dao
 interface RavenDialogueVaultDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
@@ -118,6 +131,18 @@ interface RavenDialogueVaultDao {
     @Query("DELETE FROM scene_history WHERE id NOT IN (SELECT id FROM scene_history ORDER BY at DESC LIMIT :keep)")
     fun pruneScenes(keep: Int)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun putRecall(row: RavenRecallMomentEntity)
+
+    @Query("SELECT * FROM recall_moments WHERE owner LIKE '%' || :query || '%' OR signal LIKE '%' || :query || '%' OR family LIKE '%' || :query || '%' OR scene LIKE '%' || :query || '%' OR motif LIKE '%' || :query || '%' OR episode LIKE '%' || :query || '%' ORDER BY at DESC LIMIT :limit")
+    fun searchRecall(query: String, limit: Int): List<RavenRecallMomentEntity>
+
+    @Query("SELECT COUNT(*) FROM recall_moments")
+    fun recallCount(): Int
+
+    @Query("DELETE FROM recall_moments WHERE id NOT IN (SELECT id FROM recall_moments ORDER BY at DESC LIMIT :keep)")
+    fun pruneRecall(keep: Int)
+
     @Query("DELETE FROM dialogue_fingerprints")
     fun clearFingerprints()
 
@@ -126,6 +151,9 @@ interface RavenDialogueVaultDao {
 
     @Query("DELETE FROM scene_history")
     fun clearScenes()
+
+    @Query("DELETE FROM recall_moments")
+    fun clearRecall()
 }
 
 @Database(
@@ -134,6 +162,7 @@ interface RavenDialogueVaultDao {
         RavenDialogueFingerprintEntity::class,
         RavenExpressionUseEntity::class,
         RavenSceneHistoryEntity::class,
+        RavenRecallMomentEntity::class,
     ],
     version = 1,
     exportSchema = false,
