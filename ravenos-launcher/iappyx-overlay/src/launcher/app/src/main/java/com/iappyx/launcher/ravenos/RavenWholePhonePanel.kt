@@ -46,6 +46,17 @@ object RavenWholePhonePanel {
             })
         }
 
+        section("SCREEN-FIRST OFFICE 👁🧠", "The resident separates sensing, screen understanding, observation, and earned character dialogue. Current visible meaning outranks package/window chatter; observations can stay visible while the office waits for a line worth saying.")
+        button("REFRESH SCREEN INTERPRETATION") {
+            RavenOfficeBarService.signal(activity, "SCREEN_SEMANTIC", "state:manual_refresh|source:control_panel")
+        }
+        button("CLEAR SCREEN/CALLBACK MEMORY") {
+            RavenScreenMemoryOS.clear()
+            RavenCallbackMemoryOS.clear()
+            RavenInterruptibilityOS.clear(activity)
+            RavenOfficeGovernor.clearStats(activity)
+        }
+
         section("NOTIFICATION SENSE", "SOURCE = package/category/ranking only. SEMANTIC may route title locally. FULL_LOCAL may ingest title/body locally. Nothing is uploaded by this layer.")
         button("SOURCE ONLY") { RavenNotificationSenseOS.setMode(activity, RavenNotificationSenseOS.PrivacyMode.SOURCE) }
         button("SEMANTIC LOCAL") { RavenNotificationSenseOS.setMode(activity, RavenNotificationSenseOS.PrivacyMode.SEMANTIC) }
@@ -57,20 +68,20 @@ object RavenWholePhonePanel {
             RavenOfficeBarService.signal(activity, "MEDIA_SESSION", RavenMediaSessionSenseOS.signalDetail(RavenMediaSessionSenseOS.snapshot(activity)))
         }
 
-        section("GOBLIN EYE 👁", "Owner-armed MediaProjection. Local frames feed motion/color/hash and optionally text-layout awareness. Raw frames are not persisted by ScreenWatchOS.")
+        section("GOBLIN EYE 👁", "Owner-armed MediaProjection. Local frames feed motion/color/hash and optionally text-layout awareness. Raw frames are not persisted by ScreenWatchOS. Stable screens receive periodic OCR refreshes so context does not expire just because Raven stopped scrolling.")
         button("👁 ARM GOBLIN EYE") { RavenPermissionDeck.armGoblinEye(activity) }
         button("STOP GOBLIN EYE") { RavenPermissionDeck.stopGoblinEye(activity) }
 
-        section("GOBLIN READ 👁🔤", "Optional local OCR layered on Goblin Eye. Changed frames become bounded text + screen-zone evidence for MetaSceneOS. Raw frames are discarded; credential-looking surfaces suppress the read lane.")
+        section("GOBLIN READ 👁🔤", "Optional local OCR layered on Goblin Eye. It retains bounded text/layout evidence, filters Follow-Me Office's own visible dialogue, and suppresses credential-looking surfaces. Raw frames are discarded.")
         button("ENABLE LOCAL GOBLIN READ") { RavenGoblinReadOS.setEnabled(activity, true) }
         button("DISABLE GOBLIN READ") { RavenGoblinReadOS.setEnabled(activity, false) }
 
-        section("ACCESSIBILITY READ 🧭🔤", "Separate owner switch for Android-exposed visible labels and static text. Editable values and password nodes are excluded. This complements OCR when apps expose useful accessibility semantics.")
+        section("ACCESSIBILITY READ 🧭🔤", "Separate owner switch for Android-exposed visible labels and static text. Editable values and password nodes are excluded. Accessibility and OCR are fused as two witnesses to one semantic screen rather than competing sources.")
         button("ENABLE ACCESSIBILITY READ") { RavenAccessibilityReadOS.setEnabled(activity, true) }
         button("DISABLE ACCESSIBILITY READ") { RavenAccessibilityReadOS.setEnabled(activity, false) }
         button("OPEN ACCESSIBILITY AWARENESS") { RavenPermissionDeck.openForegroundAwareness(activity) }
 
-        section("CROSS-APP META GOBLIN", "Follow-Me is the persistent TYPE_APPLICATION_OVERLAY body over ordinary apps: compact employee chip while idle, expanded comment on meaningful scenes, tap for recent hauntings. Secure/lock/protected surfaces remain Android-controlled.")
+        section("CROSS-APP META GOBLIN", "Follow-Me is the persistent TYPE_APPLICATION_OVERLAY body over ordinary apps: CHIP idle, OBSERVING when the screen is understood, COMMENT when an employee earns dialogue, tap for recent hauntings. Secure/lock/protected surfaces remain Android-controlled.")
         button("OPEN APPEAR-ON-TOP ACCESS") { RavenPermissionDeck.openOverlayAccess(activity) }
         button("ENABLE FOLLOW-ME") {
             if (!RavenFollowMeOverlay.enable(activity)) RavenPermissionDeck.openOverlayAccess(activity)
@@ -81,7 +92,7 @@ object RavenWholePhonePanel {
         section("FOREGROUND LEDGER", "Optional Android Usage Access adds a second app-resume signal when One UI Accessibility events are incomplete. App identity/timing only; no content.")
         button("OPEN USAGE ACCESS") { RavenPermissionDeck.openUsageAwareness(activity) }
 
-        section("CALLBACK MEMORY", "Session-bounded deterministic recurrence memory: repeated app returns, A↔B loops, persistent tracks, recursive RavenOS references, and recurring scene shapes. No transcript is stored here.")
+        section("CALLBACK + SUBJECT MEMORY", "Callback memory tracks loops/returns; screen memory tracks only a few short derived semantic subjects in process memory. Neither organ stores raw screenshots or a persistent OCR transcript.")
         button("CLEAR CALLBACK BITS") { RavenCallbackMemoryOS.clear() }
 
         section("GALAXY / BACKGROUND SURVIVAL", RavenGalaxyHauntOS.samsungInstructions(activity))
@@ -103,6 +114,7 @@ object RavenWholePhonePanel {
         val awareness = RavenAwarenessStatus.snapshot(activity)
         val media = RavenMediaSessionSenseOS.snapshot(activity)
         val galaxy = RavenGalaxyHauntOS.snapshot(activity)
+        val screen = RavenScreenContextOS.snapshot(activity)
         view.text = buildString {
             append(awareness.compact())
             append("\n").append(RavenUsageSenseOS.compact(activity))
@@ -112,6 +124,13 @@ object RavenWholePhonePanel {
             append("\n").append(RavenAccessibilityReadOS.compact(activity))
             append("\n").append(RavenFollowMeOverlay.status(activity))
             append("\n").append(galaxy.compact())
+            append("\n").append(RavenOfficeGovernor.compact(activity))
+            append("\nSCREEN=").append(if (screen.available) "READABLE" else "UNKNOWN")
+            append(" source=").append(screen.source)
+            append(" confidence=").append(screen.confidence)
+            append(" kind=").append(screen.semanticKind)
+            append(" meta=").append(screen.meta)
+            if (screen.focus.isNotBlank()) append("\nSUBJECT=").append(screen.focus.take(170))
         }
     }
 }
