@@ -43,12 +43,26 @@ object RavenWidgetKnowledgeModule {
     private class Bridge(private val context: Context) {
         @JavascriptInterface
         fun state(): String {
-            val snapshot = RavenKnowledgeStateStore.read(context)
+            val snapshot = RavenKnowledgeStateStore.latest(context)
                 ?: return JSONObject().put("ok", false).put("error", "knowledge unavailable").toString()
             return safeJson(snapshot).toString()
         }
 
         @JavascriptInterface
-        fun version(): Int = 1
+        fun selfRepo(): String {
+            val snapshot = RavenKnowledgeStateStore.read(context, "SELF_REPO")
+                ?: return JSONObject().put("ok", false).put("error", "self repo knowledge unavailable").toString()
+            return safeJson(snapshot).toString()
+        }
+
+        @JavascriptInterface
+        fun contextual(): String {
+            val snapshot = RavenKnowledgeStateStore.read(context, "CONTEXTUAL")
+                ?: return JSONObject().put("ok", false).put("error", "contextual knowledge unavailable").toString()
+            return safeJson(snapshot).toString()
+        }
+
+        @JavascriptInterface
+        fun version(): Int = 2
     }
 }
