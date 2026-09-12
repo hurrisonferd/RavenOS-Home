@@ -20,13 +20,8 @@ object RavenMarkerBus {
         val tags: Set<String>,
     ) {
         fun toJson(): JSONObject = JSONObject()
-            .put("id", id)
-            .put("key", key)
-            .put("detail", detail)
-            .put("source", source)
-            .put("at", at)
-            .put("salience", salience)
-            .put("tags", JSONArray(tags.toList()))
+            .put("id", id).put("key", key).put("detail", detail).put("source", source)
+            .put("at", at).put("salience", salience).put("tags", JSONArray(tags.toList()))
     }
 
     @Synchronized
@@ -67,13 +62,9 @@ object RavenMarkerBus {
             val arr = obj.optJSONArray("tags")
             if (arr != null) for (j in 0 until arr.length()) arr.optString(j).takeIf { it.isNotBlank() }?.let(tags::add)
             out += Marker(
-                id = obj.optString("id"),
-                key = obj.optString("key"),
-                detail = obj.optString("detail"),
-                source = obj.optString("source", "ANDROID"),
-                at = obj.optLong("at"),
-                salience = obj.optInt("salience", 1),
-                tags = tags,
+                id = obj.optString("id"), key = obj.optString("key"), detail = obj.optString("detail"),
+                source = obj.optString("source", "ANDROID"), at = obj.optLong("at"),
+                salience = obj.optInt("salience", 1), tags = tags,
             )
         }
         return out
@@ -91,6 +82,7 @@ object RavenMarkerBus {
         "MEDIA_SESSION" -> "MEDIA_SESSION"
         "SCREEN_VISUAL" -> "SCREEN_VISUAL"
         "SCREEN_TEXT" -> "SCREEN_TEXT"
+        "SCREEN_SEMANTIC" -> "SCREEN_SEMANTIC"
         "POWER" -> "POWER_CHANGED"
         "BATTERY" -> "BATTERY_CHANGED"
         "HOME" -> "HOME_ENTER"
@@ -105,17 +97,12 @@ object RavenMarkerBus {
         val tags = linkedSetOf<String>()
         when {
             key.startsWith("APP_") -> tags += "APP"
-            key == "WINDOW_CHANGE" -> {
-                tags += "APP"
-                tags += "WINDOW"
-            }
+            key == "WINDOW_CHANGE" -> { tags += "APP"; tags += "WINDOW" }
             key.startsWith("NOTIFICATION") -> tags += "NOTIFICATION"
             key.startsWith("MEDIA") -> tags += "MEDIA"
             key == "SCREEN_VISUAL" -> tags += "VISION"
-            key == "SCREEN_TEXT" -> {
-                tags += "VISION"
-                tags += "TEXT"
-            }
+            key == "SCREEN_TEXT" -> { tags += "VISION"; tags += "TEXT" }
+            key == "SCREEN_SEMANTIC" -> { tags += "VISION"; tags += "SEMANTIC"; tags += "TEXT" }
             key.startsWith("BATTERY") || key.startsWith("POWER") -> tags += "POWER"
             key.contains("ERROR") || key.contains("FAIL") || key.contains("CONFLICT") -> tags += "ERROR"
             key.contains("HOME") -> tags += "HOME"
@@ -124,8 +111,9 @@ object RavenMarkerBus {
         if (listOf("spotify", "music", "soundcloud", "youtube.music", "audio", "state:playing", "track:").any(d::contains)) tags += "MUSIC"
         if (key == "MEDIA_IDLE" || d.contains("state:paused") || d.contains("state:stopped")) tags += "MEDIA_STOP"
         if (d.contains("state:changed") && key == "SCREEN_VISUAL") tags += "VISUAL_CHANGE"
-        if (key == "SCREEN_TEXT" && d.contains("state:visible")) tags += "VISIBLE_TEXT"
-        if (key == "SCREEN_TEXT" && d.contains("suppressed_sensitive")) tags += "BOUNDARY"
+        if (key in setOf("SCREEN_TEXT", "SCREEN_SEMANTIC") && d.contains("state:visible")) tags += "VISIBLE_TEXT"
+        if (key in setOf("SCREEN_TEXT", "SCREEN_SEMANTIC") && (d.contains("suppressed_sensitive") || d.contains("suppressed_password"))) tags += "BOUNDARY"
+        if (d.contains("meta:true")) tags += "META_RECURSION"
         if (listOf("github", "gitlab", "termux", "studio", "code", "build").any(d::contains)) tags += "BUILD"
         if (listOf("chrome", "firefox", "browser", "opera", "reddit", "wikipedia").any(d::contains)) tags += "DISCOVERY"
         if (listOf("permission", "settings", "auth", "security", "wallet", "bank").any(d::contains)) tags += "BOUNDARY"
@@ -143,6 +131,7 @@ object RavenMarkerBus {
         if ("SUCCESS" in tags) score += 2
         if ("BOUNDARY" in tags) score += 2
         if ("VISIBLE_TEXT" in tags) score += 2
+        if ("META_RECURSION" in tags) score += 4
         if ("VISION" in tags) score += 1
         if (key == "WINDOW_CHANGE") score -= 1
         if (key == "HOME_ENTER" || key == "ROOM_CHANGED" || key == "MEDIA_IDLE") score -= 1
@@ -153,10 +142,7 @@ object RavenMarkerBus {
 
     private fun stableHash(text: String): String {
         var hash = 0x811C9DC5.toInt()
-        for (c in text) {
-            hash = hash xor c.code
-            hash *= 16777619
-        }
+        for (c in text) { hash = hash xor c.code; hash *= 16777619 }
         return (hash and Int.MAX_VALUE).toString(16)
     }
 }
