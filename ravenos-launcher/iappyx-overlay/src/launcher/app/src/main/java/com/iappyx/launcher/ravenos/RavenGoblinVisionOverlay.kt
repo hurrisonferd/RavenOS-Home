@@ -137,8 +137,8 @@ object RavenGoblinVisionOverlay {
                 ownerView?.apply {
                     visibility = View.VISIBLE
                     text = lastOwnerLine
-                    textSize = 14f
-                    maxLines = 1
+                    textSize = 14.5f
+                    maxLines = 2
                     ellipsize = TextUtils.TruncateAt.END
                     setTextColor(accent)
                 }
@@ -154,16 +154,16 @@ object RavenGoblinVisionOverlay {
                 ownerView?.apply {
                     visibility = View.VISIBLE
                     text = lastOwnerLine
-                    textSize = 14.5f
-                    maxLines = 1
+                    textSize = 15f
+                    maxLines = 2
                     ellipsize = TextUtils.TruncateAt.END
                     setTextColor(accent)
                 }
                 noteView?.apply {
                     visibility = if (lastObservation.isBlank()) View.GONE else View.VISIBLE
                     text = lastObservation
-                    textSize = 12.8f
-                    maxLines = 3
+                    textSize = 12.9f
+                    maxLines = 4
                     ellipsize = TextUtils.TruncateAt.END
                     setTextColor(0xFFE7E7EF.toInt())
                 }
@@ -178,7 +178,7 @@ object RavenGoblinVisionOverlay {
                 ownerView?.apply {
                     visibility = View.VISIBLE
                     text = lastOwnerLine
-                    textSize = if (lastHaunt == RavenHauntMode.APOCALYPSE) 17f else 15f
+                    textSize = if (lastHaunt == RavenHauntMode.APOCALYPSE) 17f else 15.5f
                     maxLines = 2
                     ellipsize = TextUtils.TruncateAt.END
                     setTextColor(accent)
@@ -187,7 +187,13 @@ object RavenGoblinVisionOverlay {
                     visibility = if (lastNote.isBlank()) View.GONE else View.VISIBLE
                     text = lastNote
                     textSize = 13.5f
-                    maxLines = if (lastHaunt == RavenHauntMode.APOCALYPSE) 5 else 4
+                    maxLines = when (lastHaunt) {
+                        RavenHauntMode.CALM -> 5
+                        RavenHauntMode.LIVED_IN -> 6
+                        RavenHauntMode.HAUNTED -> 6
+                        RavenHauntMode.FERAL -> 7
+                        RavenHauntMode.APOCALYPSE -> 8
+                    }
                     ellipsize = TextUtils.TruncateAt.END
                     setTextColor(0xFFF8F8FC.toInt())
                 }
@@ -198,7 +204,7 @@ object RavenGoblinVisionOverlay {
                     visibility = if (contextLine.isBlank()) View.GONE else View.VISIBLE
                     text = contextLine
                     textSize = 10.8f
-                    maxLines = 3
+                    maxLines = 4
                     ellipsize = TextUtils.TruncateAt.END
                     setTextColor(0xFFBFC0CC.toInt())
                 }
@@ -212,8 +218,8 @@ object RavenGoblinVisionOverlay {
                 ownerView?.apply {
                     visibility = View.VISIBLE
                     text = lastOwnerLine
-                    textSize = 14.5f
-                    maxLines = 1
+                    textSize = 15f
+                    maxLines = 2
                     ellipsize = TextUtils.TruncateAt.END
                     setTextColor(accent)
                 }
@@ -223,7 +229,7 @@ object RavenGoblinVisionOverlay {
                     visibility = if (feed.isBlank()) View.GONE else View.VISIBLE
                     text = feed
                     textSize = 11.5f
-                    maxLines = 12
+                    maxLines = 16
                     ellipsize = TextUtils.TruncateAt.END
                     setTextColor(0xFFF0F0F6.toInt())
                 }
@@ -240,24 +246,33 @@ object RavenGoblinVisionOverlay {
         )
 
         lp?.let { params ->
-            val widthDp = when (mode) {
-                Mode.CHIP -> if (lastHaunt.ordinal >= RavenHauntMode.FERAL.ordinal) 220 else 196
+            val screenWidthDp = context.resources.configuration.screenWidthDp.coerceAtLeast(320)
+            val maxWidthDp = (screenWidthDp - 18).coerceAtLeast(286)
+            val desiredWidthDp = when (mode) {
+                Mode.CHIP -> when (lastHaunt) {
+                    RavenHauntMode.CALM -> 252
+                    RavenHauntMode.LIVED_IN -> 278
+                    RavenHauntMode.HAUNTED -> 312
+                    RavenHauntMode.FERAL -> 334
+                    RavenHauntMode.APOCALYPSE -> 350
+                }
                 Mode.OBSERVING -> when (lastHaunt) {
-                    RavenHauntMode.CALM -> 244
-                    RavenHauntMode.LIVED_IN -> 268
-                    RavenHauntMode.HAUNTED -> 292
-                    RavenHauntMode.FERAL -> 316
-                    RavenHauntMode.APOCALYPSE -> 332
+                    RavenHauntMode.CALM -> 292
+                    RavenHauntMode.LIVED_IN -> 316
+                    RavenHauntMode.HAUNTED -> 338
+                    RavenHauntMode.FERAL -> 354
+                    RavenHauntMode.APOCALYPSE -> 370
                 }
                 Mode.COMMENT -> when (lastHaunt) {
-                    RavenHauntMode.CALM -> 250
-                    RavenHauntMode.LIVED_IN -> 276
-                    RavenHauntMode.HAUNTED -> 308
-                    RavenHauntMode.FERAL -> 332
-                    RavenHauntMode.APOCALYPSE -> 356
+                    RavenHauntMode.CALM -> 310
+                    RavenHauntMode.LIVED_IN -> 332
+                    RavenHauntMode.HAUNTED -> 352
+                    RavenHauntMode.FERAL -> 366
+                    RavenHauntMode.APOCALYPSE -> 378
                 }
-                Mode.FEED -> if (lastHaunt == RavenHauntMode.APOCALYPSE) 368 else 346
+                Mode.FEED -> 378
             }
+            val widthDp = desiredWidthDp.coerceAtMost(maxWidthDp)
             var changed = false
             val width = dp(context, widthDp)
             if (params.width != width) { params.width = width; changed = true }
@@ -277,7 +292,7 @@ object RavenGoblinVisionOverlay {
 
         RavenSurfaceIntegrity.mark(
             context, RavenSurfaceIntegrity.FOLLOW_ME, "RENDERED", stateAt,
-            "goblin_vision_meta_overlay_v8:${mode.name.lowercase()}",
+            "goblin_vision_meta_overlay_v9:${mode.name.lowercase()}",
         )
     }
 
@@ -289,7 +304,7 @@ object RavenGoblinVisionOverlay {
             val presentation = member?.let { RavenEmployeePresentation.packet(it, entry.signal, entry.detail, line) }
             val who = presentation?.let { "${it.emojiSoup} ${entry.owner} ${it.kaomoji}" } ?: entry.owner
             val repeat = if (entry.repeats > 1) " ×${entry.repeats}" else ""
-            "$who$repeat\n${line.take(100)}"
+            "$who$repeat\n${clipAtWord(line, 150)}"
         }.take(4).joinToString("\n\n")
 
     private fun scheduleCollapse(context: Context, reaction: RavenReactionPacket, hauntMode: RavenHauntMode) {
@@ -302,7 +317,7 @@ object RavenGoblinVisionOverlay {
             }
         }
         collapseRunnable = runnable
-        handler.postDelayed(runnable, reaction.lifetimeMs.coerceIn(4_000L, 18_000L))
+        handler.postDelayed(runnable, reaction.lifetimeMs.coerceIn(4_000L, 20_000L))
     }
 
     fun hide() {
@@ -325,7 +340,10 @@ object RavenGoblinVisionOverlay {
         }
         statusView = TextView(context).apply { textSize = 9.5f; setTypeface(typeface, Typeface.BOLD) }.also(box::addView)
         ownerView = TextView(context).apply {
-            textSize = 15f; setTypeface(typeface, Typeface.BOLD); setPadding(0, dp(context, 3), 0, 0)
+            textSize = 15f
+            setTypeface(typeface, Typeface.BOLD)
+            setPadding(0, dp(context, 3), 0, 0)
+            includeFontPadding = true
         }.also(box::addView)
         noteView = TextView(context).apply {
             textSize = 13.5f; setLineSpacing(dp(context, 1).toFloat(), 1.03f); setPadding(0, dp(context, 5), 0, 0)
@@ -335,7 +353,7 @@ object RavenGoblinVisionOverlay {
         }.also(box::addView)
 
         val params = WindowManager.LayoutParams(
-            dp(context, 302), WindowManager.LayoutParams.WRAP_CONTENT,
+            dp(context, 332), WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT,
@@ -373,8 +391,10 @@ object RavenGoblinVisionOverlay {
                         val held = System.currentTimeMillis() - downAt
                         if (held >= 650L) {
                             try {
-                                context.startActivity(Intent(context, RavenHomeActivity::class.java)
-                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+                                context.startActivity(
+                                    Intent(context, RavenHomeActivity::class.java)
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                                )
                             } catch (_: Throwable) {}
                         } else {
                             collapseRunnable?.let(handler::removeCallbacks)
@@ -401,7 +421,17 @@ object RavenGoblinVisionOverlay {
         return clean
     }
 
-    private fun withAlpha(color: Int, alpha: Int): Int = Color.argb(alpha.coerceIn(0, 255), Color.red(color), Color.green(color), Color.blue(color))
+    private fun clipAtWord(raw: String, max: Int): String {
+        val clean = raw.replace(Regex("\\s+"), " ").trim()
+        if (clean.length <= max) return clean
+        val clipped = clean.take(max)
+        val cut = clipped.lastIndexOf(' ').takeIf { it >= max * 2 / 3 } ?: max
+        return clipped.take(cut).trimEnd() + "…"
+    }
+
+    private fun withAlpha(color: Int, alpha: Int): Int = Color.argb(
+        alpha.coerceIn(0, 255), Color.red(color), Color.green(color), Color.blue(color),
+    )
 
     private fun readableAccent(color: Int): Int {
         val perceived = (Color.red(color) * 299 + Color.green(color) * 587 + Color.blue(color) * 114) / 1000
