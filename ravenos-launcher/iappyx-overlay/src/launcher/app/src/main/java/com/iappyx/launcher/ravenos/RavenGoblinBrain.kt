@@ -4,7 +4,7 @@ import android.content.Context
 
 /**
  * Android vertical slice of Goblin Vision.
- * MarkerBus -> senses -> shade geometry -> complex event -> session/scene fusion -> cast -> expression -> overlay.
+ * MarkerBus -> senses -> screen context -> complex event -> cast -> bounded commentary -> overlay.
  */
 object RavenGoblinBrain {
     data class Result(val member: RavenOfficeMember, val packet: RavenReactionPacket)
@@ -27,43 +27,73 @@ object RavenGoblinBrain {
         val episode = RavenEpisodeOS.phase(context, marker, complex)
         val callback = RavenCallbackMemoryOS.observe(context, marker, complex)
         val narrative = RavenSessionNarrativeOS.observe(context, marker)
-        val member = cast(context, marker, shade, complex, manualOwner, quiet)
+        val screen = RavenScreenContextOS.snapshot(context, marker.at)
+        val allowed = RavenInterruptibilityOS.allow(context, marker, complex, hauntMode, quiet)
+
+        // Evidence-only events must not rotate the visible resident every time Android twitches.
+        // Keep the last settled office member until a comment actually earns presentation.
+        val previousMember = if (!allowed && !quiet) {
+            RavenOfficeStateStore.read(context)?.owner
+                ?.let(RavenOfficeRegistry::member)
+                ?.takeIf { it.routable }
+        } else null
+        val member = previousMember ?: cast(context, marker, shade, complex, manualOwner, quiet)
+
         val narrativeBeat = RavenSessionNarrativeOS.beat(member, narrative, marker)
         val meta = RavenMetaCommentaryOS.compose(context, member, marker, complex, episode)
         val sceneBeat = RavenMetaGoblinDialogueOS.select(context, member, marker, complex, episode)
         val omniscience = RavenOmniscienceDialogueOS.select(context, member, marker, shade, complex, episode)
         val fusedScene = RavenMetaSceneOS.compose(context, member, marker, complex, callback)
-        val allowed = RavenInterruptibilityOS.allow(context, marker, complex, hauntMode, quiet)
         val visual = RavenVisualAtlas.resolve(member.id, marker, complex)
         val character = RavenDialogueBank.select(member, marker, complex, visual, episode)
         val mayhem = RavenMayhemDialogueBank.select(member, marker, shade, complex, episode)
         val metaPunch = RavenMetaPunchlineOS.select(member, marker)
         val interruption = RavenOfficeInterruptionOS.select(context, member, marker, complex)
 
-        // Truth/evidence first. Comedy is strictly downstream and limited to one stinger.
-        val truth = fusedScene.text.ifBlank {
-            omniscience.text.ifBlank {
+        // Current visible screen meaning outranks action history. App/window/media events remain useful
+        // evidence underneath but do not win the sentence merely because they fired first.
+        val truth = omniscience.text.ifBlank {
+            fusedScene.text.ifBlank {
                 narrativeBeat.text.ifBlank { sceneBeat.text.ifBlank { meta.text } }
             }
         }.trim()
-        val stinger = mayhem.text.ifBlank { metaPunch.text.ifBlank { character.text } }.trim()
+
+        val exceptional = "META_RECURSION" in marker.tags ||
+            "BOUNDARY" in marker.tags ||
+            "ERROR" in marker.tags ||
+            "PAYOFF" in complex.tags
+        val earnedComedy = screen.available || exceptional
+        val stinger = if (allowed && earnedComedy) {
+            mayhem.text.ifBlank { metaPunch.text.ifBlank { character.text } }.trim()
+        } else ""
+        val officeAside = if (
+            allowed && screen.meta && "META_RECURSION" in marker.tags
+        ) interruption.text.trim() else ""
+
         val spoken = if (!allowed) "" else buildString {
             append(truth)
             if (stinger.isNotBlank() && stinger != truth) {
                 if (isNotEmpty()) append("  ")
                 append(stinger)
             }
-            if (interruption.text.isNotBlank()) {
+            if (officeAside.isNotBlank()) {
                 if (isNotEmpty()) append("  ")
-                append(interruption.text)
+                append(officeAside)
             }
-        }.replace(Regex("\\s+"), " ").trim().take(260)
+        }.replace(Regex("\\s+"), " ").trim().take(220)
 
-        val authorNote = if (allowed) truth.take(168) else ""
+        val authorNote = if (allowed) truth.take(150) else ""
         val presentation = RavenEmployeePresentation.packet(member, signal, detail, spoken)
         val dialogueFamily = if (!allowed) "SILENCE" else listOf(
-            fusedScene.family, omniscience.family, narrativeBeat.family, meta.family, sceneBeat.family,
-            mayhem.family, metaPunch.family, character.family, interruption.family,
+            omniscience.family,
+            fusedScene.family,
+            narrativeBeat.family,
+            meta.family,
+            sceneBeat.family,
+            if (earnedComedy) mayhem.family else "",
+            if (earnedComedy) metaPunch.family else "",
+            if (earnedComedy) character.family else "",
+            if (officeAside.isNotBlank()) interruption.family else "",
         ).filter { it.isNotBlank() }.distinct().joinToString("+")
         val zone = RavenOfficeGeography.zone(member.id, marker, complex)
         val highlight = RavenHighlightOS.score(marker, complex, episode)
