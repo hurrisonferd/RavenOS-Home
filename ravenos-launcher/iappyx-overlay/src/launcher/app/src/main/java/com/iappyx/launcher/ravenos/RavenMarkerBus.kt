@@ -90,6 +90,7 @@ object RavenMarkerBus {
         "MEDIA", "MUSIC" -> if (detail.contains("inactive", true) || detail.contains("stopped", true)) "MEDIA_IDLE" else "MEDIA_ACTIVE"
         "MEDIA_SESSION" -> "MEDIA_SESSION"
         "SCREEN_VISUAL" -> "SCREEN_VISUAL"
+        "SCREEN_TEXT" -> "SCREEN_TEXT"
         "POWER" -> "POWER_CHANGED"
         "BATTERY" -> "BATTERY_CHANGED"
         "HOME" -> "HOME_ENTER"
@@ -111,6 +112,10 @@ object RavenMarkerBus {
             key.startsWith("NOTIFICATION") -> tags += "NOTIFICATION"
             key.startsWith("MEDIA") -> tags += "MEDIA"
             key == "SCREEN_VISUAL" -> tags += "VISION"
+            key == "SCREEN_TEXT" -> {
+                tags += "VISION"
+                tags += "TEXT"
+            }
             key.startsWith("BATTERY") || key.startsWith("POWER") -> tags += "POWER"
             key.contains("ERROR") || key.contains("FAIL") || key.contains("CONFLICT") -> tags += "ERROR"
             key.contains("HOME") -> tags += "HOME"
@@ -119,6 +124,8 @@ object RavenMarkerBus {
         if (listOf("spotify", "music", "soundcloud", "youtube.music", "audio", "state:playing", "track:").any(d::contains)) tags += "MUSIC"
         if (key == "MEDIA_IDLE" || d.contains("state:paused") || d.contains("state:stopped")) tags += "MEDIA_STOP"
         if (d.contains("state:changed") && key == "SCREEN_VISUAL") tags += "VISUAL_CHANGE"
+        if (key == "SCREEN_TEXT" && d.contains("state:visible")) tags += "VISIBLE_TEXT"
+        if (key == "SCREEN_TEXT" && d.contains("suppressed_sensitive")) tags += "BOUNDARY"
         if (listOf("github", "gitlab", "termux", "studio", "code", "build").any(d::contains)) tags += "BUILD"
         if (listOf("chrome", "firefox", "browser", "opera", "reddit", "wikipedia").any(d::contains)) tags += "DISCOVERY"
         if (listOf("permission", "settings", "auth", "security", "wallet", "bank").any(d::contains)) tags += "BOUNDARY"
@@ -135,6 +142,7 @@ object RavenMarkerBus {
         if ("ATTENTION" in tags) score += 3
         if ("SUCCESS" in tags) score += 2
         if ("BOUNDARY" in tags) score += 2
+        if ("VISIBLE_TEXT" in tags) score += 2
         if ("VISION" in tags) score += 1
         if (key == "WINDOW_CHANGE") score -= 1
         if (key == "HOME_ENTER" || key == "ROOM_CHANGED" || key == "MEDIA_IDLE") score -= 1
