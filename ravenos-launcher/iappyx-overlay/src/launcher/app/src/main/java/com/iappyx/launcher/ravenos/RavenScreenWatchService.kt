@@ -27,8 +27,8 @@ import kotlin.math.abs
  * Owner-armed whole-screen Goblin Eye.
  *
  * Raw frames stay in memory and are immediately discarded. The analyzer emits coarse deterministic
- * visual deltas. When Raven separately enables Goblin Read, selected changed frames may also be
- * copied into local OCR for bounded text + layout semantics; no screenshot is saved.
+ * visual deltas. When Raven separately enables Goblin Read, selected frames are copied into local
+ * OCR for bounded text + layout semantics; no screenshot is saved.
  */
 class RavenScreenWatchService : Service() {
     private var projection: MediaProjection? = null
@@ -40,6 +40,7 @@ class RavenScreenWatchService : Service() {
     private var lastHash: Long = 0L
     private var lastAnalyzeAt = 0L
     private var lastEmitAt = 0L
+    private var lastReadRequestAt = 0L
     private var ignoreFrames = 0
     private var stopping = false
 
@@ -96,10 +97,10 @@ class RavenScreenWatchService : Service() {
         p.registerCallback(projectionCallback, Handler(mainLooper))
 
         val metrics = resources.displayMetrics
-        // 360px keeps capture cheap while materially improving OCR over the original 240px eye.
-        val width = 360
+        // 420px is still a cheap downsample on the S23 Ultra but gives OCR more character shape.
+        val width = 420
         val height = ((metrics.heightPixels.toFloat() / metrics.widthPixels.coerceAtLeast(1)) * width)
-            .toInt().coerceIn(360, 840)
+            .toInt().coerceIn(420, 980)
         val imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
         reader = imageReader
         val thread = HandlerThread("RavenGoblinEye").also { it.start() }
@@ -140,7 +141,8 @@ class RavenScreenWatchService : Service() {
     private fun analyze(image: Image) {
         if (stopping) return
         val now = System.currentTimeMillis()
-        val interval = when (RavenHauntModeStore.get(this)) {
+        val haunt = RavenHauntModeStore.get(this)
+        val interval = when (haunt) {
             RavenHauntMode.CALM -> 3000L
             RavenHauntMode.LIVED_IN -> 2200L
             RavenHauntMode.HAUNTED -> 1500L
@@ -214,8 +216,19 @@ class RavenScreenWatchService : Service() {
             }
         }
 
-        if (shouldRead && RavenGoblinReadOS.isEnabled(this)) {
-            snapshotBitmap(image)?.let { RavenGoblinReadOS.submit(this, it) }
+        val readRefresh = when (haunt) {
+            RavenHauntMode.CALM -> 12_000L
+            RavenHauntMode.LIVED_IN -> 10_000L
+            RavenHauntMode.HAUNTED -> 8_000L
+            RavenHauntMode.FERAL -> 6_000L
+            RavenHauntMode.APOCALYPSE -> 5_000L
+        }
+        val periodicRead = RavenGoblinReadOS.isEnabled(this) && now - lastReadRequestAt >= readRefresh
+        if ((shouldRead || periodicRead) && RavenGoblinReadOS.isEnabled(this)) {
+            snapshotBitmap(image)?.let {
+                lastReadRequestAt = now
+                RavenGoblinReadOS.submit(this, it)
+            }
         }
         lastSample = samples
         lastHash = hash
@@ -305,6 +318,7 @@ class RavenScreenWatchService : Service() {
         worker = null
         lastSample = null
         lastHash = 0L
+        lastReadRequestAt = 0L
         setActive(this, false)
         if (wasActive) {
             val state = when {
