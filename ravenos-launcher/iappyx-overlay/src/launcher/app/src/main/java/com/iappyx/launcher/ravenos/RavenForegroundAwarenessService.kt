@@ -2,6 +2,8 @@ package com.iappyx.launcher.ravenos
 
 import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
 
 /**
  * Optional RavenOS foreground + owner-armed visible-semantics lane.
@@ -50,22 +52,59 @@ class RavenForegroundAwarenessService : AccessibilityService() {
             RavenOfficeBarService.signal(this, signal, detail)
         }
 
-        // Web content can mutate or scroll without a new Android window. Re-read the active root on
-        // bounded content/focus/scroll/click events so browser surfaces do not leave the office blind.
+        // Web/chat content can mutate or scroll without a new Android window. Re-read a bounded
+        // semantic viewport. If the IME is active, prefer the visible app underneath it rather than
+        // accidentally treating Samsung Keyboard as the entire scene.
         if (RavenAccessibilityReadOS.isEnabled(this) && now - lastSemanticAt >= 550L) {
             observeVisibleSemantics(packageName, force = false)
         }
     }
 
+    private data class WindowRoot(
+        val root: AccessibilityNodeInfo,
+        val pkg: String,
+        val active: Boolean,
+        val focused: Boolean,
+        val type: Int,
+    )
+
     private fun observeVisibleSemantics(packageHint: String?, force: Boolean) {
         val now = System.currentTimeMillis()
         if (!force && now - lastSemanticAt < 550L) return
-        val root = try { rootInActiveWindow } catch (_: Throwable) { null } ?: return
-        val pkg = packageHint?.takeIf { it.isNotBlank() }
-            ?: root.packageName?.toString()?.trim().orEmpty()
-        if (pkg.isBlank() || pkg == applicationContext.packageName) return
+
+        val candidates = ArrayList<WindowRoot>()
+        val visibleWindows = try { windows.orEmpty() } catch (_: Throwable) { emptyList<AccessibilityWindowInfo>() }
+        visibleWindows.forEach { window ->
+            val root = try { window.root } catch (_: Throwable) { null } ?: return@forEach
+            val pkg = root.packageName?.toString()?.trim().orEmpty()
+            if (pkg.isBlank() || pkg == applicationContext.packageName) return@forEach
+            candidates += WindowRoot(root, pkg, window.isActive, window.isFocused, window.type)
+        }
+
+        if (candidates.isEmpty()) {
+            val root = try { rootInActiveWindow } catch (_: Throwable) { null } ?: return
+            val pkg = root.packageName?.toString()?.trim().orEmpty()
+            if (pkg.isBlank() || pkg == applicationContext.packageName) return
+            candidates += WindowRoot(root, pkg, true, true, AccessibilityWindowInfo.TYPE_APPLICATION)
+        }
+
+        fun isInput(pkg: String): Boolean {
+            val p = pkg.lowercase()
+            return p.contains("honeyboard") || p.contains("inputmethod") || p.contains("keyboard")
+        }
+
+        val nonInput = candidates.filterNot { isInput(it.pkg) }
+        val selected = nonInput.firstOrNull { it.active && it.pkg == packageHint }
+            ?: nonInput.firstOrNull { it.active }
+            ?: nonInput.firstOrNull { it.focused && it.pkg == packageHint }
+            ?: nonInput.firstOrNull { it.focused }
+            ?: nonInput.firstOrNull { it.pkg == packageHint }
+            ?: nonInput.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+            ?: candidates.firstOrNull()
+            ?: return
+
         lastSemanticAt = now
-        RavenAccessibilityReadOS.observe(this, pkg, root)
+        RavenAccessibilityReadOS.observe(this, selected.pkg, selected.root)
     }
 
     override fun onInterrupt() {
