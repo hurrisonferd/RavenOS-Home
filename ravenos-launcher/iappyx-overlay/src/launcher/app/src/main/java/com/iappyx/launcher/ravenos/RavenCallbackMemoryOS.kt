@@ -6,13 +6,15 @@ import java.util.ArrayDeque
 /**
  * Bounded process-session callback memory for Goblin Vision.
  *
- * Stores counts, app-loop shapes, soundtrack survival, and recursive-meta hits. It deliberately
+ * Callback law: callbacks must describe a real state evolution, not merely announce that an Android
+ * event happened N times. Notification churn is evidence, not a recurring comedy premise.
+ *
+ * Stores app-loop shapes, soundtrack survival, and rare recursive-meta transitions. It deliberately
  * does not retain transcripts or arbitrary screen text.
  */
 object RavenCallbackMemoryOS {
     data class Callback(val text: String, val family: String)
 
-    private val counts = linkedMapOf<String, Int>()
     private val trackCuts = linkedMapOf<String, Int>()
     private val appReturns = linkedMapOf<String, Int>()
     private val appPairs = linkedMapOf<String, Int>()
@@ -26,21 +28,17 @@ object RavenCallbackMemoryOS {
         marker: RavenMarkerBus.Marker,
         complex: RavenComplexEventOS.Result,
     ): Callback {
+        // Notification posted/removed events may update scene state, but do not earn comedy simply
+        // by repeating. This prevents stale "third ping / fifth ping" head-count jokes.
+        if (marker.key.startsWith("NOTIFICATION")) return Callback("", "")
+
         val scene = RavenPhoneSceneOS.snapshot(context, marker.at)
-        val identity = identity(marker)
-        val key = "${marker.key}|$identity"
-        val count = bump(counts, key)
 
         if (marker.key in setOf("SCREEN_TEXT", "SCREEN_SEMANTIC") && field(marker.detail, "meta") == "true") {
             recursiveHits++
-            if (recursiveHits in setOf(1, 3, 5, 8)) {
+            if (recursiveHits == 1) {
                 return Callback(
-                    text = when (recursiveHits) {
-                        1 -> "The screen is talking about RavenOS while RavenOS is reading the screen. Recursion unlocked."
-                        3 -> "Third recursive RavenOS sighting. The commentary has entered the commentary."
-                        5 -> "Five meta sightings. We are now a launcher observing a conversation about the launcher observing it."
-                        else -> "Recursive meta hit #$recursiveHits. Containment remains mostly decorative."
-                    },
+                    text = "The screen is talking about RavenOS while RavenOS is reading the screen. Recursion unlocked.",
                     family = "CALLBACK_META_RECURSION",
                 )
             }
@@ -49,14 +47,15 @@ object RavenCallbackMemoryOS {
         if ((marker.key == "APP_ENTER" || marker.key == "HOME_ENTER") && scene.mediaHot && !scene.mediaTitle.isNullOrBlank()) {
             val track = scene.mediaTitle.take(56)
             val cuts = bump(trackCuts, track.lowercase())
-            if (cuts in setOf(3, 5, 8, 13)) {
+            if (cuts == 5) {
                 return Callback(
-                    text = when (cuts) {
-                        3 -> "“$track” has survived three foreground changes already."
-                        5 -> "“$track” has survived five scene cuts. It lives here now."
-                        8 -> "Eight foreground changes later, “$track” is apparently load-bearing."
-                        else -> "“$track” survived $cuts foreground changes. Soundtrack tenure achieved."
-                    },
+                    text = "“$track” is still scoring the scene after several foreground changes. It has become part of the room.",
+                    family = "CALLBACK_TRACK_SURVIVAL",
+                )
+            }
+            if (cuts == 13) {
+                return Callback(
+                    text = "“$track” keeps surviving app changes. At this point the phone has a theme song.",
                     family = "CALLBACK_TRACK_SURVIVAL",
                 )
             }
@@ -68,43 +67,23 @@ object RavenCallbackMemoryOS {
                 val returns = bump(appReturns, app.lowercase())
                 val loop = observeAppLoop(app)
                 if (loop != null) return loop
-                if (returns in setOf(3, 5, 8, 13)) {
+                if (returns == 5) {
                     return Callback(
-                        text = when (returns) {
-                            3 -> "$app again. Third visit this session."
-                            5 -> "$app visit #5. We may as well leave a toothbrush."
-                            8 -> "$app has taken foreground eight times. It has seniority now."
-                            else -> "$app visit #$returns. At this point the office should forward its mail there."
-                        },
+                        text = "$app keeps reclaiming foreground. This is becoming an actual working room, not a drive-by visit.",
+                        family = "CALLBACK_APP_RETURN",
+                    )
+                }
+                if (returns == 13) {
+                    return Callback(
+                        text = "$app has become a persistent part of this session. The office may as well keep a chair there.",
                         family = "CALLBACK_APP_RETURN",
                     )
                 }
             }
         }
 
-        if (count in setOf(3, 5, 8, 13, 21) && complex.occurrence >= count) {
-            val noun = when {
-                marker.key.startsWith("NOTIFICATION") -> "ping pattern"
-                marker.key == "WINDOW_CHANGE" -> "window move"
-                marker.key == "SCREEN_VISUAL" -> "visual move"
-                marker.key == "SCREEN_TEXT" -> "OCR beat"
-                marker.key == "SCREEN_SEMANTIC" -> "visible-semantics beat"
-                marker.key.startsWith("MEDIA") -> "media move"
-                marker.key == "APP_ENTER" -> "foreground move"
-                else -> "bit"
-            }
-            return Callback(
-                text = when (count) {
-                    3 -> "Third $noun. Callback privileges unlocked."
-                    5 -> "Fifth $noun. This joke has receipts now."
-                    8 -> "Eight $noun sightings. The goblin has started a spreadsheet."
-                    13 -> "Thirteen $noun sightings. Management has been informed; management is unfortunately us."
-                    else -> "Twenty-one $noun sightings. Local mythology confirmed."
-                },
-                family = "CALLBACK_RECURRENCE",
-            )
-        }
-
+        // No generic occurrence callbacks here. Meaningful screen semantics, visible content, scene
+        // changes, and explicit structural returns belong to the dialogue systems above this layer.
         return Callback("", "")
     }
 
@@ -122,13 +101,9 @@ object RavenCallbackMemoryOS {
         if (a != c || a == b) return null
         val pair = listOf(a, b).sorted().joinToString("↔").lowercase()
         val loops = bump(appPairs, pair)
-        return if (loops in setOf(2, 3, 5)) {
+        return if (loops == 3) {
             Callback(
-                text = when (loops) {
-                    2 -> "$a ↔ $b again. We have discovered a commute."
-                    3 -> "$a ↔ $b loop #3. The phone has built a tiny railway."
-                    else -> "$a ↔ $b loop #$loops. This route now qualifies for public transit funding."
-                },
+                text = "$a ↔ $b keeps recurring. That route has become part of the scene now.",
                 family = "CALLBACK_APP_LOOP",
             )
         } else null
@@ -136,19 +111,12 @@ object RavenCallbackMemoryOS {
 
     @Synchronized
     fun clear() {
-        counts.clear()
         trackCuts.clear()
         appReturns.clear()
         appPairs.clear()
         recentApps.clear()
         recursiveHits = 0
     }
-
-    private fun identity(marker: RavenMarkerBus.Marker): String = field(marker.detail, "package")
-        ?: field(marker.detail, "title")
-        ?: field(marker.detail, "state")
-        ?: field(marker.detail, "app")
-        ?: marker.detail.substringBefore('|').take(64)
 
     private fun field(detail: String, name: String): String? = Regex("(?:^|\\|)${Regex.escape(name)}:([^|]*)")
         .find(detail)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() }
