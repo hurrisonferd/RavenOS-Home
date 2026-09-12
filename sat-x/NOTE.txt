@@ -1,0 +1,1 @@
+Sat-X branch is intentionally noisy with receipts; runtime code stays under ravenos-launcher/iappyx-overlay/src/launcher/app/src/main/java/com/iappyx/launcher/ravenos.
