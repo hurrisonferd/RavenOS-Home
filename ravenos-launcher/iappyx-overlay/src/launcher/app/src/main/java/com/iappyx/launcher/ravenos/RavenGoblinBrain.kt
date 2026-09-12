@@ -18,6 +18,7 @@ object RavenGoblinBrain {
         hauntMode: RavenHauntMode,
     ): Result {
         val marker = RavenMarkerBus.emit(context, signal, detail)
+        RavenGoldEpisodeStatsOS.observe(marker)
         val sense = RavenLocalSenseOS.resolve(marker)
         val shade = RavenShadeSenseOS.observe(marker)
         val complex = RavenComplexEventOS.analyze(context, marker)
@@ -130,11 +131,12 @@ object RavenGoblinBrain {
         // settlement. Richness comes from better structure, not faster chatter.
         val speakNow = displayDecision.speak || terminalScene
         val useSeriesWriter = speakNow && !terminalScene && series.primary.isNotBlank() && (
-            season.motifReturningAcrossSessions ||
+            gold.reason == "gold-backstage-crosstalk" ||
+                season.motifReturningAcrossSessions ||
                 season.pairCount in setOf(3, 5, 8, 13, 21) ||
                 season.memberLines in setOf(8, 13, 21, 34, 55) ||
                 season.memberState == "EVOLVING" ||
-                gold.phase == "CALLBACK" && season.motifLifetimeCount >= 2 ||
+                gold.phase == "CALLBACK" && (season.motifLifetimeCount >= 2 || bit.count >= 3) ||
                 gold.phase == "ESCALATE" && season.memberLines >= 5 ||
                 gold.phase == "OPEN" && season.episode > 1 && direction.turn % 7 == 0
             )
@@ -211,6 +213,7 @@ object RavenGoblinBrain {
             }.replace(Regex("[ \\t]+"), " ").trim().take(640)
         }
 
+        val callbackMoment = gold.phase == "CALLBACK" || bit.shouldEscalate || bit.brick
         if (spoken.isNotBlank()) {
             RavenSitcomDirectorOS.markSpoken(context, marker.at)
             RavenBackstageOS.markSpoken(member.id)
@@ -229,10 +232,12 @@ object RavenGoblinBrain {
                         else -> direction.beat
                     },
                     meta = screen.meta || show.level >= 4,
-                    callback = gold.phase == "CALLBACK" || bit.shouldEscalate || bit.brick,
+                    callback = callbackMoment,
                 )
             }
         }
+        RavenGoldEpisodeStatsOS.recordDecision(spoken.isNotBlank(), callbackMoment, gold, backstage)
+        val goldStats = RavenGoldEpisodeStatsOS.snapshot()
 
         val authorNote = when {
             terminalScene -> ""
@@ -263,6 +268,9 @@ object RavenGoblinBrain {
             append("|meta_level:").append(show.level)
             append("|meta_form:").append(show.form)
             append("|gold_phase:").append(gold.phase)
+            append("|gold_comments:").append(goldStats.comments)
+            append("|gold_silences:").append(goldStats.silences)
+            append("|gold_crosstalk:").append(goldStats.crosstalk)
             append("|ego_state:").append(reserve.state)
             append("|season:").append(season.season)
             append("|season_episode:").append(season.episodeInSeason)
@@ -314,7 +322,7 @@ object RavenGoblinBrain {
         val zone = RavenOfficeGeography.zone(member.id, marker, complex)
         val highlight = RavenHighlightOS.score(marker, complex, episode)
         val now = System.currentTimeMillis()
-        val proof = "${sense.route}:${marker.source}:${marker.id}:${marker.key}:show=${displayDecision.mode.name}:sitcom=${direction.sceneId}:${direction.turn}:script=${script.act}:${script.motifCount}:action=${script.interaction}:bit=${bit.count}:${bit.tier}:meta=${show.level}:${show.form}:gold=${gold.phase}:series=${season.season}x${season.episodeInSeason}:ego=${reserve.state}:backstage=${backstage.pressure}:plot=${plot.score}:rv=${mesh.mode}:viewport=${viewport?.task ?: "none"}"
+        val proof = "${sense.route}:${marker.source}:${marker.id}:${marker.key}:show=${displayDecision.mode.name}:sitcom=${direction.sceneId}:${direction.turn}:script=${script.act}:${script.motifCount}:action=${script.interaction}:bit=${bit.count}:${bit.tier}:meta=${show.level}:${show.form}:gold=${gold.phase}:${goldStats.comments}:${goldStats.silences}:series=${season.season}x${season.episodeInSeason}:ego=${reserve.state}:backstage=${backstage.pressure}:plot=${plot.score}:rv=${mesh.mode}:viewport=${viewport?.task ?: "none"}"
         val packet = RavenReactionPacket(
             markerId = marker.id,
             owner = member.id,
@@ -352,6 +360,7 @@ object RavenGoblinBrain {
             updatedAt = now,
         )
         RavenEvidenceBoard.record(context, packet)
+        if (gold.terminal) RavenGoldEpisodeStatsOS.close()
         return Result(member, packet)
     }
 }
