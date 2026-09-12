@@ -31,10 +31,10 @@ object RavenMetaSceneOS {
         val keyboardLike = access?.keyboardLike == true || pkg.orEmpty().contains("honeyboard", true) || pkg.orEmpty().contains("inputmethod", true)
         val semantic = RavenAppSemanticsOS.interpret(context, pkg, app, visibleText, keyboardLike)
         val recursive = field(marker.detail, "meta") == "true" || (!visibleText.isNullOrBlank() && RavenMetaRecursionOS.detect(visibleText))
-        val seed = "${member.id}|${marker.key}|${marker.detail}|${complex.occurrence}|${semantic.kind}|scene-v2"
+        val seed = "${member.id}|${marker.key}|${marker.detail}|${complex.occurrence}|${semantic.kind}|scene-v3"
 
-        if (callback.text.isNotBlank()) return Beat(callback.text, callback.family)
-
+        // Visible content is the protagonist. Structural callbacks are allowed only as fallback when
+        // there is no stronger current-screen observation to make.
         val options = when {
             recursive && semantic.kind == "CHATGPT" -> listOf(
                 "ChatGPT is visibly discussing RavenOS while RavenOS is floating over ChatGPT. Recursion confirmed.",
@@ -70,6 +70,12 @@ object RavenMetaSceneOS {
                 "The glass currently says “${focus(visibleText)}” inside ${semantic.label}.",
             )
 
+            marker.key == "APP_ENTER" && semantic.kind != "APP" && !visibleText.isNullOrBlank() -> listOf(
+                "${semantic.label}: ${semantic.summary}. Visible cue: “${focus(visibleText)}”.",
+                "${semantic.summary.replaceFirstChar { it.uppercase() }} just took foreground; the screen says “${focus(visibleText)}”.",
+                "New foreground scene: ${semantic.label} · ${semantic.summary} · “${focus(visibleText)}”.",
+            )
+
             marker.key == "APP_ENTER" && semantic.kind != "APP" -> listOf(
                 "${semantic.label}: ${semantic.summary}.",
                 "${semantic.summary.replaceFirstChar { it.uppercase() }} just took foreground.",
@@ -80,6 +86,12 @@ object RavenMetaSceneOS {
                 "Keyboard layer changed; ${semantic.label} is still the real task.",
                 "Typing surface moved inside ${semantic.label}; mission unchanged.",
                 "${semantic.label} stayed put while the input layer rearranged itself.",
+            )
+
+            marker.key == "WINDOW_CHANGE" && !visibleText.isNullOrBlank() -> listOf(
+                "${semantic.label} changed surfaces around “${focus(visibleText)}”. The visible subject survived the cut.",
+                "Same task, different internal room; “${focus(visibleText)}” is still the useful thing on-screen.",
+                "The window moved. “${focus(visibleText)}” did not. Keep the camera on the subject.",
             )
 
             marker.key == "WINDOW_CHANGE" && semantic.kind != "APP" -> listOf(
@@ -100,14 +112,16 @@ object RavenMetaSceneOS {
             )
 
             scene.recentSwitches >= 6 && scene.mediaHot && !track.isNullOrBlank() && !app.isNullOrBlank() -> listOf(
-                "$app is foreground after ${scene.recentSwitches} recent switches. “$track” somehow survived all of it.",
-                "Six-plus context cuts, one soundtrack: “$track” is carrying this entire phone session.",
+                "$app is foreground after several recent switches. “$track” somehow survived all of it.",
+                "Context kept cutting while “$track” stayed soundtrack. The song is carrying this phone session.",
             )
 
             else -> emptyList()
         }
 
-        return if (options.isEmpty()) Beat("", "") else Beat(pick(seed, options), "META_SCENE_FUSED_V2")
+        if (options.isNotEmpty()) return Beat(pick(seed, options), "META_SCENE_FUSED_V3")
+        if (callback.text.isNotBlank()) return Beat(callback.text, callback.family)
+        return Beat("", "")
     }
 
     private fun focus(text: String): String = RavenMetaRecursionOS.focus(text)
