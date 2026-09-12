@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
@@ -25,8 +26,9 @@ import kotlin.math.abs
 /**
  * Owner-armed whole-screen Goblin Eye.
  *
- * Raw frames stay in memory and are immediately discarded. The default analyzer emits only coarse
- * deterministic visual deltas (motion/brightness/color/hash). No OCR, cloud upload, or model call.
+ * Raw frames stay in memory and are immediately discarded. The default analyzer emits coarse
+ * deterministic visual deltas. When Raven separately enables Goblin Read, selected changed frames
+ * may also be copied into local ML Kit OCR; the bitmap is recycled after recognition and never saved.
  */
 class RavenScreenWatchService : Service() {
     private var projection: MediaProjection? = null
@@ -43,8 +45,6 @@ class RavenScreenWatchService : Service() {
 
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
-            // Android may invoke this synchronously while our own stop() is already unwinding.
-            // A single guard prevents recursive cleanup and duplicate stop commentary.
             if (stopping) return
             stopInternal(explicit = false, stopProjection = false, systemStop = true)
         }
@@ -129,7 +129,11 @@ class RavenScreenWatchService : Service() {
             return
         }
         setActive(this, true)
-        RavenOfficeBarService.signal(this, "SCREEN_VISUAL", "state:armed|size:${width}x$height|raw_persist:false|cloud:false")
+        RavenOfficeBarService.signal(
+            this,
+            "SCREEN_VISUAL",
+            "state:armed|size:${width}x$height|goblin_read:${RavenGoblinReadOS.isEnabled(this)}|raw_persist:false|cloud:false",
+        )
     }
 
     private fun analyze(image: Image) {
@@ -183,10 +187,11 @@ class RavenScreenWatchService : Service() {
         val rgb = Triple((sumR / idx).toInt(), (sumG / idx).toInt(), (sumB / idx).toInt())
         val hash = perceptualHash(samples, idx, avg)
         val prior = lastSample
-        var changed = 0
-        var deltaSum = 0L
+        var shouldRead = prior == null
         if (prior != null) {
             val n = minOf(prior.size, samples.size, idx)
+            var changed = 0
+            var deltaSum = 0L
             for (i in 0 until n) {
                 val d = abs(samples[i] - prior[i])
                 deltaSum += d
@@ -196,9 +201,10 @@ class RavenScreenWatchService : Service() {
             val delta = (deltaSum / n.coerceAtLeast(1)).toInt()
             val hashDistance = java.lang.Long.bitCount(hash xor lastHash)
             val meaningful = motion >= 18 || delta >= 20 || hashDistance >= 22
+            shouldRead = meaningful
             if (meaningful && now - lastEmitAt >= 1200L) {
                 lastEmitAt = now
-                ignoreFrames = 2 // reduce feedback from RavenOS's own next overlay repaint
+                ignoreFrames = 2
                 RavenOfficeBarService.signal(
                     this,
                     "SCREEN_VISUAL",
@@ -206,8 +212,35 @@ class RavenScreenWatchService : Service() {
                 )
             }
         }
+
+        if (shouldRead && RavenGoblinReadOS.isEnabled(this)) {
+            snapshotBitmap(image)?.let { RavenGoblinReadOS.submit(this, it) }
+        }
         lastSample = samples
         lastHash = hash
+    }
+
+    private fun snapshotBitmap(image: Image): Bitmap? {
+        val plane = image.planes.firstOrNull() ?: return null
+        val pixelStride = plane.pixelStride
+        val rowStride = plane.rowStride
+        if (pixelStride <= 0 || rowStride <= 0) return null
+        return try {
+            val rowPadding = (rowStride - pixelStride * image.width).coerceAtLeast(0)
+            val paddedWidth = image.width + rowPadding / pixelStride
+            val buffer = plane.buffer.duplicate().apply { rewind() }
+            val padded = Bitmap.createBitmap(paddedWidth, image.height, Bitmap.Config.ARGB_8888)
+            padded.copyPixelsFromBuffer(buffer)
+            if (paddedWidth == image.width) {
+                padded
+            } else {
+                val cropped = Bitmap.createBitmap(padded, 0, 0, image.width, image.height)
+                padded.recycle()
+                cropped
+            }
+        } catch (_: Throwable) {
+            null
+        }
     }
 
     private fun perceptualHash(samples: IntArray, count: Int, average: Int): Long {
@@ -232,10 +265,11 @@ class RavenScreenWatchService : Service() {
             Intent(this, RavenScreenWatchService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val sense = if (RavenGoblinReadOS.isEnabled(this)) "visual deltas + local Goblin Read" else "local visual deltas"
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("👁 Goblin Eye armed")
-            .setContentText("Local visual deltas only · raw frames are not persisted")
+            .setContentText("$sense · raw frames are not persisted")
             .setOngoing(true)
             .setSilent(true)
             .setOnlyAlertOnce(true)
