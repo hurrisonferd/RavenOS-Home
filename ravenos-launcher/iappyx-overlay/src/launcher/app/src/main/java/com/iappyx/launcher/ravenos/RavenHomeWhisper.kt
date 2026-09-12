@@ -44,16 +44,21 @@ object RavenHomeWhisper {
 
     fun render(member: RavenOfficeMember, note: String, signal: String, detail: String, mode: RavenHauntMode) {
         val view = viewRef?.get() ?: return
-        val presentation = RavenEmployeePresentation.packet(member, signal, detail, note)
+        val clean = cleanVisible(note)
+        val presentation = RavenEmployeePresentation.packet(member, signal, detail, clean)
         view.post {
-            view.render(member, presentation.ownerLine, note, mode)
+            if (clean.isBlank()) {
+                view.visibility = View.GONE
+                return@post
+            }
+            view.render(member, presentation.ownerLine, clean, mode)
             val stateAt = RavenOfficeStateStore.read(view.context)?.updatedAt ?: 0L
             RavenSurfaceIntegrity.mark(
                 view.context,
                 RavenSurfaceIntegrity.HOME_WHISPER,
                 if (mode == RavenHauntMode.CALM) "INACTIVE" else "RENDERED",
                 stateAt,
-                "${mode.label}:integrated_expression_v4",
+                "${mode.label}:integrated_expression_v5",
             )
         }
     }
@@ -65,6 +70,13 @@ object RavenHomeWhisper {
             val stateAt = RavenOfficeStateStore.read(view.context)?.updatedAt ?: 0L
             RavenSurfaceIntegrity.mark(view.context, RavenSurfaceIntegrity.HOME_WHISPER, "INACTIVE", stateAt, "hidden")
         }
+    }
+
+    private fun cleanVisible(raw: String): String {
+        val clean = raw.replace(Regex("\\s+"), " ").trim()
+        if (clean.isBlank() || clean.equals("Noted.", true)) return ""
+        if (Regex("^[A-Z0-9_-]+\\s+is\\s+watching[.!]?$", RegexOption.IGNORE_CASE).matches(clean)) return ""
+        return clean
     }
 
     private const val TAG = "ravenos_home_whisper"
