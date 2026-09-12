@@ -37,6 +37,7 @@ object RavenGoldSitcomTopologyOS {
         script: RavenEpisodeScriptOS.Cue,
         direction: RavenSitcomDirectorOS.Direction,
         memory: RavenOfficeSeasonOS.Memory,
+        backstage: RavenBackstageOS.Cue? = null,
     ): Beat {
         val terminal = terminal(marker)
         val phase = when {
@@ -46,7 +47,13 @@ object RavenGoldSitcomTopologyOS {
             direction.sceneChanged || script.sceneChanged -> "OPEN"
             else -> "BUILD"
         }
-        val candidate = direction.secondary
+        val backstagePreferred = backstage?.candidate != null && backstage.pressure >= 9
+        val candidate = when {
+            backstagePreferred -> backstage?.candidate
+            direction.secondary != null -> direction.secondary
+            backstage?.candidate != null -> backstage.candidate
+            else -> null
+        }
         val pairKey = pairKey(direction.primary.id, candidate?.id)
         val lastPairTurn = pairLastTurn[pairKey] ?: -999
         val lastPartner = ownerLastPartner[direction.primary.id].orEmpty()
@@ -58,6 +65,7 @@ object RavenGoldSitcomTopologyOS {
             "ERROR" in marker.tags || "PAYOFF" in complex.tags -> 5
             script.interactionWorthSpeaking -> 4
             phase == "CALLBACK" -> 4
+            backstagePreferred -> 4
             phase == "OPEN" -> 2
             else -> 3
         }
@@ -81,6 +89,7 @@ object RavenGoldSitcomTopologyOS {
             dumbchecksum = if (terminal) checksum(marker, memory) else "",
             reason = when {
                 terminal -> "gold-close"
+                crosstalk && backstagePreferred -> "gold-backstage-crosstalk"
                 phase == "CALLBACK" -> "gold-callback"
                 phase == "ESCALATE" -> "gold-escalate"
                 phase == "OPEN" -> "gold-open"
