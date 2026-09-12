@@ -4,7 +4,7 @@ import android.content.Context
 
 /**
  * Android vertical slice of Goblin Vision.
- * MarkerBus -> senses -> viewport/screen context -> episode script -> sitcom director -> Meta-Max -> presentation -> overlay.
+ * MarkerBus -> senses -> viewport/screen -> script -> sitcom -> Meta-Max -> Gold/Season -> presentation.
  */
 object RavenGoblinBrain {
     data class Result(val member: RavenOfficeMember, val packet: RavenReactionPacket)
@@ -44,6 +44,28 @@ object RavenGoblinBrain {
         val bit = RavenBitLedgerOS.observe(screen, script, direction, marker.at)
         val show = RavenMetaMaxShowrunnerOS.direct(screen, script, direction, bit, mesh)
         val plot = RavenPlotStackOS.snapshot(context, screen, script, bit)
+
+        // Multi-session history is deliberately structural. EgoOS remains the identity authority;
+        // this reserve is a launcher-side performance/relationship projection only.
+        val season = RavenOfficeSeasonOS.snapshot(
+            context = context,
+            owner = member.id,
+            secondary = direction.secondary?.id,
+            canonicalMotif = script.motif,
+            mesh = mesh,
+        )
+        val reserve = RavenEgoReserveProjectionOS.project(member, season)
+        val gold = RavenGoldSitcomTopologyOS.direct(
+            context = context,
+            marker = marker,
+            complex = complex,
+            screen = screen,
+            script = script,
+            direction = direction,
+            memory = season,
+        )
+        val series = RavenLongSeriesDialogueOS.select(member, screen, script, direction, bit, show, season, reserve, gold)
+        RavenOfficeSeasonOS.markPresence(context, member.id, direction.sceneChanged, direction.rotated)
 
         val dialogueContext = RavenDialogueContextOS.compose(context, member, marker, complex, episode, screen, callback, narrative)
         val observation = RavenObservationOS.observe(context, dialogueContext, hauntMode)
@@ -93,25 +115,36 @@ object RavenGoblinBrain {
             RavenPresentationArbiterOS.Mode.CHIP -> ""
         }
 
-        // Meta-Max/plot writers do not force additional interruptions. They only compete for lines
-        // after the existing presentation/interruptibility stack has already earned speech.
-        val speakNow = displayDecision.speak
-        val useMetaMaxWriter = speakNow && metaMax.text.isNotBlank() && show.writerEligible && (
+        val terminalScene = gold.terminal && !quiet && series.terminal.isNotBlank()
+        // Long-series/Meta-Max/plot writers never bypass ordinary cadence except Gold terminal
+        // settlement. Richness comes from better structure, not faster chatter.
+        val speakNow = displayDecision.speak || terminalScene
+        val useSeriesWriter = speakNow && !terminalScene && series.primary.isNotBlank() && (
+            season.motifReturningAcrossSessions ||
+                season.pairCount in setOf(3, 5, 8, 13, 21) ||
+                season.memberLines in setOf(8, 13, 21, 34, 55) ||
+                season.memberState == "EVOLVING" ||
+                gold.phase == "CALLBACK" && season.motifLifetimeCount >= 2 ||
+                gold.phase == "ESCALATE" && season.memberLines >= 5 ||
+                gold.phase == "OPEN" && season.episode > 1 && direction.turn % 7 == 0
+            )
+        val useMetaMaxWriter = speakNow && !terminalScene && metaMax.text.isNotBlank() && show.writerEligible && (
             show.level >= 3 || bit.shouldEscalate || bit.brick || script.interactionWorthSpeaking ||
                 show.form in setOf("TITLE_CARD", "PREVIOUSLY_ON", "FOURTH_WALL_EMERGENCY")
             )
-        val usePlotWriter = speakNow && plot.crossover && plotDialogue.text.isNotBlank() &&
+        val usePlotWriter = speakNow && !terminalScene && plot.crossover && plotDialogue.text.isNotBlank() &&
             (direction.turn % 3 == 0 || script.sceneChanged || script.returned || bit.shouldEscalate)
-        val useScriptWriter = scriptDialogue.text.isNotBlank() && (
+        val useScriptWriter = !terminalScene && scriptDialogue.text.isNotBlank() && (
             script.callbackEarned || script.interactionWorthSpeaking || script.interruption.isNotBlank() || script.returned ||
                 (script.sceneChanged && direction.turn % 2 == 0) || direction.turn % 5 == 0
             )
-        val useViewportWriter = displayDecision.mode == RavenPresentationArbiterOS.Mode.SCREEN &&
+        val useViewportWriter = !terminalScene && displayDecision.mode == RavenPresentationArbiterOS.Mode.SCREEN &&
             viewportDialogue.text.isNotBlank() &&
             (direction.turn % 4 == 0 || direction.beat in setOf("COLD_OPEN", "META", "CALLBACK") && direction.turn % 2 == 0)
 
-        val stinger = if (speakNow) when (displayDecision.mode) {
+        val stinger = if (speakNow && !terminalScene) when (displayDecision.mode) {
             RavenPresentationArbiterOS.Mode.SCREEN -> when {
+                useSeriesWriter -> series.primary
                 useMetaMaxWriter -> metaMax.text
                 usePlotWriter -> plotDialogue.text
                 useScriptWriter -> scriptDialogue.text
@@ -123,6 +156,7 @@ object RavenGoblinBrain {
                 }.trim()
             }
             RavenPresentationArbiterOS.Mode.PHONE -> when {
+                useSeriesWriter -> series.primary
                 useMetaMaxWriter -> metaMax.text
                 usePlotWriter -> plotDialogue.text
                 useScriptWriter -> scriptDialogue.text
@@ -131,36 +165,70 @@ object RavenGoblinBrain {
             else -> ""
         } else ""
 
-        val officeAside = if (speakNow) when (displayDecision.mode) {
-            RavenPresentationArbiterOS.Mode.SCREEN -> sitcom.secondary.ifBlank {
-                if (screen.meta || show.chorusEligible) interruption.text.trim() else ""
+        val goldAside = if (useSeriesWriter && series.secondary.isNotBlank() && gold.secondary != null) {
+            val p = RavenEmployeePresentation.packet(gold.secondary, signal, detail, series.secondary)
+            "↳ ${p.emojiSoup} ${gold.secondary.id} ${p.kaomoji} ${series.secondary}"
+        } else if (useSeriesWriter && series.synthesis.isNotBlank() && gold.secondary == null) {
+            series.synthesis
+        } else ""
+
+        val officeAside = if (speakNow && !terminalScene) when (displayDecision.mode) {
+            RavenPresentationArbiterOS.Mode.SCREEN -> goldAside.ifBlank {
+                sitcom.secondary.ifBlank {
+                    if (screen.meta || show.chorusEligible) interruption.text.trim() else ""
+                }
             }
-            RavenPresentationArbiterOS.Mode.PHONE -> if (
-                "ERROR" in marker.tags || "PAYOFF" in complex.tags || "BOUNDARY" in marker.tags
-            ) interruption.text.trim() else ""
+            RavenPresentationArbiterOS.Mode.PHONE -> goldAside.ifBlank {
+                if ("ERROR" in marker.tags || "PAYOFF" in complex.tags || "BOUNDARY" in marker.tags)
+                    interruption.text.trim() else ""
+            }
             else -> ""
         } else ""
 
-        val spoken = if (!speakNow) "" else buildString {
-            append(truth)
-            if (stinger.isNotBlank() && stinger != truth) {
-                if (isNotEmpty()) append("  ")
-                append(stinger)
-            }
-            if (officeAside.isNotBlank()) {
-                if (isNotEmpty()) append("  ")
-                append(officeAside)
-            }
-        }.replace(Regex("\\s+"), " ").trim().take(540)
+        val spoken = when {
+            terminalScene -> series.terminal
+            !speakNow -> ""
+            else -> buildString {
+                append(truth)
+                if (stinger.isNotBlank() && stinger != truth) {
+                    if (isNotEmpty()) append("  ")
+                    append(stinger)
+                }
+                if (officeAside.isNotBlank()) {
+                    if (isNotEmpty()) append("  ")
+                    append(officeAside)
+                }
+            }.replace(Regex("[ \\t]+"), " ").trim().take(640)
+        }
 
-        if (spoken.isNotBlank()) RavenSitcomDirectorOS.markSpoken(context, marker.at)
+        if (spoken.isNotBlank()) {
+            RavenSitcomDirectorOS.markSpoken(context, marker.at)
+            if (!terminalScene) {
+                RavenOfficeSeasonOS.markSpoken(
+                    context = context,
+                    owner = member.id,
+                    secondary = gold.secondary?.id,
+                    canonicalMotif = script.motif,
+                    form = when {
+                        useSeriesWriter -> series.family
+                        useMetaMaxWriter -> show.form
+                        usePlotWriter -> "PLOT"
+                        useScriptWriter -> scriptDialogue.family
+                        else -> direction.beat
+                    },
+                    meta = screen.meta || show.level >= 4,
+                    callback = gold.phase == "CALLBACK" || bit.shouldEscalate || bit.brick,
+                )
+            }
+        }
 
-        val authorNote = when (displayDecision.mode) {
-            RavenPresentationArbiterOS.Mode.SCREEN -> listOf(
+        val authorNote = when {
+            terminalScene -> ""
+            displayDecision.mode == RavenPresentationArbiterOS.Mode.SCREEN -> listOf(
                 observation.text,
                 script.continuity.takeIf { it.isNotBlank() && !observation.text.contains(it, true) }.orEmpty(),
             ).filter(String::isNotBlank).joinToString("  ").take(340)
-            RavenPresentationArbiterOS.Mode.DIAGNOSTIC -> diagnostic.text.take(240)
+            displayDecision.mode == RavenPresentationArbiterOS.Mode.DIAGNOSTIC -> diagnostic.text.take(240)
             else -> ""
         }
         val viewport = RavenViewportSemanticsOS.latest(context, marker.at)
@@ -182,6 +250,14 @@ object RavenGoblinBrain {
             }
             append("|meta_level:").append(show.level)
             append("|meta_form:").append(show.form)
+            append("|gold_phase:").append(gold.phase)
+            append("|ego_state:").append(reserve.state)
+            append("|season:").append(season.season)
+            append("|season_episode:").append(season.episodeInSeason)
+            append("|lifetime_episode:").append(season.episode)
+            append("|member_lines:").append(season.memberLines)
+            append("|pair_lifetime:").append(season.pairCount)
+            append("|motif_lifetime:").append(season.motifLifetimeCount)
             append("|rv_mesh:").append(mesh.mode)
             append("|plot_score:").append(plot.score)
             if (plot.bPlot.isNotBlank()) append("|plot_b:").append(plot.bPlot.replace('|', '/').take(100))
@@ -193,16 +269,22 @@ object RavenGoblinBrain {
             }
         }
         val basePresentation = RavenEmployeePresentation.packet(member, signal, presentationDetail, spoken.ifBlank { authorNote })
-        val employeePresentation = RavenSceneExpressionOS.decorate(context, basePresentation, member, screen, direction, script, bit, show)
+        val employeePresentation = RavenSceneExpressionOS.decorate(
+            context, basePresentation, member, screen, direction, script, bit, show, season, reserve, gold,
+        )
         val dialogueFamily = listOfNotNull(
             "PRESENTATION_${displayDecision.mode.name}",
             displayDecision.reason,
             observation.family.takeIf { authorNote.isNotBlank() && it.isNotBlank() },
+            series.family.takeIf { (useSeriesWriter || terminalScene) && it.isNotBlank() },
             metaMax.family.takeIf { useMetaMaxWriter && it.isNotBlank() },
             plotDialogue.family.takeIf { usePlotWriter && it.isNotBlank() },
             scriptDialogue.family.takeIf { speakNow && useScriptWriter && it.isNotBlank() },
             sitcom.family.takeIf { speakNow && displayDecision.mode == RavenPresentationArbiterOS.Mode.SCREEN && it.isNotBlank() },
             viewportDialogue.family.takeIf { speakNow && useViewportWriter && it.isNotBlank() },
+            "GOLD_${gold.phase}",
+            "EGO_${reserve.state}",
+            "SERIES_S${season.season}E${season.episodeInSeason}",
             "METAMAX_L${show.level}_${show.form}",
             "PLOT_${plot.score}",
             "DIRECTOR_${direction.beat}",
@@ -215,7 +297,7 @@ object RavenGoblinBrain {
         val zone = RavenOfficeGeography.zone(member.id, marker, complex)
         val highlight = RavenHighlightOS.score(marker, complex, episode)
         val now = System.currentTimeMillis()
-        val proof = "${sense.route}:${marker.source}:${marker.id}:${marker.key}:show=${displayDecision.mode.name}:sitcom=${direction.sceneId}:${direction.turn}:script=${script.act}:${script.motifCount}:action=${script.interaction}:bit=${bit.count}:${bit.tier}:meta=${show.level}:${show.form}:plot=${plot.score}:rv=${mesh.mode}:viewport=${viewport?.task ?: "none"}"
+        val proof = "${sense.route}:${marker.source}:${marker.id}:${marker.key}:show=${displayDecision.mode.name}:sitcom=${direction.sceneId}:${direction.turn}:script=${script.act}:${script.motifCount}:action=${script.interaction}:bit=${bit.count}:${bit.tier}:meta=${show.level}:${show.form}:gold=${gold.phase}:series=${season.season}x${season.episodeInSeason}:ego=${reserve.state}:plot=${plot.score}:rv=${mesh.mode}:viewport=${viewport?.task ?: "none"}"
         val packet = RavenReactionPacket(
             markerId = marker.id,
             owner = member.id,
@@ -236,9 +318,11 @@ object RavenGoblinBrain {
             occurrence = complex.occurrence,
             complexTags = complex.tags + setOf(
                 "SITCOM", direction.beat, "PRESENTATION_${displayDecision.mode.name}", "SCRIPT_ACT_${script.act}",
-                "METAMAX_L${show.level}", "METAMAX_${show.form}", "RV_${mesh.mode}", "PLOT_${plot.score}",
+                "METAMAX_L${show.level}", "METAMAX_${show.form}", "GOLD_${gold.phase}", "EGO_${reserve.state}",
+                "SERIES_S${season.season}E${season.episodeInSeason}", "RV_${mesh.mode}", "PLOT_${plot.score}",
             ) + (if (bit.active) setOf("BIT_${bit.tier}") else emptySet()) +
                 (if (plot.crossover) setOf("PLOT_CROSSOVER") else emptySet()) +
+                (if (season.motifReturningAcrossSessions) setOf("CROSS_SESSION_CALLBACK") else emptySet()) +
                 if (viewport != null) setOf("VIEWPORT", "TASK_${viewport.task}") else emptySet(),
             episode = episode.name,
             highlight = highlight.clazz.name,
