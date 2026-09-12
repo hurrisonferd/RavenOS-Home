@@ -8,7 +8,7 @@ import android.view.accessibility.AccessibilityNodeInfo
  *
  * The service may retrieve window content so this layer can inspect what Android exposes, but
  * nothing is read unless Raven enables this switch. Password nodes and editable values are never
- * ingested. Only a short, local, bounded visible-text summary is retained.
+ * ingested. Only a bounded local visible-text summary and semantic viewport are retained.
  */
 object RavenAccessibilityReadOS {
     data class Reading(
@@ -26,9 +26,10 @@ object RavenAccessibilityReadOS {
     private const val KEY_NODES = "nodes"
     private const val KEY_KEYBOARD = "keyboard"
     private const val KEY_AT = "at"
+    private const val KEY_VIEWPORT_SIG = "viewport_sig"
     private const val TTL_MS = 45_000L
-    private const val MAX_NODES = 128
-    private const val MAX_DEPTH = 10
+    private const val MAX_NODES = 180
+    private const val MAX_DEPTH = 12
 
     fun isEnabled(context: Context): Boolean = context.applicationContext
         .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -39,17 +40,21 @@ object RavenAccessibilityReadOS {
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putBoolean(KEY_ENABLED, enabled)
             .apply()
-        if (!enabled) clearReading(app)
+        if (!enabled) {
+            clearReading(app)
+            RavenViewportSemanticsOS.clear(app)
+        }
         RavenOfficeBarService.signal(
             app,
             "SCREEN_SEMANTIC",
-            if (enabled) "state:armed|source:accessibility|editable_values:false|passwords:false|local:true" else "state:disabled|source:accessibility",
+            if (enabled) "state:armed|source:accessibility|viewport:true|editable_values:false|passwords:false|local:true" else "state:disabled|source:accessibility",
         )
     }
 
     fun compact(context: Context): String = buildString {
         append("ACCESSIBILITY_READ=").append(if (isEnabled(context)) "ON" else "OFF")
         latest(context)?.let { append(" · SEMANTICS=RECENT") }
+        RavenViewportSemanticsOS.latest(context)?.let { append(" · TASK=").append(it.task) }
     }
 
     fun latest(context: Context, now: Long = System.currentTimeMillis()): Reading? {
@@ -85,22 +90,23 @@ object RavenAccessibilityReadOS {
                 return
             }
             val cls = node.className?.toString().orEmpty()
-            if (cls.contains("EditText", true) || cls.contains("Input", true)) keyboardLike = true
+            if (node.isEditable || cls.contains("EditText", true) || cls.contains("Input", true)) keyboardLike = true
 
             // Labels and static visible text are useful scene evidence. Editable values are excluded.
             if (node.isVisibleToUser && !node.isEditable) {
                 listOf(node.text, node.contentDescription)
                     .mapNotNull { it?.toString()?.replace(Regex("\\s+"), " ")?.trim() }
-                    .filter { it.length in 2..160 }
-                    .forEach { if (it !in collected && collected.size < 36) collected += it }
+                    .filter { it.length in 2..220 }
+                    .forEach { if (it !in collected && collected.size < 52) collected += it }
             }
-            val children = node.childCount.coerceAtMost(32)
+            val children = node.childCount.coerceAtMost(40)
             for (i in 0 until children) walk(node.getChild(i), depth + 1)
         }
         walk(root, 0)
 
         if (sensitive) {
             clearReading(app)
+            RavenViewportSemanticsOS.clear(app)
             RavenOfficeBarService.signal(
                 app,
                 "SCREEN_SEMANTIC",
@@ -109,44 +115,59 @@ object RavenAccessibilityReadOS {
             return
         }
 
-        val normalized = collected.take(18).joinToString(" · ").take(460).trim()
-        if (normalized.isBlank()) return
-        val prior = latest(app)?.let { "${it.packageName}|${it.text}" }.orEmpty()
-        val current = "$packageName|$normalized"
+        val viewport = RavenViewportSemanticsOS.observe(app, packageName, root)
+        val normalized = collected.take(28).joinToString(" · ").take(720).trim()
+        if (normalized.isBlank() && viewport == null) return
+        val textForReading = normalized.ifBlank { viewport?.phrases.orEmpty() }.take(720)
+        if (textForReading.isBlank()) return
+
+        val viewportSig = listOf(
+            viewport?.title.orEmpty(), viewport?.subject.orEmpty(), viewport?.task.orEmpty(), viewport?.roleSummary.orEmpty(),
+        ).joinToString("|")
+        val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val prior = "${prefs.getString(KEY_PACKAGE, "").orEmpty()}|${prefs.getString(KEY_TEXT, "").orEmpty()}|${prefs.getString(KEY_VIEWPORT_SIG, "").orEmpty()}"
+        val current = "$packageName|$textForReading|$viewportSig"
         if (prior == current) {
-            app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                .putLong(KEY_AT, System.currentTimeMillis()).apply()
+            prefs.edit().putLong(KEY_AT, System.currentTimeMillis()).apply()
             return
         }
 
         val now = System.currentTimeMillis()
-        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        prefs.edit()
             .putString(KEY_PACKAGE, packageName)
-            .putString(KEY_TEXT, normalized)
+            .putString(KEY_TEXT, textForReading)
             .putInt(KEY_NODES, visited)
             .putBoolean(KEY_KEYBOARD, keyboardLike)
+            .putString(KEY_VIEWPORT_SIG, viewportSig)
             .putLong(KEY_AT, now)
             .apply()
 
-        val meta = RavenMetaRecursionOS.detect(normalized)
+        val metaCorpus = listOf(textForReading, viewport?.title.orEmpty(), viewport?.subject.orEmpty()).joinToString(" ")
+        val meta = RavenMetaRecursionOS.detect(metaCorpus)
         RavenOfficeBarService.signal(
             app,
             "SCREEN_SEMANTIC",
             buildString {
                 append("state:visible|package:").append(escape(packageName))
-                append("|text:").append(escape(normalized.take(240)))
+                append("|text:").append(escape(textForReading.take(300)))
+                viewport?.let {
+                    if (it.title.isNotBlank()) append("|viewport_title:").append(escape(it.title.take(100)))
+                    append("|viewport_subject:").append(escape(it.subject.take(180)))
+                    append("|task:").append(it.task)
+                    append("|roles:").append(escape(it.roleSummary.take(100)))
+                }
                 append("|nodes:").append(visited)
                 append("|keyboard:").append(keyboardLike)
                 append("|meta:").append(meta)
-                append("|meta_score:").append(RavenMetaRecursionOS.score(normalized))
-                append("|source:accessibility|local:true|editable_values:false|passwords:false")
+                append("|meta_score:").append(RavenMetaRecursionOS.score(metaCorpus))
+                append("|source:accessibility|viewport:true|local:true|editable_values:false|passwords:false")
             },
         )
     }
 
     private fun clearReading(context: Context) {
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .remove(KEY_PACKAGE).remove(KEY_TEXT).remove(KEY_NODES).remove(KEY_KEYBOARD).remove(KEY_AT)
+            .remove(KEY_PACKAGE).remove(KEY_TEXT).remove(KEY_NODES).remove(KEY_KEYBOARD).remove(KEY_AT).remove(KEY_VIEWPORT_SIG)
             .apply()
     }
 
