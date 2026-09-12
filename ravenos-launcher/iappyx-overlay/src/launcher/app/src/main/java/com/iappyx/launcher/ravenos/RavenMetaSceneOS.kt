@@ -1,11 +1,11 @@
 package com.iappyx.launcher.ravenos
 
 import android.content.Context
+import kotlin.math.abs
 
 /**
  * Fuses current phone evidence into one compact scene-level observation before character comedy.
- * It never upgrades evidence authority: OCR text must come from owner-armed Goblin Read and all
- * other facts come from existing local RavenOS sensors.
+ * Evidence authority stays explicit: OCR and Accessibility semantics must be separately owner-armed.
  */
 object RavenMetaSceneOS {
     data class Beat(val text: String, val family: String)
@@ -18,54 +18,85 @@ object RavenMetaSceneOS {
         callback: RavenCallbackMemoryOS.Callback,
     ): Beat {
         val scene = RavenPhoneSceneOS.snapshot(context, marker.at)
-        val reading = RavenGoblinReadOS.latest(context, marker.at)
-        val app = scene.activeApp?.take(48)
+        val ocr = RavenGoblinReadOS.latest(context, marker.at)
+        val access = RavenAccessibilityReadOS.latest(context, marker.at)
+        val pkg = field(marker.detail, "package") ?: access?.packageName
+        val app = field(marker.detail, "app")?.take(48) ?: scene.activeApp?.take(48)
         val track = scene.mediaTitle?.take(48)
-        val text = field(marker.detail, "text")?.take(150)
-            ?: reading?.takeIf { kotlin.math.abs(marker.at - it.capturedAt) <= 6_000L }?.text?.take(150)
-        val seed = "${member.id}|${marker.key}|${marker.detail}|${complex.occurrence}|scene-v1"
+
+        val directText = field(marker.detail, "text")?.take(180)
+        val accessText = access?.takeIf { abs(marker.at - it.capturedAt) <= 5_000L }?.text
+        val ocrText = ocr?.takeIf { abs(marker.at - it.capturedAt) <= 6_000L }?.text
+        val visibleText = directText ?: accessText ?: ocrText
+        val keyboardLike = access?.keyboardLike == true || pkg.orEmpty().contains("honeyboard", true) || pkg.orEmpty().contains("inputmethod", true)
+        val semantic = RavenAppSemanticsOS.interpret(context, pkg, app, visibleText, keyboardLike)
+        val recursive = field(marker.detail, "meta") == "true" || (!visibleText.isNullOrBlank() && RavenMetaRecursionOS.detect(visibleText))
+        val seed = "${member.id}|${marker.key}|${marker.detail}|${complex.occurrence}|${semantic.kind}|scene-v2"
 
         if (callback.text.isNotBlank()) return Beat(callback.text, callback.family)
 
         val options = when {
-            marker.key == "SCREEN_TEXT" && !text.isNullOrBlank() && !app.isNullOrBlank() -> listOf(
-                "$app is visibly showing “${focus(text)}”.",
-                "Goblin Read caught “${focus(text)}” on $app.",
-                "$app put “${focus(text)}” right on the glass.",
-                "The screen actually says “${focus(text)}” inside $app.",
+            recursive && semantic.kind == "CHATGPT" -> listOf(
+                "ChatGPT is visibly discussing RavenOS while RavenOS is floating over ChatGPT. Recursion confirmed.",
+                "The conversation is talking about the goblin currently reading the conversation. Excellent containment.",
+                "RavenOS is on top of ChatGPT, reading ChatGPT talk about RavenOS. The loop has closed.",
             )
 
-            marker.key == "SCREEN_TEXT" && !text.isNullOrBlank() -> listOf(
-                "Goblin Read caught “${focus(text)}”.",
-                "Visible text says “${focus(text)}”.",
-                "The glass currently says “${focus(text)}”.",
+            recursive && !visibleText.isNullOrBlank() -> listOf(
+                "The screen is visibly talking about RavenOS itself: “${focus(visibleText)}”.",
+                "Meta event: “${focus(visibleText)}” is on the glass while the office is watching.",
+                "The phone has begun discussing its own haunting. “${focus(visibleText)}”.",
+            )
+
+            marker.key == "SCREEN_SEMANTIC" && marker.detail.contains("suppressed_password", true) -> listOf(
+                "Accessibility Read found a password surface and refused to narrate it.",
+                "Credential-shaped UI detected. The office looked away on purpose.",
+            )
+
+            marker.key == "SCREEN_SEMANTIC" && !visibleText.isNullOrBlank() -> listOf(
+                "${semantic.label}: ${semantic.summary}. “${focus(visibleText)}” is visibly present.",
+                "${semantic.summary.replaceFirstChar { it.uppercase() }} in ${semantic.label}; the glass says “${focus(visibleText)}”.",
+                "${semantic.label} is in ${semantic.summary} mode. Visible cue: “${focus(visibleText)}”.",
             )
 
             marker.key == "SCREEN_TEXT" && marker.detail.contains("suppressed_sensitive", true) -> listOf(
-                "Goblin Read hit a sensitive-looking surface and shut its mouth.",
-                "Text vision saw credential-shaped territory and politely looked away.",
-                "Sensitive-looking text detected. Goblin Read redacted itself.",
+                "Goblin Read hit sensitive-looking text and shut its mouth.",
+                "Text vision reached credential-shaped territory and politely looked away.",
             )
 
-            marker.key == "SCREEN_TEXT" && marker.detail.contains("ocr_unavailable", true) -> listOf(
-                "Goblin Read couldn't get a text pass on that frame.",
-                "Pixels arrived; text recognition did not.",
+            marker.key == "SCREEN_TEXT" && !visibleText.isNullOrBlank() -> listOf(
+                "${semantic.label} is visibly showing “${focus(visibleText)}”.",
+                "Goblin Read caught “${focus(visibleText)}” on ${semantic.label}.",
+                "The glass currently says “${focus(visibleText)}” inside ${semantic.label}.",
+            )
+
+            marker.key == "APP_ENTER" && semantic.kind != "APP" -> listOf(
+                "${semantic.label}: ${semantic.summary}.",
+                "${semantic.summary.replaceFirstChar { it.uppercase() }} just took foreground.",
+                "New foreground scene: ${semantic.label} · ${semantic.summary}.",
+            )
+
+            marker.key == "WINDOW_CHANGE" && keyboardLike && semantic.kind != "KEYBOARD" -> listOf(
+                "Keyboard layer changed; ${semantic.label} is still the real task.",
+                "Typing surface moved inside ${semantic.label}; mission unchanged.",
+                "${semantic.label} stayed put while the input layer rearranged itself.",
+            )
+
+            marker.key == "WINDOW_CHANGE" && semantic.kind != "APP" -> listOf(
+                "${semantic.label} changed internal surfaces; still ${semantic.summary}.",
+                "Same ${semantic.label} task, different internal room.",
+                "${semantic.label} stayed foreground; its scene changed underneath us.",
             )
 
             marker.key == "SCREEN_VISUAL" && !app.isNullOrBlank() && scene.mediaHot && !track.isNullOrBlank() && (field(marker.detail, "motion")?.toIntOrNull() ?: 0) >= 45 -> listOf(
                 "$app visually hard-cut while “$track” kept scoring the scene.",
                 "Big pixel change in $app; “$track” survived untouched.",
-                "$app changed what it was showing. “$track” refused to leave the soundtrack department.",
+                "$app changed what it was showing. “$track” refused to leave soundtrack duty.",
             )
 
             marker.key == "APP_ENTER" && scene.notificationBurst >= 3 && scene.mediaHot && !track.isNullOrBlank() && !app.isNullOrBlank() -> listOf(
                 "$app took foreground under “$track” while ${scene.notificationBurst} pings rattled the tray.",
-                "$app has the screen, “$track” has audio, and the notification tray has apparently unionized.",
-            )
-
-            marker.key == "WINDOW_CHANGE" && !app.isNullOrBlank() && !text.isNullOrBlank() -> listOf(
-                "$app changed internal screens; the visible text now includes “${focus(text)}”.",
-                "Same app, new room: “${focus(text)}” is on the glass now.",
+                "$app has the screen, “$track” has audio, and the notification tray has unionized.",
             )
 
             scene.recentSwitches >= 6 && scene.mediaHot && !track.isNullOrBlank() && !app.isNullOrBlank() -> listOf(
@@ -76,14 +107,15 @@ object RavenMetaSceneOS {
             else -> emptyList()
         }
 
-        return if (options.isEmpty()) Beat("", "") else Beat(pick(seed, options), "META_SCENE_FUSED")
+        return if (options.isEmpty()) Beat("", "") else Beat(pick(seed, options), "META_SCENE_FUSED_V2")
     }
 
-    private fun focus(text: String): String {
-        val clean = text.replace(Regex("\\s+"), " ").trim()
-        val first = clean.split(" · ").firstOrNull { it.length >= 3 } ?: clean
-        return first.take(72).trim().trimEnd('.', ',', ':', ';')
-    }
+    private fun focus(text: String): String = RavenMetaRecursionOS.focus(text)
+        ?.replace(Regex("\\s+"), " ")
+        ?.trim()
+        ?.trimEnd('.', ',', ':', ';')
+        ?.take(82)
+        ?: text.replace(Regex("\\s+"), " ").trim().take(82)
 
     private fun field(detail: String, name: String): String? =
         Regex("(?:^|\\|)${Regex.escape(name)}:([^|]*)")
