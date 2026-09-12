@@ -76,7 +76,16 @@ object RavenGoblinVisionOverlay {
         if (spoken.isNotBlank()) scheduleCollapse(context, reaction, hauntMode)
     }
 
-    private fun remember(context: Context, member: RavenOfficeMember, ownerLine: String, note: String, observation: String, signal: String, detail: String, hauntMode: RavenHauntMode) {
+    private fun remember(
+        context: Context,
+        member: RavenOfficeMember,
+        ownerLine: String,
+        note: String,
+        observation: String,
+        signal: String,
+        detail: String,
+        hauntMode: RavenHauntMode,
+    ) {
         appContext = context.applicationContext
         lastMember = member
         lastOwnerLine = ownerLine
@@ -182,7 +191,17 @@ object RavenGoblinVisionOverlay {
                     ellipsize = TextUtils.TruncateAt.END
                     setTextColor(0xFFF8F8FC.toInt())
                 }
-                contextView?.visibility = View.GONE
+                contextView?.apply {
+                    val contextLine = lastObservation.takeIf { observation ->
+                        observation.isNotBlank() && !lastNote.contains(observation.take(36), ignoreCase = true)
+                    }.orEmpty()
+                    visibility = if (contextLine.isBlank()) View.GONE else View.VISIBLE
+                    text = contextLine
+                    textSize = 10.8f
+                    maxLines = 3
+                    ellipsize = TextUtils.TruncateAt.END
+                    setTextColor(0xFFBFC0CC.toInt())
+                }
             }
             Mode.FEED -> {
                 statusView?.apply {
@@ -210,6 +229,15 @@ object RavenGoblinVisionOverlay {
                 }
             }
         }
+
+        // The overlay is part of the captured display. Register what we just drew so Goblin Read can
+        // discard its own bubble instead of creating a fake recursive conversation with itself.
+        RavenOverlayEchoOS.record(
+            statusView?.text?.toString().orEmpty(),
+            ownerView?.text?.toString().orEmpty(),
+            noteView?.text?.toString().orEmpty(),
+            contextView?.text?.toString().orEmpty(),
+        )
 
         lp?.let { params ->
             val widthDp = when (mode) {
@@ -249,7 +277,7 @@ object RavenGoblinVisionOverlay {
 
         RavenSurfaceIntegrity.mark(
             context, RavenSurfaceIntegrity.FOLLOW_ME, "RENDERED", stateAt,
-            "goblin_vision_meta_overlay_v7:${mode.name.lowercase()}",
+            "goblin_vision_meta_overlay_v8:${mode.name.lowercase()}",
         )
     }
 
