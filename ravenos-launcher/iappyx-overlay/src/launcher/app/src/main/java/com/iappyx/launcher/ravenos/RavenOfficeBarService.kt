@@ -122,9 +122,11 @@ class RavenOfficeBarService : Service() {
         )
         val member = brain.member
         val reaction = brain.packet
-        // Silence is a valid deterministic result. Never manufacture "X is watching" filler.
         val body = reaction.dialogue.trim()
-        val notificationBody = body.ifBlank { "👁 resident · waiting for a phone moment worth commenting on" }
+        val observation = reaction.authorNote.trim()
+        // Character silence is valid. Resident observation is not fake dialogue and may remain visible.
+        val residentText = body.ifBlank { observation }
+        val notificationBody = residentText.ifBlank { "👁 resident · waiting for readable screen context" }
 
         RavenReactionStateStore.write(this, reaction)
         RavenOfficeStateStore.write(
@@ -132,7 +134,7 @@ class RavenOfficeBarService : Service() {
             member = member,
             signal = signal,
             detail = detail,
-            note = body,
+            note = residentText,
             hauntMode = hauntMode,
             manual = manual != null,
             quiet = quiet,
@@ -149,7 +151,7 @@ class RavenOfficeBarService : Service() {
         }
 
         RavenHomeAura.render(member, hauntMode)
-        RavenHomeWhisper.render(member, body, signal, detail, hauntMode)
+        RavenHomeWhisper.render(member, residentText, signal, detail, hauntMode)
         RavenFollowMeOverlay.hide()
         RavenGoblinVisionOverlay.renderReaction(this, reaction, hauntMode)
 
@@ -166,10 +168,14 @@ class RavenOfficeBarService : Service() {
 
         val title = reaction.ownerLine
         val glyph = RavenEmployeePresentation.signalGlyph(signal, detail)
-        val contextLine = listOfNotNull(
-            glyph.takeIf { it.isNotBlank() },
-            shortContext(signal),
-        ).joinToString("  ")
+        val contextLine = if (observation.isNotBlank()) {
+            listOf("👁", "screen context").joinToString("  ")
+        } else {
+            listOfNotNull(
+                glyph.takeIf { it.isNotBlank() },
+                shortContext(signal),
+            ).joinToString("  ")
+        }
 
         val custom = RemoteViews(packageName, R.layout.ravenos_office_bar).apply {
             val textColor = contrastText(reaction.accent)
@@ -207,6 +213,7 @@ class RavenOfficeBarService : Service() {
 
     private fun shortContext(signal: String): String = when (signal.trim().uppercase()) {
         "SCREEN_VISUAL" -> "screen moved"
+        "SCREEN_TEXT", "SCREEN_SEMANTIC" -> "screen meaning"
         "MEDIA_SESSION", "MEDIA_ACTIVE", "MEDIA_IDLE" -> "media"
         "NOTIFICATION", "NOTIFICATION_POSTED", "NOTIFICATION_REMOVED" -> "notification"
         "FOREGROUND_APP", "FOREGROUND_USAGE" -> "foreground"
