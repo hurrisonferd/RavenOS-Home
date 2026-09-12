@@ -23,7 +23,6 @@ object RavenOfficeGovernor {
         val previousAt = prefs.getLong(KEY_AT, -1L)
         val previousPriority = prefs.getInt(KEY_PRIORITY, Int.MIN_VALUE)
         val priority = priority(normalized, detail)
-
         val age = if (previousAt < 0L || now < previousAt) Long.MAX_VALUE else now - previousAt
         val dupWindow = duplicateWindow(mode)
 
@@ -44,7 +43,8 @@ object RavenOfficeGovernor {
         }
 
         val hold = holdWindow(mode, previousSignal)
-        if (age < hold && priority <= previousPriority) {
+        val recursive = detail.contains("meta:true", true)
+        if (!recursive && age < hold && priority <= previousPriority) {
             recordSuppressed(context, "hold:$normalized:p$priority<=p$previousPriority:${age}ms<$hold")
             return false
         }
@@ -78,8 +78,7 @@ object RavenOfficeGovernor {
 
     private fun samePackage(a: String, b: String): Boolean {
         fun pkg(s: String): String? = Regex("(?:^|\\|)package:([^|]+)").find(s)?.groupValues?.getOrNull(1)
-        val pa = pkg(a)
-        val pb = pkg(b)
+        val pa = pkg(a); val pb = pkg(b)
         return pa != null && pa == pb
     }
 
@@ -87,8 +86,7 @@ object RavenOfficeGovernor {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         prefs.edit()
             .putLong(KEY_SUPPRESSED, prefs.getLong(KEY_SUPPRESSED, 0L) + 1L)
-            .putString(KEY_LAST_SUPPRESSION, reason.take(180))
-            .apply()
+            .putString(KEY_LAST_SUPPRESSION, reason.take(180)).apply()
     }
 
     private fun duplicateWindow(mode: RavenHauntMode): Long = when (mode) {
@@ -110,17 +108,19 @@ object RavenOfficeGovernor {
         return when (previousSignal) {
             "FOREGROUND_APP", "FOREGROUND_USAGE", "APP_LAUNCH" -> (base * 1.25).toLong()
             "FOREGROUND_WINDOW" -> (base * 0.72).toLong()
-            "SCREEN_VISUAL" -> (base * 0.85).toLong()
+            "SCREEN_VISUAL", "SCREEN_TEXT", "SCREEN_SEMANTIC" -> (base * 0.65).toLong()
             else -> base
         }
     }
 
     private fun priority(signal: String, detail: String): Int = when (signal) {
         "ERROR", "FAILURE", "CONFLICT" -> 100
-        "BATTERY" -> if (detail.contains("low", ignoreCase = true)) 95 else 72
-        "NIGHT" -> if (detail.contains("screen:off", ignoreCase = true)) 90 else 60
+        "BATTERY" -> if (detail.contains("low", true)) 95 else 72
+        "NIGHT" -> if (detail.contains("screen:off", true)) 90 else 60
+        "SCREEN_SEMANTIC" -> if (detail.contains("meta:true", true)) 90 else if (detail.contains("suppressed", true)) 78 else 66
+        "SCREEN_TEXT" -> if (detail.contains("meta:true", true)) 88 else if (detail.contains("suppressed", true)) 76 else 62
         "POWER" -> 78
-        "HOME" -> if (detail.contains("user:present", ignoreCase = true)) 75 else 58
+        "HOME" -> if (detail.contains("user:present", true)) 75 else 58
         "SYSTEM_DECK", "AUDIO", "DEVICE" -> 68
         "APP_LAUNCH" -> 62
         "FOREGROUND_APP" -> 60
