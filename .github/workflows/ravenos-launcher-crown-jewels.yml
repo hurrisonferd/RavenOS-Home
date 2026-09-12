@@ -1,0 +1,101 @@
+name: RavenOS Launcher Crown Jewels
+
+on:
+  push:
+    branches: [ravenos-launcher-crown-jewels-20260912]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  crown-jewels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout crown jewels with pinned launcher chassis
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Verify canonical Goblin Brain wiring before build
+        run: python3 ravenos-launcher/tests/RAVENOS-GOBLIN-BRAIN-WIRING-CANARY.py
+
+      - name: Reconstruct rich RavenOS Launcher on pinned iappyx chassis
+        run: |
+          set -euo pipefail
+          python3 ravenos-launcher/apply-ravenos-overlay.py
+          python3 ravenos-launcher/patch-ravenos-knowledge-widget.py
+          python3 ravenos-launcher/patch-ravenos-ergonomics.py faeryware/house/iappyxOS-Launcher
+
+      - name: Crown-jewel no-skimp gate
+        run: |
+          set -euo pipefail
+          ROOT='faeryware/house/iappyxOS-Launcher/src/launcher/app/src/main'
+          APP='faeryware/house/iappyxOS-Launcher/src/launcher/app'
+          R="$ROOT/java/com/iappyx/launcher/ravenos"
+          grep -F 'applicationId "com.ravenos.launcher"' "$APP/build.gradle"
+          grep -F 'RavenOS Launcher' "$ROOT/res/values/strings.xml"
+          for f in \
+            RavenGoblinBrain.kt RavenGoblinBrainBusOS.kt RavenGoblinSystemsRegistryOS.kt \
+            RavenSitcomDirectorOS.kt RavenMetaMaxShowrunnerOS.kt RavenGoldSitcomTopologyOS.kt \
+            RavenOfficeSeasonOS.kt RavenEpisodeOS.kt RavenEpisodeScriptOS.kt RavenBitLedgerOS.kt \
+            RavenOfficeRecallOS.kt RavenSceneGraphOS.kt RavenDialogueVaultOS.kt RavenMetaAntiRepeatOS.kt \
+            RavenMetaTrickHistoryOS.kt RavenMetaGoblinDialogueOS.kt RavenMetaGrammarOS.kt \
+            RavenContextualDialogueBank.kt RavenSitcomDialogueOS.kt RavenLongSeriesDialogueOS.kt \
+            RavenGoblinVisionOverlay.kt RavenFollowMeOverlay.kt RavenOfficeFeed.kt RavenOfficeBarService.kt \
+            RavenEmployeePresentation.kt RavenSceneExpressionOS.kt RavenEmojiReactionBank.kt \
+            RavenKaomojiGrammarOS.kt RavenSystemDeck.kt RavenCommandPalette.kt RavenHomeActivity.kt \
+            RavenNotificationSenseOS.kt RavenMediaSessionSenseOS.kt RavenViewportSemanticsOS.kt; do
+              test -s "$R/$f" || { echo "MISSING_CROWN_JEWEL:$f"; exit 31; }
+          done
+          grep -F 'RavenGoblinBrainBusOS.react' "$R/RavenOfficeBarService.kt"
+          grep -F 'RavenGoblinBrain.react' "$R/RavenGoblinBrainBusOS.kt"
+          grep -F 'RavenGoblinVisionOverlay.renderReaction' "$R/RavenOfficeBarService.kt"
+          grep -F 'RavenReactionStateStore.write' "$R/RavenOfficeBarService.kt"
+          grep -F 'OFFICE · RECENT HAUNTINGS' "$R/RavenGoblinVisionOverlay.kt"
+          grep -F 'META GOBLIN' "$R/RavenGoblinVisionOverlay.kt"
+          grep -F 'RavenSitcomDirectorOS' "$R/RavenGoblinBrain.kt"
+          grep -F 'RavenMetaMaxShowrunnerOS' "$R/RavenGoblinBrain.kt"
+          grep -F 'RavenGoldSitcomTopologyOS' "$R/RavenGoblinBrain.kt"
+
+      - name: Compile rich launcher
+        working-directory: faeryware/house/iappyxOS-Launcher/src/launcher
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:compileDebugKotlin --stacktrace --console=plain
+
+      - name: Build crown-jewels APK
+        working-directory: faeryware/house/iappyxOS-Launcher/src/launcher
+        run: ./gradlew :app:assembleDebug --stacktrace --console=plain
+
+      - name: Verify and stage APK
+        run: |
+          set -euo pipefail
+          SRC='faeryware/house/iappyxOS-Launcher/src/launcher/app/build/outputs/apk/debug/app-debug.apk'
+          OUT='RavenOS-Launcher-Crown-Jewels-Meta-Goblin.apk'
+          cp "$SRC" "$OUT"
+          test -s "$OUT"
+          sha256sum "$OUT" | tee "$OUT.sha256"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$AAPT" dump badging "$OUT" | tee RavenOS-Launcher-Crown-Jewels-badging.txt
+          grep -F "package: name='com.ravenos.launcher'" RavenOS-Launcher-Crown-Jewels-badging.txt
+          grep -F "application-label:'RavenOS Launcher'" RavenOS-Launcher-Crown-Jewels-badging.txt
+
+      - name: Upload crown-jewels APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RavenOS-Launcher-Crown-Jewels-Meta-Goblin
+          path: |
+            RavenOS-Launcher-Crown-Jewels-Meta-Goblin.apk
+            RavenOS-Launcher-Crown-Jewels-Meta-Goblin.apk.sha256
+            RavenOS-Launcher-Crown-Jewels-badging.txt
+            ravenos-launcher/device-canary.sh
