@@ -27,14 +27,24 @@ object RavenLongSeriesDialogueOS {
         val scene = script.sceneOwner.ifBlank { screen.appLabel.orEmpty().ifBlank { "the phone" } }
         val subject = script.subject.ifBlank { screen.focus }.replace(Regex("\\s+"), " ").trim().take(82)
         val form = chooseForm(memory, gold, show, reserve, direction)
-        val primary = if (gold.terminal) "" else ownerLine(member.id, form, scene, subject, script, bit, memory, reserve, gold)
+        val riff = RavenMetaGoblinRiffOS.select(member, screen, script, direction, memory, gold, show)
+        val useRiff = !gold.terminal && riff.text.isNotBlank() && (
+            screen.meta || script.interruption.isNotBlank() || script.returned || memory.motifReturningAcrossSessions ||
+                gold.phase in setOf("CALLBACK", "ESCALATE") || show.level >= 3 || direction.turn % 7 == 0
+            )
+        val primary = when {
+            gold.terminal -> ""
+            useRiff -> riff.text
+            else -> ownerLine(member.id, form, scene, subject, script, bit, memory, reserve, gold)
+        }
         val secondary = if (gold.secondary != null && gold.crosstalkEligible) {
             partnerLine(gold.secondary.id, member.id, form, subject, memory, gold)
         } else ""
         val synthesis = if (gold.synthesisEligible && !gold.terminal) synthesisLine(scene, subject, memory, gold)
             else ""
         val terminal = if (gold.terminal) listOf(gold.authorNote, gold.dumbchecksum).filter(String::isNotBlank).joinToString("\n") else ""
-        return Beat(primary.take(300), secondary.take(220), synthesis.take(220), terminal.take(430), "SERIES_${gold.phase}_$form")
+        val family = if (useRiff) riff.family else "SERIES_${gold.phase}_$form"
+        return Beat(primary.take(340), secondary.take(220), synthesis.take(220), terminal.take(430), family)
     }
 
     private fun chooseForm(
