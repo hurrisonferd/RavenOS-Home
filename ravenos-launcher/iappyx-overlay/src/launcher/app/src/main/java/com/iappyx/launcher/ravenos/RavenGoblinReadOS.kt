@@ -89,7 +89,7 @@ object RavenGoblinReadOS {
                 val bottom = mutableListOf<String>()
                 val geometry = mutableListOf<RavenScreenMapOS.Block>()
 
-                result.textBlocks.take(32).forEach { block ->
+                result.textBlocks.take(48).forEach { block ->
                     val clean = normalizePiece(block.text)
                     if (clean.isBlank() || RavenOverlayEchoOS.isEcho(clean)) return@forEach
                     all += clean
@@ -112,9 +112,9 @@ object RavenGoblinReadOS {
                     }
                     else -> {
                         RavenScreenMapOS.record(app, frameWidth, frameHeight, geometry)
-                        val topText = normalize(top.joinToString(" · ")).take(180)
-                        val middleText = normalize(middle.joinToString(" · ")).take(180)
-                        val bottomText = normalize(bottom.joinToString(" · ")).take(180)
+                        val topText = normalize(top.joinToString(" · ")).take(240)
+                        val middleText = normalize(middle.joinToString(" · ")).take(240)
+                        val bottomText = normalize(bottom.joinToString(" · ")).take(240)
                         val prior = latest(app)?.text.orEmpty()
                         if (normalized != prior) {
                             val captured = System.currentTimeMillis()
@@ -126,10 +126,10 @@ object RavenGoblinReadOS {
                             RavenOfficeBarService.signal(
                                 app, "SCREEN_TEXT",
                                 buildString {
-                                    append("state:visible|text:").append(escape(normalized.take(240)))
-                                    append("|top:").append(escape(topText.take(80)))
-                                    append("|middle:").append(escape(middleText.take(80)))
-                                    append("|bottom:").append(escape(bottomText.take(80)))
+                                    append("state:visible|text:").append(escape(normalized.take(320)))
+                                    append("|top:").append(escape(topText.take(100)))
+                                    append("|middle:").append(escape(middleText.take(100)))
+                                    append("|bottom:").append(escape(bottomText.take(100)))
                                     append("|blocks:").append(all.size)
                                     append("|quiet_zone:").append(map?.quietZone() ?: leastBusy(topText, middleText, bottomText))
                                     append("|meta:").append(meta)
@@ -156,11 +156,11 @@ object RavenGoblinReadOS {
     private fun normalizePiece(raw: String): String = raw.lineSequence()
         .map { it.replace(Regex("\\s+"), " ").trim() }
         .filter { it.length >= 2 }
-        .take(4)
+        .take(5)
         .joinToString(" ")
-        .take(180)
+        .take(220)
 
-    private fun normalize(raw: String): String = raw.replace(Regex("\\s+"), " ").trim().take(480)
+    private fun normalize(raw: String): String = raw.replace(Regex("\\s+"), " ").trim().take(720)
 
     private fun looksSensitive(text: String): Boolean {
         val t = text.lowercase()
