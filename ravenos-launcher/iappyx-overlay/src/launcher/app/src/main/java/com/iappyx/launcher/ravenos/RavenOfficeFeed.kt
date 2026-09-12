@@ -46,7 +46,7 @@ object RavenOfficeFeed {
             }
         }
 
-        val trace = RavenOfficeTraceStore.recent(activity, 16)
+        val trace = RavenOfficeTraceStore.recent(activity, 20)
             .filter { cleanVisible(it.note).isNotBlank() }
             .take(12)
         root.addView(t("RECENT", 11f, true, 0xFFD8D8E4.toInt()))
@@ -77,13 +77,16 @@ object RavenOfficeFeed {
 
     private fun cleanVisible(raw: String): String {
         if (raw.isBlank()) return ""
-        val first = raw.lineSequence()
+        val clean = raw.lineSequence()
             .map { it.trim() }
             .filter { it.isNotBlank() }
             .filterNot { it.equals("Noted.", true) }
             .filterNot { it.startsWith("AUTHOR'S NOTE:", true) }
             .joinToString(" ")
-        return first.replace(Regex("\\s+"), " ").trim()
+            .replace(Regex("\\s+"), " ")
+            .trim()
+        if (Regex("^[A-Z0-9_-]+\\s+is\\s+watching[.!]?$", RegexOption.IGNORE_CASE).matches(clean)) return ""
+        return clean
     }
 
     private fun sceneLine(scene: RavenPhoneSceneOS.Scene): String = buildString {
