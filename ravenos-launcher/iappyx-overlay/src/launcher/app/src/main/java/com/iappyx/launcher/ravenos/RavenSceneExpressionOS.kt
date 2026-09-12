@@ -2,7 +2,7 @@ package com.iappyx.launcher.ravenos
 
 import android.content.Context
 
-/** Screen + episode-aware EmojiOS / KaomojiOS decoration downstream of owner-native presentation. */
+/** Screen + episode + Meta-Max-aware EmojiOS / KaomojiOS decoration downstream of owner-native presentation. */
 object RavenSceneExpressionOS {
     fun decorate(
         context: Context,
@@ -11,6 +11,8 @@ object RavenSceneExpressionOS {
         screen: RavenScreenContextOS.Snapshot,
         direction: RavenSitcomDirectorOS.Direction,
         script: RavenEpisodeScriptOS.Cue? = null,
+        bit: RavenBitLedgerOS.Cue? = null,
+        show: RavenMetaMaxShowrunnerOS.Beat? = null,
     ): RavenEmployeePresentation.Packet {
         if (!screen.available && script?.meaningful != true) return base
         val viewport = RavenViewportSemanticsOS.latest(context)
@@ -31,15 +33,31 @@ object RavenSceneExpressionOS {
         val scriptGlyph = scriptGlyph(script)
         val interactionGlyph = interactionGlyph(script)
         val cameoGlyph = if (!script?.interruption.isNullOrBlank()) "🎭" else ""
-        val extras = listOf(metaGlyph, sceneGlyph, taskGlyph, beatGlyph, scriptGlyph, interactionGlyph, cameoGlyph)
-            .filter(String::isNotBlank)
-            .distinct()
-            .take(5)
+        val metaMaxGlyph = show?.tag.orEmpty()
+        val tierGlyph = when (bit?.tier) {
+            "SETUP" -> "🌱"
+            "CALLBACK" -> "🔁"
+            "ESCALATION" -> "📈🎭"
+            "BRICK_JOKE" -> "🧱💥"
+            "MYTHOLOGY" -> "📜👑"
+            else -> ""
+        }
+        val levelGlyph = when (show?.level ?: 0) {
+            5 -> "🪞🚨👑"
+            4 -> "🪞🎬"
+            3 -> "🎭🧠"
+            2 -> "🎙️"
+            else -> ""
+        }
+        val extras = listOf(
+            metaGlyph, sceneGlyph, taskGlyph, beatGlyph, scriptGlyph, interactionGlyph,
+            cameoGlyph, metaMaxGlyph, tierGlyph, levelGlyph,
+        ).filter(String::isNotBlank).distinct().take(7)
         val soup = buildString {
             append(base.emojiSoup)
             extras.forEach { glyph -> if (!contains(glyph)) append(glyph) }
         }
-        val face = expressiveFace(member.id, task, screen.meta, direction, script, base.kaomoji)
+        val face = expressiveFace(member.id, task, screen.meta, direction, script, bit, show, base.kaomoji)
         return base.copy(
             emojiSoup = soup,
             kaomoji = face,
@@ -48,6 +66,8 @@ object RavenSceneExpressionOS {
                 task.lowercase().replace('_', ' ').takeIf(String::isNotBlank),
                 script?.motif?.lowercase()?.replace('_', ' ')?.takeIf(String::isNotBlank),
                 script?.interaction?.lowercase()?.takeIf(String::isNotBlank),
+                bit?.tier?.lowercase()?.replace('_', ' ')?.takeIf(String::isNotBlank),
+                show?.form?.lowercase()?.replace('_', ' ')?.takeIf(String::isNotBlank),
             ).joinToString(" ").ifBlank { base.context },
         )
     }
@@ -145,33 +165,46 @@ object RavenSceneExpressionOS {
         meta: Boolean,
         direction: RavenSitcomDirectorOS.Direction,
         script: RavenEpisodeScriptOS.Cue?,
+        bit: RavenBitLedgerOS.Cue?,
+        show: RavenMetaMaxShowrunnerOS.Beat?,
         fallback: String,
     ): String {
         val family = when (owner) {
             "KYU", "JOKER", "MYSTRA", "ASTRIDHE" -> listOf(
-                "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧", "(☞ﾟヮﾟ)☞", "(ง •̀_•́)ง", "(☆▽☆)", "(¬‿¬)", "ヽ(°〇°)ﾉ", "(๑˃ᴗ˂)ﻭ", "(づ｡◕‿‿◕｡)づ",
+                "(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧", "(☞ﾟヮﾟ)☞", "(ง •̀_•́)ง", "(☆▽☆)", "(¬‿¬)", "ヽ(°〇°)ﾉ",
+                "(๑˃ᴗ˂)ﻭ", "(づ｡◕‿‿◕｡)づ", "＼(≧▽≦)／", "(✧ω✧)", "(╯✧▽✧)╯", "(ﾉ≧∀≦)ﾉ",
             )
             "ATOM", "PAIMON", "PYTHAGORAS", "EDISON", "NEO", "TIM" -> listOf(
-                "( •̀ ω •́ )✧", "(￢_￢)", "(⊙_◎)", "(⌐■_■)", "(￣ー￣)ゞ", "(•̀ᴗ•́)و ̑̑", "(ಠ_ಠ)", "(☉_☉)",
+                "( •̀ ω •́ )✧", "(￢_￢)", "(⊙_◎)", "(⌐■_■)", "(￣ー￣)ゞ", "(•̀ᴗ•́)و ̑̑",
+                "(ಠ_ಠ)", "(☉_☉)", "(¬_¬)ﾉ⌐■-■", "( •_•)>⌐■-■", "(◎_◎;)", "(￣▽￣)ノ",
             )
             "LILITH", "LUMA", "AYRE", "YORK", "YORI" -> listOf(
-                "(˵ •̀ ᴗ - ˵ ) ✧", "(◕‿◕✿)", "(￣▽￣)~*", "(˘︶˘).｡*♡", "(ﾉ´ヮ`)ﾉ*: ･ﾟ", "(｡•̀ᴗ-)✧", "(づ￣ ³￣)づ", "( ´ ▽ ` ).｡ｏ♡",
+                "(˵ •̀ ᴗ - ˵ ) ✧", "(◕‿◕✿)", "(￣▽￣)~*", "(˘︶˘).｡*♡", "(ﾉ´ヮ`)ﾉ*: ･ﾟ", "(｡•̀ᴗ-)✧",
+                "(づ￣ ³￣)づ", "( ´ ▽ ` ).｡ｏ♡", "(ღ˘⌣˘ღ)", "(◡‿◡✿)", "(｡･ω･｡)ﾉ♡", "(つ≧▽≦)つ",
             )
             "MELINOE", "NYX", "EREBUS", "VIRGIL" -> listOf(
-                "(◡﹏◡)", "(¬_¬ )", "(￣ー￣)", "(－_－) zzZ", "(◡‿◡✿)", "(幽_幽)", "(－ω－) zzZ", "(｡•́︿•̀｡)",
+                "(◡﹏◡)", "(¬_¬ )", "(￣ー￣)", "(－_－) zzZ", "(◡‿◡✿)", "(幽_幽)",
+                "(－ω－) zzZ", "(｡•́︿•̀｡)", "(╥﹏╥)", "(￣o￣) . z Z", "(－‸ლ)", "(・_・ヾ",
             )
             "BRUNHILDE", "QIRA", "THOR", "SHAKA", "LUCIFER" -> listOf(
-                "ᕦ(ò_óˇ)ᕤ", "( •̀ - •́ )", "(ง'̀-'́)ง", "(￣^￣)ゞ", "(¬_¬)", "(╬ಠ益ಠ)", "( •̀ᄇ• ́)ﻭ✧", "୧(ಠ益ಠ)୨",
+                "ᕦ(ò_óˇ)ᕤ", "( •̀ - •́ )", "(ง'̀-'́)ง", "(￣^￣)ゞ", "(¬_¬)", "(╬ಠ益ಠ)",
+                "( •̀ᄇ• ́)ﻭ✧", "୧(ಠ益ಠ)୨", "(ง •̀ω•́)ง✧", "(｀･ω･´)ゞ", "(ಠ益ಠ)", "(งಠ_ಠ)ง",
             )
             "ERIS", "LEGION", "JORM", "ZAGREUS", "AHTI", "ATLAS", "JARVIS", "RAVENOS", "YAHWEH" -> listOf(
-                "(⊙_◎)", "( •̀ᴗ•́ )و", "(￣ー￣)", "(－‸ლ)", "(¬‿¬)", "(◎_◎;)", "( •_•)>⌐■-■", "(⌐■_■)",
+                "(⊙_◎)", "( •̀ᴗ•́ )و", "(￣ー￣)", "(－‸ლ)", "(¬‿¬)", "(◎_◎;)",
+                "( •_•)>⌐■-■", "(⌐■_■)", "(⊙﹏⊙)", "(￣▽￣)ゞ", "(ﾉﾟ0ﾟ)ﾉ~", "(¬､¬)",
             )
             else -> return fallback
         }
         val motif = script?.motif.orEmpty()
-        val seed = "$owner|$task|$meta|$motif|${script?.interaction.orEmpty()}|${script?.motifCount ?: 0}|${direction.beat}|${direction.turn}|${direction.sceneId}"
-        val gate = stableIndex("gate|$seed", 5)
-        if (gate == 0 && !meta && direction.beat == "OBSERVE" && script?.callbackEarned != true) return fallback
+        val seed = listOf(
+            owner, task, meta.toString(), motif, script?.interaction.orEmpty(),
+            (script?.motifCount ?: 0).toString(), bit?.tier.orEmpty(), (bit?.count ?: 0).toString(),
+            show?.form.orEmpty(), (show?.level ?: 0).toString(), direction.beat, direction.turn.toString(), direction.sceneId,
+        ).joinToString("|")
+        val forceExpression = meta || (show?.level ?: 0) >= 3 || bit?.shouldEscalate == true || bit?.brick == true
+        val gate = stableIndex("gate|$seed", if (forceExpression) 9 else 5)
+        if (gate == 0 && !forceExpression && direction.beat == "OBSERVE" && script?.callbackEarned != true) return fallback
         return family[stableIndex(seed, family.size)]
     }
 
