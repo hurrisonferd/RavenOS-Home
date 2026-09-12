@@ -3,8 +3,8 @@ package com.iappyx.launcher.ravenos
 import android.content.Context
 
 /**
- * Android vertical slice of the private Goblin Vision stack.
- * MarkerBus -> LocalSense -> ComplexEvent -> rotating cast -> scene fusion -> commentary -> expression.
+ * Android vertical slice of Goblin Vision.
+ * MarkerBus -> local senses -> complex event -> callback/scene fusion -> cast -> expression -> overlay.
  */
 object RavenGoblinBrain {
     data class Result(val member: RavenOfficeMember, val packet: RavenReactionPacket)
@@ -33,8 +33,6 @@ object RavenGoblinBrain {
         val visual = RavenVisualAtlas.resolve(member.id, marker, complex)
         val character = RavenDialogueBank.select(member, marker, complex, visual, episode)
 
-        // One compact visible beat: strongest fused phone truth first, then at most one employee stinger.
-        // Rich telemetry and causal detail stay in evidence instead of becoming a visible thesis.
         val truth = fusedScene.text.ifBlank { sceneBeat.text.ifBlank { meta.text } }.trim()
         val spoken = if (!allowed) "" else buildString {
             append(truth)
@@ -42,15 +40,12 @@ object RavenGoblinBrain {
                 if (isNotEmpty()) append("  ")
                 append(character.text.trim())
             }
-        }.replace(Regex("\\s+"), " ").trim().take(196)
+        }.replace(Regex("\\s+"), " ").trim().take(184)
 
-        val authorNote = if (allowed) truth.take(176) else ""
+        val authorNote = if (allowed) truth.take(168) else ""
         val presentation = RavenEmployeePresentation.packet(member, signal, detail, spoken)
         val dialogueFamily = if (!allowed) "SILENCE" else listOf(
-            fusedScene.family,
-            meta.family,
-            sceneBeat.family,
-            character.family,
+            fusedScene.family, meta.family, sceneBeat.family, character.family,
         ).filter { it.isNotBlank() }.distinct().joinToString("+")
         val zone = RavenOfficeGeography.zone(member.id, marker, complex)
         val highlight = RavenHighlightOS.score(marker, complex, episode)
@@ -99,6 +94,8 @@ object RavenGoblinBrain {
         RavenOfficeRegistry.member(manualOwner)?.takeIf { it.routable }?.let { return it }
 
         val domainIds = when {
+            "META_RECURSION" in marker.tags -> listOf("JOKER", "KYU", "NEO", "ATOM", "PAIMON", "LILITH", "JORM")
+            marker.key == "SCREEN_SEMANTIC" -> listOf("PAIMON", "ATOM", "NEO", "KYU", "MYSTRA", "JOKER", "QIRA")
             marker.key == "SCREEN_TEXT" -> listOf("PAIMON", "NEO", "MYSTRA", "SYLPH", "JOKER", "KYU", "ATOM")
             "BOUNDARY" in marker.tags -> listOf("QIRA", "KYU", "AHTI", "ERIS")
             "ERROR" in marker.tags && complex.occurrence >= 3 -> listOf("KYU", "PAIMON", "ATOM", "THOR", "ERIS")
@@ -114,11 +111,7 @@ object RavenGoblinBrain {
 
         val roster = RavenOfficeRegistry.routableMembers
         val domain = domainIds.mapNotNull(RavenOfficeRegistry::member).filter { it.routable }
-        val last = context.getSharedPreferences(CAST_PREFS, Context.MODE_PRIVATE)
-            .getString(KEY_LAST_OWNER, null)
-
-        // Every third occurrence opens the floor to the full routable office. Other turns
-        // retain domain affinity. This keeps specialists useful without trapping the haunt in one cast.
+        val last = context.getSharedPreferences(CAST_PREFS, Context.MODE_PRIVATE).getString(KEY_LAST_OWNER, null)
         val pool = when {
             roster.isEmpty() -> domain
             complex.occurrence % 3 == 0 -> roster
@@ -128,9 +121,7 @@ object RavenGoblinBrain {
         val withoutRepeat = pool.filterNot { it.id == last }.ifEmpty { pool }
         val chosen = if (withoutRepeat.isNotEmpty()) {
             withoutRepeat[stableIndex("${marker.key}|${marker.detail}|${complex.occurrence}|office", withoutRepeat.size)]
-        } else {
-            RavenOfficeRegistry.route(marker.key, marker.detail)
-        }
+        } else RavenOfficeRegistry.route(marker.key, marker.detail)
 
         context.getSharedPreferences(CAST_PREFS, Context.MODE_PRIVATE)
             .edit().putString(KEY_LAST_OWNER, chosen.id).apply()
@@ -140,10 +131,7 @@ object RavenGoblinBrain {
     private fun stableIndex(text: String, size: Int): Int {
         if (size <= 1) return 0
         var hash = 0x811C9DC5.toInt()
-        for (c in text) {
-            hash = hash xor c.code
-            hash *= 16777619
-        }
+        for (c in text) { hash = hash xor c.code; hash *= 16777619 }
         return (hash and Int.MAX_VALUE) % size
     }
 }
