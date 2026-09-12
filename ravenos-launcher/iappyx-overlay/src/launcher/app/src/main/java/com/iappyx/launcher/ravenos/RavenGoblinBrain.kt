@@ -26,24 +26,27 @@ object RavenGoblinBrain {
         val episode = RavenEpisodeOS.phase(context, marker, complex)
         val member = cast(context, marker, complex, manualOwner, quiet)
         val meta = RavenMetaCommentaryOS.compose(context, member, marker, complex, episode)
+        val sceneBeat = RavenMetaGoblinDialogueOS.select(context, member, marker, complex, episode)
         val allowed = RavenInterruptibilityOS.allow(context, marker, complex, hauntMode, quiet)
         val visual = RavenVisualAtlas.resolve(member.id, marker, complex)
         val character = RavenDialogueBank.select(member, marker, complex, visual, episode)
 
-        // One visible sentence. Phone truth first; employee joke/posture second when earned.
-        // The evidence copy remains separate in authorNote but presentation surfaces do not label it.
+        // One compact visible beat: strongest phone truth first, then at most one employee stinger.
+        // Rich telemetry and causal detail stay in evidence instead of becoming a visible thesis.
+        val truth = sceneBeat.text.ifBlank { meta.text }.trim()
         val spoken = if (!allowed) "" else buildString {
-            append(meta.text.trim())
-            if (character.text.isNotBlank() && character.text != meta.text) {
+            append(truth)
+            if (character.text.isNotBlank() && character.text != truth) {
                 if (isNotEmpty()) append("  ")
                 append(character.text.trim())
             }
-        }.replace(Regex("\\s+"), " ").trim().take(176)
+        }.replace(Regex("\\s+"), " ").trim().take(168)
 
-        val authorNote = if (allowed) meta.text.trim().take(160) else ""
+        val authorNote = if (allowed) truth.take(160) else ""
         val presentation = RavenEmployeePresentation.packet(member, signal, detail, spoken)
-        val dialogueFamily = if (!allowed) "SILENCE" else listOf(meta.family, character.family)
+        val dialogueFamily = if (!allowed) "SILENCE" else listOf(meta.family, sceneBeat.family, character.family)
             .filter { it.isNotBlank() }
+            .distinct()
             .joinToString("+")
         val zone = RavenOfficeGeography.zone(member.id, marker, complex)
         val highlight = RavenHighlightOS.score(marker, complex, episode)
@@ -110,7 +113,7 @@ object RavenGoblinBrain {
             .getString(KEY_LAST_OWNER, null)
 
         // Every third occurrence opens the floor to the full routable office. Other turns
-        // retain domain affinity. This makes the cast broad without making specialist routing random.
+        // retain domain affinity. This keeps specialists useful without trapping the haunt in one cast.
         val pool = when {
             roster.isEmpty() -> domain
             complex.occurrence % 3 == 0 -> roster
