@@ -9,9 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Owner-armed local OCR for Goblin Eye frames.
- *
- * Raw frames remain transient. The retained result is bounded text plus coarse vertical layout
- * (top / middle / bottom) so RavenOS can reason about what is visibly where without saving images.
+ * Retains bounded text plus coarse layout and normalized block geometry; raw frames are discarded.
  */
 object RavenGoblinReadOS {
     data class Reading(
@@ -44,17 +42,15 @@ object RavenGoblinReadOS {
     private val recognizer by lazy { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
 
     fun isEnabled(context: Context): Boolean = context.applicationContext
-        .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        .getBoolean(KEY_ENABLED, false)
+        .getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ENABLED, false)
 
     fun setEnabled(context: Context, enabled: Boolean) {
         val app = context.applicationContext
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_ENABLED, enabled).apply()
-        if (!enabled) clearReading(app)
+        if (!enabled) { clearReading(app); RavenScreenMapOS.clear(app) }
         RavenOfficeBarService.signal(
-            app,
-            "SCREEN_TEXT",
-            if (enabled) "state:armed|layout:zones|local:true|cloud:false|raw_persist:false" else "state:disabled",
+            app, "SCREEN_TEXT",
+            if (enabled) "state:armed|layout:geometry|local:true|cloud:false|raw_persist:false" else "state:disabled",
         )
     }
 
@@ -69,12 +65,8 @@ object RavenGoblinReadOS {
         val text = prefs.getString(KEY_TEXT, "").orEmpty()
         if (text.isBlank() || at <= 0L || now - at > TTL_MS) return null
         return Reading(
-            text = text,
-            top = prefs.getString(KEY_TOP, "").orEmpty(),
-            middle = prefs.getString(KEY_MIDDLE, "").orEmpty(),
-            bottom = prefs.getString(KEY_BOTTOM, "").orEmpty(),
-            blockCount = prefs.getInt(KEY_BLOCKS, 0),
-            capturedAt = at,
+            text, prefs.getString(KEY_TOP, "").orEmpty(), prefs.getString(KEY_MIDDLE, "").orEmpty(),
+            prefs.getString(KEY_BOTTOM, "").orEmpty(), prefs.getInt(KEY_BLOCKS, 0), at,
         )
     }
 
@@ -83,10 +75,10 @@ object RavenGoblinReadOS {
         val app = context.applicationContext
         val now = System.currentTimeMillis()
         if (!isEnabled(app) || now - lastSubmitAt < MIN_INTERVAL_MS || !inFlight.compareAndSet(false, true)) {
-            bitmap.recycle()
-            return
+            bitmap.recycle(); return
         }
         lastSubmitAt = now
+        val frameWidth = bitmap.width.coerceAtLeast(1)
         val frameHeight = bitmap.height.coerceAtLeast(1)
         val image = InputImage.fromBitmap(bitmap, 0)
         recognizer.process(image)
@@ -95,31 +87,31 @@ object RavenGoblinReadOS {
                 val top = mutableListOf<String>()
                 val middle = mutableListOf<String>()
                 val bottom = mutableListOf<String>()
+                val geometry = mutableListOf<RavenScreenMapOS.Block>()
 
                 result.textBlocks.take(24).forEach { block ->
                     val clean = normalizePiece(block.text)
                     if (clean.isBlank()) return@forEach
                     all += clean
-                    val centerY = block.boundingBox?.centerY() ?: frameHeight / 2
+                    val rect = block.boundingBox
+                    val centerY = rect?.centerY() ?: frameHeight / 2
                     when {
                         centerY < frameHeight / 3 -> top += clean
                         centerY < frameHeight * 2 / 3 -> middle += clean
                         else -> bottom += clean
                     }
+                    if (rect != null) geometry += RavenScreenMapOS.Block(clean, rect.left, rect.top, rect.right, rect.bottom)
                 }
 
                 val normalized = normalize(all.joinToString(" · "))
                 when {
                     normalized.isBlank() -> Unit
                     looksSensitive(normalized) -> {
-                        clearReading(app)
-                        RavenOfficeBarService.signal(
-                            app,
-                            "SCREEN_TEXT",
-                            "state:suppressed_sensitive|local:true|cloud:false|raw_persist:false",
-                        )
+                        clearReading(app); RavenScreenMapOS.clear(app)
+                        RavenOfficeBarService.signal(app, "SCREEN_TEXT", "state:suppressed_sensitive|local:true|cloud:false|raw_persist:false")
                     }
                     else -> {
+                        RavenScreenMapOS.record(app, frameWidth, frameHeight, geometry)
                         val topText = normalize(top.joinToString(" · ")).take(120)
                         val middleText = normalize(middle.joinToString(" · ")).take(120)
                         val bottomText = normalize(bottom.joinToString(" · ")).take(120)
@@ -127,24 +119,19 @@ object RavenGoblinReadOS {
                         if (normalized != prior) {
                             val captured = System.currentTimeMillis()
                             app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                                .putString(KEY_TEXT, normalized)
-                                .putString(KEY_TOP, topText)
-                                .putString(KEY_MIDDLE, middleText)
-                                .putString(KEY_BOTTOM, bottomText)
-                                .putInt(KEY_BLOCKS, result.textBlocks.size)
-                                .putLong(KEY_AT, captured)
-                                .apply()
+                                .putString(KEY_TEXT, normalized).putString(KEY_TOP, topText).putString(KEY_MIDDLE, middleText)
+                                .putString(KEY_BOTTOM, bottomText).putInt(KEY_BLOCKS, result.textBlocks.size).putLong(KEY_AT, captured).apply()
                             val meta = RavenMetaRecursionOS.detect(normalized)
+                            val map = RavenScreenMapOS.latest(app)
                             RavenOfficeBarService.signal(
-                                app,
-                                "SCREEN_TEXT",
+                                app, "SCREEN_TEXT",
                                 buildString {
                                     append("state:visible|text:").append(escape(normalized.take(180)))
                                     append("|top:").append(escape(topText.take(60)))
                                     append("|middle:").append(escape(middleText.take(60)))
                                     append("|bottom:").append(escape(bottomText.take(60)))
                                     append("|blocks:").append(result.textBlocks.size)
-                                    append("|quiet_zone:").append(leastBusy(topText, middleText, bottomText))
+                                    append("|quiet_zone:").append(map?.quietZone() ?: leastBusy(topText, middleText, bottomText))
                                     append("|meta:").append(meta)
                                     append("|local:true|cloud:false|raw_persist:false")
                                 },
@@ -153,52 +140,31 @@ object RavenGoblinReadOS {
                     }
                 }
             }
-            .addOnFailureListener {
-                RavenOfficeBarService.signal(app, "SCREEN_TEXT", "state:ocr_unavailable|local:true|cloud:false")
-            }
-            .addOnCompleteListener {
-                try { bitmap.recycle() } catch (_: Throwable) {}
-                inFlight.set(false)
-            }
+            .addOnFailureListener { RavenOfficeBarService.signal(app, "SCREEN_TEXT", "state:ocr_unavailable|local:true|cloud:false") }
+            .addOnCompleteListener { try { bitmap.recycle() } catch (_: Throwable) {}; inFlight.set(false) }
     }
 
     private fun leastBusy(top: String, middle: String, bottom: String): String = listOf(
-        "top" to top.length,
-        "middle" to middle.length,
-        "bottom" to bottom.length,
+        "top" to top.length, "middle" to middle.length, "bottom" to bottom.length,
     ).minByOrNull { it.second }?.first ?: "top"
 
     private fun normalizePiece(raw: String): String = raw.lineSequence()
-        .map { it.replace(Regex("\\s+"), " ").trim() }
-        .filter { it.length >= 2 }
-        .take(3)
-        .joinToString(" ")
-        .take(120)
+        .map { it.replace(Regex("\\s+"), " ").trim() }.filter { it.length >= 2 }.take(3).joinToString(" ").take(120)
 
-    private fun normalize(raw: String): String = raw
-        .replace(Regex("\\s+"), " ")
-        .trim()
-        .take(300)
+    private fun normalize(raw: String): String = raw.replace(Regex("\\s+"), " ").trim().take(300)
 
     private fun looksSensitive(text: String): Boolean {
         val t = text.lowercase()
-        return listOf(
-            "password", "passcode", "verification code", "one-time code", "one time code",
-            "security code", "authentication code", "2fa", "otp", "credit card", "card number",
-            "social security", "recovery code", "seed phrase", "private key",
-        ).any(t::contains)
+        return listOf("password", "passcode", "verification code", "one-time code", "one time code", "security code",
+            "authentication code", "2fa", "otp", "credit card", "card number", "social security", "recovery code",
+            "seed phrase", "private key").any(t::contains)
     }
 
-    private fun escape(text: String): String = text
-        .replace('|', '/')
-        .replace('\n', ' ')
-        .replace('\r', ' ')
-        .replace(Regex("\\s+"), " ")
-        .trim()
+    private fun escape(text: String): String = text.replace('|', '/').replace('\n', ' ').replace('\r', ' ')
+        .replace(Regex("\\s+"), " ").trim()
 
     private fun clearReading(context: Context) {
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .remove(KEY_TEXT).remove(KEY_TOP).remove(KEY_MIDDLE).remove(KEY_BOTTOM).remove(KEY_BLOCKS).remove(KEY_AT)
-            .apply()
+            .remove(KEY_TEXT).remove(KEY_TOP).remove(KEY_MIDDLE).remove(KEY_BOTTOM).remove(KEY_BLOCKS).remove(KEY_AT).apply()
     }
 }
