@@ -9,14 +9,19 @@ import org.json.JSONObject
  * Coordinates are normalized to 0..1000; no bitmap or screenshot is persisted.
  */
 object RavenScreenMapOS {
-    data class Block(val text: String, val left: Int, val top: Int, val right: Int, val bottom: Int)
+    data class Block(val text: String, val left: Int, val top: Int, val right: Int, val bottom: Int) {
+        val centerX: Int get() = (left + right) / 2
+        val centerY: Int get() = (top + bottom) / 2
+    }
     data class Map(val blocks: List<Block>, val capturedAt: Long) {
         fun occupancy(zone: String): Int = blocks.count { block ->
-            val cy = (block.top + block.bottom) / 2
             when (zone) {
-                "top" -> cy < 333
-                "middle" -> cy in 333..665
-                "bottom" -> cy >= 666
+                "top" -> block.centerY < 333
+                "middle" -> block.centerY in 333..665
+                "bottom" -> block.centerY >= 666
+                "left" -> block.centerX < 333
+                "center" -> block.centerX in 333..665
+                "right" -> block.centerX >= 666
                 else -> false
             }
         }
@@ -24,21 +29,25 @@ object RavenScreenMapOS {
             val zones = if (keyboard) listOf("top", "middle") else listOf("top", "middle", "bottom")
             return zones.minByOrNull { occupancy(it) } ?: "top"
         }
+        fun layout(): String = buildString {
+            append("rows=").append(occupancy("top")).append('/').append(occupancy("middle")).append('/').append(occupancy("bottom"))
+            append(" cols=").append(occupancy("left")).append('/').append(occupancy("center")).append('/').append(occupancy("right"))
+        }
     }
 
     private const val PREFS = "ravenos_screen_map_v1"
     private const val KEY_JSON = "map"
     private const val KEY_AT = "at"
-    private const val TTL_MS = 20_000L
+    private const val TTL_MS = 24_000L
 
     fun record(context: Context, frameWidth: Int, frameHeight: Int, blocks: List<Block>) {
         if (frameWidth <= 0 || frameHeight <= 0) return
         val arr = JSONArray()
-        blocks.take(16).forEach { b ->
+        blocks.take(32).forEach { b ->
             fun nx(v: Int) = (v.coerceIn(0, frameWidth) * 1000 / frameWidth).coerceIn(0, 1000)
             fun ny(v: Int) = (v.coerceIn(0, frameHeight) * 1000 / frameHeight).coerceIn(0, 1000)
             arr.put(JSONObject()
-                .put("t", b.text.take(72))
+                .put("t", b.text.take(96))
                 .put("l", nx(b.left)).put("r", nx(b.right))
                 .put("y1", ny(b.top)).put("y2", ny(b.bottom)))
         }
@@ -65,7 +74,7 @@ object RavenScreenMapOS {
 
     fun compact(context: Context): String {
         val map = latest(context) ?: return "SCREEN_MAP=EMPTY"
-        return "SCREEN_MAP=${map.blocks.size} blocks · top=${map.occupancy("top")} mid=${map.occupancy("middle")} bottom=${map.occupancy("bottom")}"
+        return "SCREEN_MAP=${map.blocks.size} blocks · ${map.layout()}"
     }
 
     fun clear(context: Context) {
