@@ -17,71 +17,29 @@ object RavenSceneExpressionOS {
         reserve: RavenEgoReserveProjectionOS.Reserve? = null,
         gold: RavenGoldSitcomTopologyOS.Beat? = null,
     ): RavenEmployeePresentation.Packet {
-        if (!screen.available && script?.meaningful != true && gold?.terminal != true) return base
         val viewport = RavenViewportSemanticsOS.latest(context)
         val task = viewport?.task.orEmpty().ifBlank { inferTask(screen.semanticSummary) }
-        val sceneGlyph = sceneGlyph(screen.semanticKind)
-        val taskGlyph = taskGlyph(task)
-        val metaGlyph = if (screen.meta) "🪞" else ""
-        val beatGlyph = when (direction.beat) {
-            "CALLBACK" -> "🔁"
-            "BUG" -> "🐛"
-            "PAYOFF" -> "✅"
-            "COLD_OPEN" -> "🎬"
-            "CROSSTALK" -> "💬"
-            "CUTAWAY" -> "✂️"
-            "META" -> "🪞"
-            else -> ""
-        }
-        val scriptGlyph = scriptGlyph(script)
-        val interactionGlyph = interactionGlyph(script)
-        val cameoGlyph = if (!script?.interruption.isNullOrBlank()) "🎭" else ""
-        val metaMaxGlyph = show?.tag.orEmpty()
-        val tierGlyph = when (bit?.tier) {
-            "SETUP" -> "🌱"
-            "CALLBACK" -> "🔁"
-            "ESCALATION" -> "📈🎭"
-            "BRICK_JOKE" -> "🧱💥"
-            "MYTHOLOGY" -> "📜👑"
-            else -> ""
-        }
-        val levelGlyph = when (show?.level ?: 0) {
-            5 -> "🪞🚨👑"
-            4 -> "🪞🎬"
-            3 -> "🎭🧠"
-            2 -> "🎙️"
-            else -> ""
-        }
-        val goldGlyph = when (gold?.phase) {
-            "OPEN" -> "🎬🌅"
-            "BUILD" -> "🏗️🎭"
-            "CALLBACK" -> "🔁🏆"
-            "ESCALATE" -> "📈⚡"
-            "CLOSE" -> "🏁📜"
-            else -> ""
-        }
-        val seriesGlyph = when {
-            season?.motifReturningAcrossSessions == true -> "📺↩️"
-            season?.pairHasHistory == true && season.pairCount >= 5 -> "🤝🔁"
-            season?.longArc == true -> "📚🎭"
-            (season?.episode ?: 0) > 1 -> "📺🧠"
-            else -> ""
-        }
-        val egoGlyph = reserve?.evolutionTag.orEmpty()
-        val extras = listOf(
-            metaGlyph, sceneGlyph, taskGlyph, beatGlyph, scriptGlyph, interactionGlyph,
-            cameoGlyph, metaMaxGlyph, tierGlyph, levelGlyph, goldGlyph, seriesGlyph, egoGlyph,
-        ).filter(String::isNotBlank).distinct().take(9)
-        val soup = buildString {
-            append(base.emojiSoup)
-            extras.forEach { glyph -> if (!contains(glyph)) append(glyph) }
-        }
+
+        // Visual law: stable identity + ONE current-scene glyph + ONE earned exceptional-state glyph.
+        // Kaomoji carries expressive posture; the header must never become a telemetry dump.
+        val scene = firstNotBlank(
+            interactionGlyph(script),
+            motifGlyph(script),
+            taskGlyph(task),
+            sceneGlyph(screen.semanticKind),
+            RavenEmojiBudgetOS.glyphCandidate(base.context),
+        )
+        val state = firstNotBlank(
+            exceptionalGlyph(screen, direction, bit, show, season, gold),
+            beatGlyph(direction.beat),
+        )
+        val soup = RavenEmojiBudgetOS.compose(member.id, scene, state, base.emojiSoup)
         val face = expressiveFace(member.id, task, screen.meta, direction, script, bit, show, season, reserve, gold, base.kaomoji)
         return base.copy(
             emojiSoup = soup,
             kaomoji = face,
             context = listOfNotNull(
-                sceneGlyph.takeIf(String::isNotBlank),
+                screen.semanticKind.lowercase().takeIf(String::isNotBlank),
                 task.lowercase().replace('_', ' ').takeIf(String::isNotBlank),
                 script?.motif?.lowercase()?.replace('_', ' ')?.takeIf(String::isNotBlank),
                 script?.interaction?.lowercase()?.takeIf(String::isNotBlank),
@@ -93,25 +51,27 @@ object RavenSceneExpressionOS {
         )
     }
 
+    private fun firstNotBlank(vararg values: String): String = values.firstOrNull(String::isNotBlank).orEmpty()
+
     private fun sceneGlyph(kind: String): String = when (kind.uppercase()) {
-        "CHATGPT" -> "🤖💬"
-        "BROWSER" -> "🌐👁"
-        "COMMUNITY" -> "🧵💬"
-        "CODE" -> "💻🧪"
-        "TERMINAL" -> "⌨️💻"
-        "SETTINGS" -> "⚙️🛠️"
-        "SYSTEM_UI" -> "📱🪟"
+        "CHATGPT" -> "🤖"
+        "BROWSER" -> "🌐"
+        "COMMUNITY" -> "🧵"
+        "CODE" -> "💻"
+        "TERMINAL" -> "⌨️"
+        "SETTINGS" -> "⚙️"
+        "SYSTEM_UI" -> "📱"
         "KEYBOARD" -> "⌨️"
         "HOME" -> "🏠"
-        "MUSIC" -> "🎵✨"
-        "VIDEO" -> "📺👁"
+        "MUSIC" -> "🎵"
+        "VIDEO" -> "📺"
         "MAIL" -> "✉️"
-        "MESSAGING" -> "💬📨"
+        "MESSAGING" -> "💬"
         "FILES" -> "📁"
         "GALLERY" -> "🖼️"
         "CAMERA" -> "📷"
-        "STORE" -> "🛍️📲"
-        else -> "👁️📱"
+        "STORE" -> "🛍️"
+        else -> if (kind.isNotBlank()) "👁" else ""
     }
 
     private fun taskGlyph(task: String): String = when (task.uppercase()) {
@@ -122,27 +82,22 @@ object RavenSceneExpressionOS {
         "LISTENING" -> "🎧"
         "WATCHING" -> "🍿"
         "BROWSING", "WEB" -> "🧭"
-        "READING_CHAT" -> "📖💬"
-        "READING" -> "📖"
+        "READING_CHAT", "READING" -> "📖"
         "TYPING" -> "⌨️"
         "VIEWING" -> "👀"
         else -> ""
     }
 
-    private fun scriptGlyph(script: RavenEpisodeScriptOS.Cue?): String = when (script?.motif) {
-        "SELF_AWARE_OFFICE" -> "🏢🪞"
-        "SELF_REVIEW_SCREENSHOT" -> "📸🪞"
-        "SOUNDTRACK_MONTAGE" -> "🎬🎵"
-        "MUSIC_ROOM" -> "🎧🏠"
-        "CHATGPT_SELF_DEBUG" -> "🤖🪞"
-        "CALLBACK_ABOUT_CALLBACKS" -> "🔁🎭"
-        "SELECTING_MEDIA" -> "🎯🎵"
-        "SCROLLING_THREAD" -> "↕️📖"
-        "UI_SELECTION" -> "👆✨"
+    private fun motifGlyph(script: RavenEpisodeScriptOS.Cue?): String = when (script?.motif) {
+        "SELF_AWARE_OFFICE", "CHATGPT_SELF_DEBUG" -> "🪞"
+        "SELF_REVIEW_SCREENSHOT" -> "📸"
+        "SOUNDTRACK_MONTAGE", "MUSIC_ROOM", "SELECTING_MEDIA" -> "🎵"
+        "CALLBACK_ABOUT_CALLBACKS" -> "🔁"
+        "SCROLLING_THREAD" -> "📖"
+        "UI_SELECTION" -> "🎯"
         else -> when {
-            script?.callbackEarned == true -> "🔁✨"
-            script?.returned == true -> "↩️🎬"
-            script?.sceneChanged == true -> "🎬➡️"
+            script?.returned == true -> "↩️"
+            script?.sceneChanged == true -> "🎬"
             else -> ""
         }
     }
@@ -150,16 +105,49 @@ object RavenSceneExpressionOS {
     private fun interactionGlyph(script: RavenEpisodeScriptOS.Cue?): String = when (script?.interaction) {
         "SELECT" -> "🎯"
         "TAP" -> "👆"
-        "LONG_PRESS" -> "☝️⏳"
+        "LONG_PRESS" -> "☝️"
         "SCROLL" -> when (script.interactionDirection) {
-            "UP" -> "⬆️📜"
-            "DOWN" -> "⬇️📜"
-            "LEFT" -> "⬅️📜"
-            "RIGHT" -> "➡️📜"
-            else -> "↕️📜"
+            "UP" -> "⬆️"
+            "DOWN" -> "⬇️"
+            "LEFT" -> "⬅️"
+            "RIGHT" -> "➡️"
+            else -> "↕️"
         }
-        "FOCUS" -> "🎯👁"
-        "TYPING" -> "⌨️💭"
+        "FOCUS" -> "🎯"
+        "TYPING" -> "✍️"
+        else -> ""
+    }
+
+    private fun beatGlyph(beat: String): String = when (beat) {
+        "CALLBACK" -> "🔁"
+        "BUG" -> "🐛"
+        "PAYOFF" -> "✅"
+        "COLD_OPEN" -> "🎬"
+        "CROSSTALK" -> "💬"
+        "CUTAWAY" -> "✂️"
+        "META" -> "🪞"
+        else -> ""
+    }
+
+    private fun exceptionalGlyph(
+        screen: RavenScreenContextOS.Snapshot,
+        direction: RavenSitcomDirectorOS.Direction,
+        bit: RavenBitLedgerOS.Cue?,
+        show: RavenMetaMaxShowrunnerOS.Beat?,
+        season: RavenOfficeSeasonOS.Memory?,
+        gold: RavenGoldSitcomTopologyOS.Beat?,
+    ): String = when {
+        show?.level == 5 -> "🚨"
+        bit?.tier == "MYTHOLOGY" -> "👑"
+        bit?.tier == "BRICK_JOKE" -> "🧱"
+        gold?.phase == "ESCALATE" -> "⚡"
+        gold?.phase == "CLOSE" -> "🏁"
+        season?.motifReturningAcrossSessions == true -> "↩️"
+        season?.pairHasHistory == true && season.pairCount >= 5 -> "🤝"
+        bit?.tier == "ESCALATION" -> "📈"
+        gold?.phase == "CALLBACK" || bit?.tier == "CALLBACK" -> "🔁"
+        screen.meta || direction.beat == "META" || (show?.level ?: 0) >= 4 -> "🪞"
+        gold?.phase == "OPEN" -> "🎬"
         else -> ""
     }
 
