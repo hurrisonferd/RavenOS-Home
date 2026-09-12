@@ -43,18 +43,23 @@ object RavenAccessibilityReadOS {
         if (!enabled) {
             clearReading(app)
             RavenViewportSemanticsOS.clear(app)
+            RavenInteractionMemoryOS.clear()
         }
         RavenOfficeBarService.signal(
             app,
             "SCREEN_SEMANTIC",
-            if (enabled) "state:armed|source:accessibility|viewport:true|editable_values:false|passwords:false|local:true" else "state:disabled|source:accessibility",
+            if (enabled) "state:armed|source:accessibility|viewport:true|interaction_memory:true|editable_values:false|passwords:false|local:true" else "state:disabled|source:accessibility",
         )
     }
 
     fun compact(context: Context): String = buildString {
         append("ACCESSIBILITY_READ=").append(if (isEnabled(context)) "ON" else "OFF")
         latest(context)?.let { append(" · SEMANTICS=RECENT") }
-        RavenViewportSemanticsOS.latest(context)?.let { append(" · TASK=").append(it.task) }
+        RavenViewportSemanticsOS.latest(context)?.let {
+            append(" · TASK=").append(it.task)
+            if (it.selected.isNotBlank()) append(" · SELECTED=").append(it.selected.take(42))
+        }
+        RavenInteractionMemoryOS.latest()?.let { append(" · ACTION=").append(it.compact().take(70)) }
     }
 
     fun latest(context: Context, now: Long = System.currentTimeMillis()): Reading? {
@@ -107,6 +112,7 @@ object RavenAccessibilityReadOS {
         if (sensitive) {
             clearReading(app)
             RavenViewportSemanticsOS.clear(app)
+            RavenInteractionMemoryOS.clear()
             RavenOfficeBarService.signal(
                 app,
                 "SCREEN_SEMANTIC",
@@ -122,7 +128,8 @@ object RavenAccessibilityReadOS {
         if (textForReading.isBlank()) return
 
         val viewportSig = listOf(
-            viewport?.title.orEmpty(), viewport?.subject.orEmpty(), viewport?.task.orEmpty(), viewport?.roleSummary.orEmpty(),
+            viewport?.title.orEmpty(), viewport?.subject.orEmpty(), viewport?.selected.orEmpty(), viewport?.focused.orEmpty(),
+            viewport?.task.orEmpty(), viewport?.roleSummary.orEmpty(),
         ).joinToString("|")
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val prior = "${prefs.getString(KEY_PACKAGE, "").orEmpty()}|${prefs.getString(KEY_TEXT, "").orEmpty()}|${prefs.getString(KEY_VIEWPORT_SIG, "").orEmpty()}"
@@ -153,14 +160,21 @@ object RavenAccessibilityReadOS {
                 viewport?.let {
                     if (it.title.isNotBlank()) append("|viewport_title:").append(escape(it.title.take(100)))
                     append("|viewport_subject:").append(escape(it.subject.take(180)))
+                    if (it.selected.isNotBlank()) append("|viewport_selected:").append(escape(it.selected.take(120)))
+                    if (it.focused.isNotBlank()) append("|viewport_focused:").append(escape(it.focused.take(120)))
                     append("|task:").append(it.task)
                     append("|roles:").append(escape(it.roleSummary.take(100)))
+                }
+                RavenInteractionMemoryOS.latest(now)?.takeIf { it.packageName == packageName }?.let {
+                    append("|interaction:").append(it.kind)
+                    if (it.target.isNotBlank()) append("|interaction_target:").append(escape(it.target.take(100)))
+                    if (it.direction.isNotBlank()) append("|interaction_direction:").append(it.direction)
                 }
                 append("|nodes:").append(visited)
                 append("|keyboard:").append(keyboardLike)
                 append("|meta:").append(meta)
                 append("|meta_score:").append(RavenMetaRecursionOS.score(metaCorpus))
-                append("|source:accessibility|viewport:true|local:true|editable_values:false|passwords:false")
+                append("|source:accessibility|viewport:true|interaction_memory:true|local:true|editable_values:false|passwords:false")
             },
         )
     }
