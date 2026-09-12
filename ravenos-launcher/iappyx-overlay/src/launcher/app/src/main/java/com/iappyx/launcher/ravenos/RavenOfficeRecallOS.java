@@ -9,6 +9,7 @@ import androidx.appsearch.app.SearchResult;
 import androidx.appsearch.app.SearchResults;
 import androidx.appsearch.app.SearchSpec;
 import androidx.appsearch.app.SetSchemaRequest;
+import androidx.appsearch.app.SetSchemaResponse;
 import androidx.appsearch.localstorage.LocalStorage;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
@@ -39,22 +40,29 @@ public final class RavenOfficeRecallOS {
         future.addListener(() -> {
             try {
                 AppSearchSession session = future.get();
-                ensureSchema(session);
-                String motif = canonicalMotif(field(packet.getDetail(), "script_motif"));
-                String scene = field(packet.getDetail(), "screen_kind");
-                if (scene.isBlank()) scene = packet.getSignal();
-                String id = packet.getMarkerId() + "-" + packet.getUpdatedAt();
-                @SuppressWarnings({"rawtypes", "unchecked"})
-                GenericDocument doc = new GenericDocument.Builder(NS, id, SCHEMA)
-                    .setPropertyString("owner", safe(packet.getOwner(), 32))
-                    .setPropertyString("signal", safe(packet.getSignal(), 32))
-                    .setPropertyString("family", safe(packet.getDialogueFamily(), 180))
-                    .setPropertyString("scene", safe(scene, 40))
-                    .setPropertyString("motif", motif.isBlank() ? "NONE" : motif)
-                    .setPropertyString("episode", safe(packet.getEpisode(), 40))
-                    .setPropertyLong("at", packet.getUpdatedAt())
-                    .build();
-                session.putAsync(new PutDocumentsRequest.Builder().addGenericDocuments(doc).build());
+                ListenableFuture<SetSchemaResponse> schema = ensureSchema(session);
+                schema.addListener(() -> {
+                    try {
+                        schema.get();
+                        String motif = canonicalMotif(field(packet.getDetail(), "script_motif"));
+                        String scene = field(packet.getDetail(), "screen_kind");
+                        if (scene.isBlank()) scene = packet.getSignal();
+                        String id = packet.getMarkerId() + "-" + packet.getUpdatedAt();
+                        @SuppressWarnings({"rawtypes", "unchecked"})
+                        GenericDocument doc = new GenericDocument.Builder(NS, id, SCHEMA)
+                            .setPropertyString("owner", safe(packet.getOwner(), 32))
+                            .setPropertyString("signal", safe(packet.getSignal(), 32))
+                            .setPropertyString("family", safe(packet.getDialogueFamily(), 180))
+                            .setPropertyString("scene", safe(scene, 40))
+                            .setPropertyString("motif", motif.isBlank() ? "NONE" : motif)
+                            .setPropertyString("episode", safe(packet.getEpisode(), 40))
+                            .setPropertyLong("at", packet.getUpdatedAt())
+                            .build();
+                        session.putAsync(new PutDocumentsRequest.Builder().addGenericDocuments(doc).build());
+                    } catch (Throwable ignored) {
+                        // Recall enrichment never blocks presentation.
+                    }
+                }, Runnable::run);
             } catch (Throwable ignored) {
                 // Recall is enrichment. It must never block Goblin Vision presentation.
             }
@@ -113,8 +121,7 @@ public final class RavenOfficeRecallOS {
         }
     }
 
-    private static ListenableFuture<Void> ensureSchema(AppSearchSession session) {
-        AppSearchSchema.StringPropertyConfig.Builder indexed = null; // keeps static analysis honest about property type.
+    private static ListenableFuture<SetSchemaResponse> ensureSchema(AppSearchSession session) {
         AppSearchSchema schema = new AppSearchSchema.Builder(SCHEMA)
             .addProperty(stringProp("owner"))
             .addProperty(stringProp("signal"))
@@ -124,7 +131,7 @@ public final class RavenOfficeRecallOS {
             .addProperty(stringProp("episode"))
             .addProperty(new AppSearchSchema.LongPropertyConfig.Builder("at").build())
             .build();
-        ListenableFuture<Void> future = session.setSchemaAsync(new SetSchemaRequest.Builder().addSchemas(schema).build());
+        ListenableFuture<SetSchemaResponse> future = session.setSchemaAsync(new SetSchemaRequest.Builder().addSchemas(schema).build());
         future.addListener(() -> schemaReady = true, Runnable::run);
         return future;
     }
