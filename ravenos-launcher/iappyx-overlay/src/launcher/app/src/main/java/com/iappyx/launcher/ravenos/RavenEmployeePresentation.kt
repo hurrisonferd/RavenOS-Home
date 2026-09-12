@@ -62,6 +62,7 @@ object RavenEmployeePresentation {
             isBoundary(signal, detail) -> boundaryPosture(style, postureSeed)
             isHighMotion(signal, detail) -> style.kaomoji[stableIndex("impact|$postureSeed", style.kaomoji.size)]
             isAlertBurst(signal, detail) -> style.kaomoji[stableIndex("alarm|$postureSeed", style.kaomoji.size)]
+            isTextVision(signal) -> style.kaomoji[stableIndex("read|$postureSeed", style.kaomoji.size)]
             isVision(signal) -> style.kaomoji[stableIndex("vision|$postureSeed", style.kaomoji.size)]
             isMusic(signal, detail) -> style.kaomoji[stableIndex("music|$postureSeed", style.kaomoji.size)]
             else -> style.kaomoji[stableIndex(postureSeed, style.kaomoji.size)]
@@ -85,16 +86,25 @@ object RavenEmployeePresentation {
         val burst = field(detail, "burst")?.toIntOrNull() ?: 0
         val motion = field(detail, "motion")?.toIntOrNull() ?: 0
         val state = field(detail, "state")?.uppercase().orEmpty()
+        val pkg = field(detail, "package").orEmpty().lowercase()
+        val clazz = field(detail, "class").orEmpty().lowercase()
         return when {
+            s == "SCREEN_TEXT" && detail.contains("suppressed_sensitive", true) -> "👁🔤🛡️"
+            s == "SCREEN_TEXT" && detail.contains("state:visible", true) -> "👁🔤✨"
+            s == "SCREEN_TEXT" -> "👁🔤"
             (s.contains("SCREEN_VISUAL") || s.contains("EYE")) && motion >= 60 -> "👁💥"
             s.contains("SCREEN_VISUAL") || s.contains("EYE") -> "👁✨"
+            s.contains("WINDOW") && (pkg.contains("honeyboard") || pkg.contains("inputmethod") || clazz.contains("inputmethod")) -> "⌨️📱"
+            s.contains("WINDOW") -> "📱🪟"
+            s.startsWith("NOTIFICATION") && detail.contains("state:removed", true) -> "🔕"
             s.startsWith("NOTIFICATION") && burst >= 3 -> "🔔🌧️"
             s.startsWith("NOTIFICATION") && detail.contains("alerting:true", true) -> "🔔❗"
             s.startsWith("NOTIFICATION") || s == "NOTIFICATION" -> "🔔"
             (s.startsWith("MEDIA") || s == "AUDIO") && state == "PLAYING" -> "🎵▶️"
             s.startsWith("MEDIA") || s == "AUDIO" || detail.contains("track:", true) -> "🎵"
-            s.contains("WINDOW") -> "📱🪟"
-            s.contains("FOREGROUND") || s.contains("APP_") || s.contains("HOME") -> "📱"
+            s.contains("USAGE") -> "🧭📱"
+            s.contains("HOME") -> "🏠📱"
+            s.contains("FOREGROUND") || s.contains("APP_") -> "📱"
             s.contains("POWER") && detail.contains("charg", true) -> "⚡🔌"
             s.contains("POWER") -> "⚡"
             s.contains("BATTERY") && detail.contains("low", true) -> "🔋⚠️"
@@ -110,9 +120,10 @@ object RavenEmployeePresentation {
         return glasses ?: style.kaomoji[stableIndex("boundary|$seed", style.kaomoji.size)]
     }
 
-    private fun isVision(signal: String): Boolean = signal.uppercase().contains("SCREEN_VISUAL") || signal.uppercase().contains("EYE")
+    private fun isTextVision(signal: String): Boolean = signal.uppercase() == "SCREEN_TEXT"
+    private fun isVision(signal: String): Boolean = signal.uppercase().contains("SCREEN_VISUAL") || signal.uppercase().contains("EYE") || isTextVision(signal)
     private fun isMusic(signal: String, detail: String): Boolean = signal.uppercase().startsWith("MEDIA") || signal.uppercase() == "AUDIO" || detail.contains("track:", true)
-    private fun isBoundary(signal: String, detail: String): Boolean = signal.uppercase().contains("PERMISSION") || detail.contains("denied", true) || detail.contains("blocked", true)
+    private fun isBoundary(signal: String, detail: String): Boolean = signal.uppercase().contains("PERMISSION") || detail.contains("denied", true) || detail.contains("blocked", true) || detail.contains("suppressed_sensitive", true)
     private fun isHighMotion(signal: String, detail: String): Boolean = isVision(signal) && (field(detail, "motion")?.toIntOrNull() ?: 0) >= 60
     private fun isAlertBurst(signal: String, detail: String): Boolean = signal.uppercase().contains("NOTIFICATION") && ((field(detail, "burst")?.toIntOrNull() ?: 0) >= 3 || detail.contains("alerting:true", true))
 
@@ -123,6 +134,7 @@ object RavenEmployeePresentation {
     private fun semanticBand(detail: String): String = detail
         .replace(Regex("position[^|]*", RegexOption.IGNORE_CASE), "position")
         .replace(Regex("duration[^|]*", RegexOption.IGNORE_CASE), "duration")
+        .replace(Regex("text:[^|]*", RegexOption.IGNORE_CASE), "text")
         .take(96)
 
     private fun prettySignal(signal: String): String = signal.trim().replace('_', ' ').lowercase()
