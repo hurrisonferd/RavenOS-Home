@@ -120,7 +120,7 @@ object RavenSceneGraphOS {
     }
 
     @Synchronized
-    fun recent(limit: Int = 12): List<Graph> = recent.takeLast(limit.coerceIn(1, MAX_RECENT))
+    fun recent(limit: Int = 12): List<Graph> = recent.toList().takeLast(limit.coerceIn(1, MAX_RECENT))
 
     @Synchronized
     fun clear(context: Context? = null) {
