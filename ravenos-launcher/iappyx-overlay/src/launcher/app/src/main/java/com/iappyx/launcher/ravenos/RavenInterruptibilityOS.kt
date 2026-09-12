@@ -2,9 +2,16 @@ package com.iappyx.launcher.ravenos
 
 import android.content.Context
 
-/** Decides whether Goblin Vision earns spoken presentation or quietly updates evidence. */
+/** Decides whether Goblin Vision earns character speech while preserving continuous screen observation. */
 object RavenInterruptibilityOS {
-    private const val PREFS = "ravenos_interruptibility_v3"
+    private const val PREFS = "ravenos_interruptibility_v4"
+
+    data class Decision(
+        val speak: Boolean,
+        val score: Int,
+        val threshold: Int,
+        val reason: String,
+    )
 
     fun allow(
         context: Context,
@@ -12,75 +19,125 @@ object RavenInterruptibilityOS {
         complex: RavenComplexEventOS.Result,
         haunt: RavenHauntMode,
         quiet: Boolean,
-    ): Boolean {
-        if (quiet) return marker.salience >= 9
+    ): Boolean = evaluate(
+        context, marker, complex, haunt, quiet,
+        RavenScreenContextOS.snapshot(context, marker.at),
+    ).speak
 
-        val screen = RavenScreenContextOS.snapshot(context, marker.at)
-        val screenReaderArmed = RavenGoblinReadOS.isEnabled(context) || RavenAccessibilityReadOS.isEnabled(context)
+    fun evaluate(
+        context: Context,
+        marker: RavenMarkerBus.Marker,
+        complex: RavenComplexEventOS.Result,
+        haunt: RavenHauntMode,
+        quiet: Boolean,
+        screen: RavenScreenContextOS.Snapshot,
+    ): Decision {
+        val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val now = marker.at
         val boundary = "BOUNDARY" in marker.tags
         val error = "ERROR" in marker.tags
         val payoff = "PAYOFF" in complex.tags
         val critical = boundary || error || payoff || marker.salience >= 9
-        val screenSignal = marker.key in setOf("SCREEN_TEXT", "SCREEN_SEMANTIC", "SCREEN_VISUAL")
+        if (quiet && !critical) return Decision(false, 0, 99, "QUIET")
+
+        val screenReaderArmed = RavenGoblinReadOS.isEnabled(context) || RavenAccessibilityReadOS.isEnabled(context)
         val actionNoise = marker.key in setOf(
             "APP_ENTER", "WINDOW_CHANGE", "HOME_ENTER", "MEDIA_SESSION", "MEDIA_ACTIVE", "MEDIA_IDLE",
-            "NOTIFICATION_POSTED", "NOTIFICATION_REMOVED",
+            "NOTIFICATION_POSTED", "NOTIFICATION_REMOVED", "FOREGROUND_APP", "FOREGROUND_USAGE", "FOREGROUND_WINDOW",
         )
+        val screenSignal = marker.key in setOf("SCREEN_TEXT", "SCREEN_SEMANTIC", "SCREEN_VISUAL")
 
-        // Phone actions update the evidence graph, but when screen reading is armed we wait for the
-        // resulting visible screen context instead of narrating every tap/app/window transition.
-        if (actionNoise && screenReaderArmed && !critical) return false
-        if (actionNoise && !screen.available && !critical) return false
-        if (screenSignal && marker.key != "SCREEN_VISUAL" && !screen.available && !critical) return false
+        var score = marker.salience * 8
+        if (screen.available) score += 24
+        if (screen.confidence >= 85) score += 12
+        if (screen.meta) score += 28
+        if (screen.keyboardLike) score += 3
+        if (screen.semanticKind == "CHATGPT") score += 8
+        if (screenSignal) score += 10
+        if ("RUNNING_BIT" in complex.tags) score += 8
+        if ("RETURN_LOOP" in complex.tags) score += 8
+        if (payoff) score += 24
+        if (boundary) score += 28
+        if (error) score += 30
+        if (actionNoise) score -= if (screen.available) 18 else 40
+        if (actionNoise && screenReaderArmed) score -= 14
+        if (!screen.available && screenSignal && marker.key != "SCREEN_VISUAL") score -= 24
 
-        val minimum = when (haunt) {
-            RavenHauntMode.CALM -> 7
-            RavenHauntMode.LIVED_IN -> 6
-            RavenHauntMode.HAUNTED -> 4
-            RavenHauntMode.FERAL -> 3
-            RavenHauntMode.APOCALYPSE -> 2
+        val threshold = when (haunt) {
+            RavenHauntMode.CALM -> 92
+            RavenHauntMode.LIVED_IN -> 80
+            RavenHauntMode.HAUNTED -> 68
+            RavenHauntMode.FERAL -> 58
+            RavenHauntMode.APOCALYPSE -> 48
         }
-        if (!critical && marker.salience < minimum && "RUNNING_BIT" !in complex.tags) return false
 
-        val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val now = marker.at
         val last = prefs.getLong("last_spoken", 0L)
         val minGap = when (haunt) {
-            RavenHauntMode.CALM -> 75_000L
-            RavenHauntMode.LIVED_IN -> 45_000L
-            RavenHauntMode.HAUNTED -> 32_000L
-            RavenHauntMode.FERAL -> 22_000L
-            RavenHauntMode.APOCALYPSE -> 14_000L
+            RavenHauntMode.CALM -> 58_000L
+            RavenHauntMode.LIVED_IN -> 38_000L
+            RavenHauntMode.HAUNTED -> 26_000L
+            RavenHauntMode.FERAL -> 17_000L
+            RavenHauntMode.APOCALYPSE -> 10_000L
         }
-        val criticalGap = 5_000L
-        val requiredGap = if (critical) criticalGap else minGap
-        if (now - last < requiredGap) return false
+        val criticalGap = 4_500L
+        val firstUsefulGap = when (haunt) {
+            RavenHauntMode.CALM -> 24_000L
+            RavenHauntMode.LIVED_IN -> 18_000L
+            RavenHauntMode.HAUNTED -> 14_000L
+            RavenHauntMode.FERAL -> 10_000L
+            RavenHauntMode.APOCALYPSE -> 7_000L
+        }
+        val age = if (last <= 0L) Long.MAX_VALUE else now - last
 
-        // Screen meaning, not package motion, is the principal novelty key. A changed app with the
-        // same visible subject should not produce a fresh speech just because Android emitted edges.
         val novelty = noveltySignature(marker, screen)
         val lastNovelty = prefs.getString("last_novelty", "").orEmpty()
         val lastNoveltyAt = prefs.getLong("last_novelty_at", 0L)
         val noveltyWindow = when (haunt) {
-            RavenHauntMode.CALM -> 300_000L
-            RavenHauntMode.LIVED_IN -> 180_000L
-            RavenHauntMode.HAUNTED -> 120_000L
-            RavenHauntMode.FERAL -> 90_000L
-            RavenHauntMode.APOCALYPSE -> 60_000L
+            RavenHauntMode.CALM -> 240_000L
+            RavenHauntMode.LIVED_IN -> 150_000L
+            RavenHauntMode.HAUNTED -> 90_000L
+            RavenHauntMode.FERAL -> 60_000L
+            RavenHauntMode.APOCALYPSE -> 40_000L
         }
+        val sameSubject = novelty.isNotBlank() && novelty == lastNovelty && now - lastNoveltyAt < noveltyWindow
+        if (sameSubject && !critical) score -= 34
+
         val milestone = complex.occurrence in setOf(3, 8, 21, 55)
-        if (!critical && !milestone && novelty.isNotBlank() && novelty == lastNovelty && now - lastNoveltyAt < noveltyWindow) return false
+        if (milestone) score += 10
 
-        // Visual-only motion is evidence, not necessarily commentary. Require a large change if we
-        // still cannot read the screen's actual subject.
-        if (marker.key == "SCREEN_VISUAL" && !screen.available && marker.salience < 6 && !critical) return false
+        // First-useful-line guarantee: once the screen is genuinely readable and the office has not
+        // spoken for a while, one grounded comment is allowed even if the triggering callback itself
+        // was boring. This prevents a permanently silent resident widget.
+        val usefulScreen = screen.available && screen.confidence >= 72 && !sameSubject
+        val firstUseful = usefulScreen && age >= firstUsefulGap && score >= threshold - 18
+        val gapSatisfied = age >= if (critical) criticalGap else minGap
+        val scoreSatisfied = score >= threshold
+        val speak = when {
+            critical && age >= criticalGap -> true
+            firstUseful -> true
+            gapSatisfied && scoreSatisfied -> true
+            else -> false
+        }
 
-        prefs.edit()
-            .putLong("last_spoken", now)
-            .putString("last_novelty", novelty)
-            .putLong("last_novelty_at", now)
-            .apply()
-        return true
+        val reason = when {
+            speak && critical -> "CRITICAL"
+            speak && firstUseful -> "FIRST_USEFUL_SCREEN"
+            speak -> "SCORED_SCREEN_DIALOGUE"
+            sameSubject -> "SAME_SCREEN_SUBJECT"
+            actionNoise -> "ACTION_EVIDENCE_ONLY"
+            !screen.available && screenReaderArmed -> "WAITING_FOR_SCREEN_MEANING"
+            age < minGap -> "CADENCE_FLOOR"
+            else -> "BELOW_DIALOGUE_THRESHOLD"
+        }
+
+        if (speak) {
+            prefs.edit()
+                .putLong("last_spoken", now)
+                .putString("last_novelty", novelty)
+                .putLong("last_novelty_at", now)
+                .apply()
+        }
+        return Decision(speak, score, threshold, reason)
     }
 
     fun clear(context: Context) {
