@@ -1,8 +1,8 @@
-name: RavenOS Launcher Crown Jewels
+name: RavenOS Launcher Crown Jewels V14
 
 on:
   push:
-    branches: [ravenos-launcher-crown-jewels-20260912]
+    branches: [ravenos-launcher-crown-jewels-20260912, ravenos-launcher-v14-screenfirst-haunt-20260913]
   workflow_dispatch:
 
 permissions:
@@ -27,7 +27,9 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Verify canonical Goblin Brain wiring before build
-        run: python3 ravenos-launcher/tests/RAVENOS-GOBLIN-BRAIN-WIRING-CANARY.py
+        run: |
+          python3 ravenos-launcher/tests/RAVENOS-GOBLIN-BRAIN-WIRING-CANARY.py
+          python3 ravenos-launcher/tests/RAVENOS-DIALOGUE-V14-CANARY.py
 
       - name: Reconstruct rich RavenOS Launcher on pinned iappyx chassis
         run: |
@@ -46,7 +48,7 @@ jobs:
           grep -F 'RavenOS Launcher' "$ROOT/res/values/strings.xml"
           for f in \
             RavenGoblinBrain.kt RavenGoblinBrainBusOS.kt RavenGoblinSystemsRegistryOS.kt \
-            RavenSitcomDirectorOS.kt RavenMetaMaxShowrunnerOS.kt RavenGoldSitcomTopologyOS.kt \
+            RavenDialogueDirectorOS.kt RavenSitcomDirectorOS.kt RavenMetaMaxShowrunnerOS.kt RavenGoldSitcomTopologyOS.kt \
             RavenOfficeSeasonOS.kt RavenEpisodeOS.kt RavenEpisodeScriptOS.kt RavenBitLedgerOS.kt \
             RavenOfficeRecallOS.kt RavenSceneGraphOS.kt RavenDialogueVaultOS.kt RavenMetaAntiRepeatOS.kt \
             RavenMetaTrickHistoryOS.kt RavenMetaGoblinDialogueOS.kt RavenMetaGrammarOS.kt \
@@ -59,6 +61,7 @@ jobs:
           done
           grep -F 'RavenGoblinBrainBusOS.react' "$R/RavenOfficeBarService.kt"
           grep -F 'RavenGoblinBrain.react' "$R/RavenGoblinBrainBusOS.kt"
+          grep -F 'RavenDialogueDirectorOS.rewrite' "$R/RavenGoblinBrainBusOS.kt"
           grep -F 'RavenGoblinVisionOverlay.renderReaction' "$R/RavenOfficeBarService.kt"
           grep -F 'RavenReactionStateStore.write' "$R/RavenOfficeBarService.kt"
           grep -F 'OFFICE · RECENT HAUNTINGS' "$R/RavenGoblinVisionOverlay.kt"
@@ -73,29 +76,29 @@ jobs:
           chmod +x ./gradlew
           ./gradlew :app:compileDebugKotlin --stacktrace --console=plain
 
-      - name: Build crown-jewels APK
+      - name: Build V14 APK
         working-directory: faeryware/house/iappyxOS-Launcher/src/launcher
         run: ./gradlew :app:assembleDebug --stacktrace --console=plain
 
-      - name: Verify and stage APK
+      - name: Verify and stage V14 APK
         run: |
           set -euo pipefail
           SRC='faeryware/house/iappyxOS-Launcher/src/launcher/app/build/outputs/apk/debug/app-debug.apk'
-          OUT='RavenOS-Launcher-Crown-Jewels-Meta-Goblin.apk'
+          OUT='RavenOS-Launcher-V14-Sitcom-Dialogue.apk'
           cp "$SRC" "$OUT"
           test -s "$OUT"
           sha256sum "$OUT" | tee "$OUT.sha256"
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
-          "$AAPT" dump badging "$OUT" | tee RavenOS-Launcher-Crown-Jewels-badging.txt
-          grep -F "package: name='com.ravenos.launcher'" RavenOS-Launcher-Crown-Jewels-badging.txt
-          grep -F "application-label:'RavenOS Launcher'" RavenOS-Launcher-Crown-Jewels-badging.txt
+          "$AAPT" dump badging "$OUT" | tee RavenOS-Launcher-V14-badging.txt
+          grep -F "package: name='com.ravenos.launcher'" RavenOS-Launcher-V14-badging.txt
+          grep -F "application-label:'RavenOS Launcher'" RavenOS-Launcher-V14-badging.txt
 
-      - name: Upload crown-jewels APK
+      - name: Upload V14 APK
         uses: actions/upload-artifact@v4
         with:
-          name: RavenOS-Launcher-Crown-Jewels-Meta-Goblin
+          name: RavenOS-Launcher-V14-Sitcom-Dialogue
           path: |
-            RavenOS-Launcher-Crown-Jewels-Meta-Goblin.apk
-            RavenOS-Launcher-Crown-Jewels-Meta-Goblin.apk.sha256
-            RavenOS-Launcher-Crown-Jewels-badging.txt
+            RavenOS-Launcher-V14-Sitcom-Dialogue.apk
+            RavenOS-Launcher-V14-Sitcom-Dialogue.apk.sha256
+            RavenOS-Launcher-V14-badging.txt
             ravenos-launcher/device-canary.sh
