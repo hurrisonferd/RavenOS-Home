@@ -5,20 +5,29 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 UPSTREAM="$ROOT/faeryware/house/iappyxOS-Launcher"
 
+printf 'RavenOS Launcher: verify recovered upgrade manifest\n'
+python3 "$HERE/verify-recovery-manifest.py"
+
 printf 'RavenOS Launcher: initialize pinned iappyx chassis\n'
 git -C "$ROOT" submodule update --init --recursive faeryware/house/iappyxOS-Launcher
 
 printf 'RavenOS Launcher: apply Faeryware HOUSE + RavenOS overlays\n'
 python3 "$HERE/apply-ravenos-overlay.py"
 
+printf 'RavenOS Launcher: apply KnowledgeOS widget bridge\n'
+python3 "$HERE/patch-ravenos-knowledge-widget.py"
+
 printf 'RavenOS Launcher: apply ergonomics + haunted ecology\n'
 python3 "$HERE/patch-ravenos-ergonomics.py" "$UPSTREAM"
+
+printf 'RavenOS Launcher: run Goblin Brain wiring canary\n'
+python3 "$HERE/tests/RAVENOS-GOBLIN-BRAIN-WIRING-CANARY.py"
 
 printf 'RavenOS Launcher: build Android debug APK\n'
 (
   cd "$UPSTREAM/src/launcher"
   chmod +x ./gradlew
-  ./gradlew :app:assembleDebug --stacktrace
+  ./gradlew :app:testDebugUnitTest :app:assembleDebug --stacktrace
 )
 
 APK="$UPSTREAM/src/launcher/app/build/outputs/apk/debug/app-debug.apk"

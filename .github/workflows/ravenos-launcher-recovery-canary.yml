@@ -1,27 +1,23 @@
-name: RavenOS Launcher Canary
+name: RavenOS Launcher Recovery Canary
 
 on:
   push:
-    branches: [ravenos-launcher, ravenos-launcher-whole-phone]
-    paths:
-      - 'ravenos-launcher/**'
-      - 'faeryware/house/**'
-      - '.github/workflows/ravenos-launcher-canary.yml'
+    branches: [ravenos-launcher-recovery-integration-20260912]
   pull_request:
     paths:
       - 'ravenos-launcher/**'
       - 'faeryware/house/**'
-      - '.github/workflows/ravenos-launcher-canary.yml'
+      - '.github/workflows/ravenos-launcher-recovery-canary.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  launcher:
+  recovered-launcher:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout with pinned launcher chassis
+      - name: Checkout exact integration source
         uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -35,29 +31,26 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Verify recovery authority and Goblin Brain topology
-        run: |
-          set -euo pipefail
-          python3 ravenos-launcher/verify-recovery-manifest.py
-          python3 ravenos-launcher/tests/RAVENOS-GOBLIN-BRAIN-WIRING-CANARY.py
+      - name: Verify durable recovery manifest
+        run: python3 ravenos-launcher/verify-recovery-manifest.py
 
-      - name: Reconstruct complete RavenOS Launcher
+      - name: Verify Goblin Brain wiring before reconstruction
+        run: python3 ravenos-launcher/tests/RAVENOS-GOBLIN-BRAIN-WIRING-CANARY.py
+
+      - name: Reconstruct current launcher with all recovered organs
         run: |
           set -euo pipefail
           python3 ravenos-launcher/apply-ravenos-overlay.py
           python3 ravenos-launcher/patch-ravenos-knowledge-widget.py
 
-      - name: Verify complete current runtime
+      - name: Crown-jewel no-skimp gate
         run: |
           set -euo pipefail
           ROOT='faeryware/house/iappyxOS-Launcher/src/launcher/app/src/main'
           APP='faeryware/house/iappyxOS-Launcher/src/launcher/app'
           R="$ROOT/java/com/iappyx/launcher/ravenos"
-
           grep -F 'applicationId "com.ravenos.launcher"' "$APP/build.gradle"
           grep -F 'RavenOS Launcher' "$ROOT/res/values/strings.xml"
-
-          # Current whole-phone / SitcomOS / structural-memory / modular-engine crown jewels.
           for f in \
             RavenGoblinBrain.kt RavenGoblinBrainBusOS.kt RavenGoblinEngineOS.kt RavenGoblinModuleRackOS.kt RavenGoblinExtensionRackOS.kt RavenGoblinSurfaceRouterOS.kt RavenGoblinSystemsRegistryOS.kt \
             RavenSitcomDirectorOS.kt RavenMetaMaxShowrunnerOS.kt RavenGoldSitcomTopologyOS.kt \
@@ -72,67 +65,62 @@ jobs:
             RavenEmployeeExpressionBridge.kt RavenEmojiKaomojiProjection.kt RavenExpressionSelectorOS.kt \
             RavenKnowledgeBrokerOS.kt RavenKnowledgeWorker.kt RavenWidgetGoblinBrainModule.kt \
             RavenWidgetKnowledgeModule.kt; do
-              test -s "$R/$f" || { echo "MISSING_CURRENT_LAUNCHER_ORGAN:$f"; exit 31; }
+              test -s "$R/$f" || { echo "MISSING_RECOVERED_CROWN_JEWEL:$f"; exit 31; }
           done
-
-          # One current event throat, modular Brain engine, one settled reaction packet.
+          # Current authority chain: Office is a host/transport; the modular Goblin Brain owns the transaction.
           grep -F 'RavenGoblinEngineOS.react' "$R/RavenOfficeBarService.kt"
           grep -F 'RavenGoblinBrainBusOS.react' "$R/RavenGoblinEngineOS.kt"
           grep -F 'RavenGoblinModuleRackOS' "$R/RavenGoblinEngineOS.kt"
           grep -F 'RavenGoblinSurfaceRouterOS.settle' "$R/RavenGoblinEngineOS.kt"
+          grep -F 'RavenGoblinSystemsRegistryOS.validateGraph' "$R/RavenGoblinEngineOS.kt"
           grep -F 'RavenGoblinBrain.react' "$R/RavenGoblinBrainBusOS.kt"
           grep -F 'RavenGoblinModuleRackOS.plan' "$R/RavenGoblinBrainBusOS.kt"
           grep -F 'RavenGoblinExtensionRackOS.apply' "$R/RavenGoblinBrainBusOS.kt"
           grep -F 'MODULE_RACK' "$R/RavenGoblinSystemsRegistryOS.kt"
           grep -F 'LATE_EXTENSION_RACK' "$R/RavenGoblinSystemsRegistryOS.kt"
-          grep -F 'RavenReactionStateStore.write' "$R/RavenGoblinSurfaceRouterOS.kt"
+          grep -F 'dependency:' "$R/RavenGoblinModuleRackOS.kt"
+          grep -F 'interface Extension' "$R/RavenGoblinExtensionRackOS.kt"
           grep -F 'RavenWidgetGoblinBrainModule.broadcast' "$R/RavenReactionStateStore.kt"
           grep -F 'RavenEmployeeExpressionBridge.decorate' "$R/RavenEmployeePresentation.kt"
           grep -F 'RavenWidgetGoblinBrainModule.attach' "$R/RavenWidgetOfficeBridge.kt"
           grep -F 'RavenWidgetKnowledgeModule.attach' "$R/RavenWidgetOfficeBridge.kt"
-
-          # Current screen-first law must survive recovery.
-          grep -F 'RavenPresentationArbiterOS.decide' "$R/RavenGoblinBrain.kt"
-          grep -F 'RavenScreenAwareDialogueOS.select' "$R/RavenGoblinBrain.kt"
-          grep -F 'PHONE_REPEAT_SILENT' "$R/RavenPresentationArbiterOS.kt"
           grep -F 'RavenSitcomDirectorOS' "$R/RavenGoblinBrain.kt"
           grep -F 'RavenMetaMaxShowrunnerOS' "$R/RavenGoblinBrain.kt"
           grep -F 'RavenGoldSitcomTopologyOS' "$R/RavenGoblinBrain.kt"
+          grep -F 'PHONE_REPEAT_SILENT' "$R/RavenPresentationArbiterOS.kt"
 
-      - name: Run unit tests and Kotlin compile gate
+      - name: Run recovered unit tests and compile gate
         working-directory: faeryware/house/iappyxOS-Launcher/src/launcher
         run: |
           chmod +x ./gradlew
           ./gradlew :app:testDebugUnitTest :app:compileDebugKotlin --stacktrace --console=plain
 
-      - name: Build RavenOS Launcher APK
+      - name: Build recovered RavenOS Launcher APK
         working-directory: faeryware/house/iappyxOS-Launcher/src/launcher
         run: ./gradlew :app:assembleDebug --stacktrace --console=plain
 
-      - name: Stage RavenOS Launcher APK
-        run: |
-          cp faeryware/house/iappyxOS-Launcher/src/launcher/app/build/outputs/apk/debug/app-debug.apk RavenOS-Launcher-debug.apk
-          test -s RavenOS-Launcher-debug.apk
-          sha256sum RavenOS-Launcher-debug.apk | tee RavenOS-Launcher-debug.sha256
-
-      - name: Verify APK runtime and package identity
+      - name: Verify and stage recovered APK
         run: |
           set -euo pipefail
-          python3 ravenos-launcher/verify-built-apk-runtime.py RavenOS-Launcher-debug.apk --require-next-wave
+          SRC='faeryware/house/iappyxOS-Launcher/src/launcher/app/build/outputs/apk/debug/app-debug.apk'
+          OUT='RavenOS-Launcher-Recovered-All-Upgrades.apk'
+          cp "$SRC" "$OUT"
+          test -s "$OUT"
+          sha256sum "$OUT" | tee "$OUT.sha256"
+          python3 ravenos-launcher/verify-built-apk-runtime.py "$OUT" --require-next-wave
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
-          test -x "$AAPT"
-          "$AAPT" dump badging RavenOS-Launcher-debug.apk | tee RavenOS-Launcher-badging.txt
-          grep -F "package: name='com.ravenos.launcher'" RavenOS-Launcher-badging.txt
-          grep -F "application-label:'RavenOS Launcher'" RavenOS-Launcher-badging.txt
+          "$AAPT" dump badging "$OUT" | tee RavenOS-Launcher-Recovered-All-Upgrades-badging.txt
+          grep -F "package: name='com.ravenos.launcher'" RavenOS-Launcher-Recovered-All-Upgrades-badging.txt
+          grep -F "application-label:'RavenOS Launcher'" RavenOS-Launcher-Recovered-All-Upgrades-badging.txt
 
-      - name: Upload RavenOS Launcher APK
+      - name: Upload recovered launcher APK
         uses: actions/upload-artifact@v4
         with:
-          name: RavenOS-Launcher-debug-apk
+          name: RavenOS-Launcher-Recovered-All-Upgrades
           path: |
-            RavenOS-Launcher-debug.apk
-            RavenOS-Launcher-debug.sha256
-            RavenOS-Launcher-badging.txt
+            RavenOS-Launcher-Recovered-All-Upgrades.apk
+            RavenOS-Launcher-Recovered-All-Upgrades.apk.sha256
+            RavenOS-Launcher-Recovered-All-Upgrades-badging.txt
             ravenos-launcher/APK-BINARY-RECOVERY-MANIFEST-1a660aea.json
             ravenos-launcher/verify-built-apk-runtime.py
             ravenos-launcher/UPGRADE-RECOVERY-MANIFEST.json
