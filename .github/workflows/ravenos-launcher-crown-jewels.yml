@@ -2,7 +2,10 @@ name: RavenOS Launcher Crown Jewels V14
 
 on:
   push:
-    branches: [ravenos-launcher-crown-jewels-20260912, ravenos-launcher-v14-screenfirst-haunt-20260913]
+    branches:
+      - ravenos-launcher-crown-jewels-20260912
+      - ravenos-launcher-v14-screenfirst-haunt-20260913
+      - ravenos-launcher-v14-conversation-haunt-20260913
   workflow_dispatch:
 
 permissions:
@@ -48,7 +51,7 @@ jobs:
           grep -F 'RavenOS Launcher' "$ROOT/res/values/strings.xml"
           for f in \
             RavenGoblinBrain.kt RavenGoblinBrainBusOS.kt RavenGoblinSystemsRegistryOS.kt \
-            RavenDialogueDirectorOS.kt RavenSitcomDirectorOS.kt RavenMetaMaxShowrunnerOS.kt RavenGoldSitcomTopologyOS.kt \
+            RavenDialogueDirectorOS.kt RavenConversationDirectorOS.kt RavenSitcomDirectorOS.kt RavenMetaMaxShowrunnerOS.kt RavenGoldSitcomTopologyOS.kt \
             RavenOfficeSeasonOS.kt RavenEpisodeOS.kt RavenEpisodeScriptOS.kt RavenBitLedgerOS.kt \
             RavenOfficeRecallOS.kt RavenSceneGraphOS.kt RavenDialogueVaultOS.kt RavenMetaAntiRepeatOS.kt \
             RavenMetaTrickHistoryOS.kt RavenMetaGoblinDialogueOS.kt RavenMetaGrammarOS.kt \
@@ -56,12 +59,14 @@ jobs:
             RavenGoblinVisionOverlay.kt RavenFollowMeOverlay.kt RavenOfficeFeed.kt RavenOfficeBarService.kt \
             RavenEmployeePresentation.kt RavenSceneExpressionOS.kt RavenEmojiReactionBank.kt \
             RavenKaomojiGrammarOS.kt RavenSystemDeck.kt RavenCommandPalette.kt RavenHomeActivity.kt \
-            RavenNotificationSenseOS.kt RavenMediaSessionSenseOS.kt RavenViewportSemanticsOS.kt; do
+            RavenNotificationSenseOS.kt RavenMediaSessionSenseOS.kt RavenViewportSemanticsOS.kt \
+            RavenAppSessionOS.kt RavenUsageSenseOS.kt RavenForegroundAwarenessService.kt; do
               test -s "$R/$f" || { echo "MISSING_CROWN_JEWEL:$f"; exit 31; }
           done
           grep -F 'RavenGoblinBrainBusOS.react' "$R/RavenOfficeBarService.kt"
           grep -F 'RavenGoblinBrain.react' "$R/RavenGoblinBrainBusOS.kt"
           grep -F 'RavenDialogueDirectorOS.rewrite' "$R/RavenGoblinBrainBusOS.kt"
+          grep -F 'RavenConversationDirectorOS.polish' "$R/RavenGoblinBrainBusOS.kt"
           grep -F 'RavenGoblinVisionOverlay.renderReaction' "$R/RavenOfficeBarService.kt"
           grep -F 'RavenReactionStateStore.write' "$R/RavenOfficeBarService.kt"
           grep -F 'OFFICE · RECENT HAUNTINGS' "$R/RavenGoblinVisionOverlay.kt"
@@ -69,6 +74,8 @@ jobs:
           grep -F 'RavenSitcomDirectorOS' "$R/RavenGoblinBrain.kt"
           grep -F 'RavenMetaMaxShowrunnerOS' "$R/RavenGoblinBrain.kt"
           grep -F 'RavenGoldSitcomTopologyOS' "$R/RavenGoblinBrain.kt"
+          grep -F 'tap_toggle_in_place:no_navigation' "$R/RavenFollowMeOverlay.kt"
+          grep -F 'usage-heartbeat' "$R/RavenUsageSenseOS.kt"
 
       - name: Compile rich launcher
         working-directory: faeryware/house/iappyxOS-Launcher/src/launcher
@@ -84,7 +91,7 @@ jobs:
         run: |
           set -euo pipefail
           SRC='faeryware/house/iappyxOS-Launcher/src/launcher/app/build/outputs/apk/debug/app-debug.apk'
-          OUT='RavenOS-Launcher-V14-Sitcom-Dialogue.apk'
+          OUT='RavenOS-Launcher-V14-Conversation-Haunt.apk'
           cp "$SRC" "$OUT"
           test -s "$OUT"
           sha256sum "$OUT" | tee "$OUT.sha256"
@@ -96,9 +103,9 @@ jobs:
       - name: Upload V14 APK
         uses: actions/upload-artifact@v4
         with:
-          name: RavenOS-Launcher-V14-Sitcom-Dialogue
+          name: RavenOS-Launcher-V14-Conversation-Haunt
           path: |
-            RavenOS-Launcher-V14-Sitcom-Dialogue.apk
-            RavenOS-Launcher-V14-Sitcom-Dialogue.apk.sha256
+            RavenOS-Launcher-V14-Conversation-Haunt.apk
+            RavenOS-Launcher-V14-Conversation-Haunt.apk.sha256
             RavenOS-Launcher-V14-badging.txt
             ravenos-launcher/device-canary.sh
