@@ -24,6 +24,9 @@ OLDER PRESENTATION CODE MAY NOT REPLACE NEWER SCREEN-FIRST LAW.
 RECURRENCE COUNTS DO NOT EARN SPEECH.
 OFFICE IS A HOST / TRANSPORT, NOT THE BRAIN.
 GOBLIN ENGINE OWNS THE REACTION TRANSACTION.
+NEW ORGANS ENTER THROUGH THE REGISTRY + MODULE RACK.
+OPTIONAL ORGANS MAY NOT RUN AFTER A DEPENDENCY IS SHED.
+EXECUTABLE LATE ORGANS USE THE EXTENSION RACK.
 ONE SETTLED REACTION PACKET FEEDS ALL SURFACES.
 SCRATCH RECEIPTS ARE ARCHAEOLOGY, NOT RUNTIME.
 A BUILD MUST FAIL IF A REQUIRED RECOVERED ORGAN OR WIRING MARKER DISAPPEARS.
@@ -59,25 +62,75 @@ A successor APK must preserve every intended baseline root unless a deprecation 
 - Resident surfaces: `RavenFollowMeOverlay`, `RavenWholePhonePanel`, `RavenOfficeBarService`, `RavenOfficeFeed`
 - Launcher controls: `RavenCommandPalette`, `RavenSystemDeck`, `RavenSummoningWheel`, `RavenGhostHotspots`
 
-## Canonical Goblin Engine transaction
+## Canonical modular Goblin Brain engine
 
 Current source architecture is:
 
 ```text
-INGRESS / PHONE SIGNAL
+INGRESS / PHONE SIGNAL / OWNER COMMAND
+  -> RavenGoblinEngineOS facade
   -> Android host / transport
-  -> RavenGoblinEngineOS
-       -> RavenGoblinSystemsRegistryOS.validateGraph
-       -> RavenGoblinBrainBusOS
-            -> RavenGoblinBrain
-            -> late bounded modules
+  -> RavenGoblinBrainBusOS
+       -> RavenGoblinBrain core
+            evidence / senses / scene / cast / continuity / base dialogue
+       -> RavenGoblinModuleRackOS
+            dependency-aware pressure/load plan
+       -> RavenGoblinExtensionRackOS
+            executable additive modules
+            currently: META_GRAMMAR + KNOWLEDGE_BROKER
        -> ONE SETTLED RavenReactionPacket
-       -> RavenGoblinSurfaceRouterOS
-            -> resident surfaces / widgets / projections
+  -> RavenGoblinSurfaceRouterOS
+       -> ReactionState / OfficeState / trace
+       -> Home aura / whisper
+       -> Goblin Vision resident body
+       -> widgets / Watchlet / Tasker via exact packet
 ```
 
-Callers should depend on `RavenGoblinEngineOS`, not treat `RavenOfficeBarService` as the brain.
-The Office Bar remains an Android foreground-service host and presentation surface.
+`RavenOfficeBarService` is an Android foreground-service host/transport and surface. It is not the brain.
+Launcher commands should enter through `RavenGoblinEngineOS` instead of calling Office Bar directly.
+
+### Module rack
+
+`RavenGoblinSystemsRegistryOS` declares every known organ with:
+
+- stable organ ID
+- stage
+- resource cost
+- authority class
+- dependencies
+
+`RavenGoblinModuleRackOS` turns that inventory into the runtime plan for current Omni RV pressure. It recursively removes optional modules whose dependencies were shed, while mandatory dependency loss becomes a fail-readable issue rather than a silent downgrade.
+
+This prevents the old invalid state where, for example, a cheap dependent organ could claim to be enabled after its expensive parent was removed.
+
+### Extension rack
+
+`RavenGoblinExtensionRackOS` is the executable plug-in seam for additive post-core behavior. Extensions receive the current settled packet plus runtime context and may enrich it, but may not invent a second evidence source or bypass the module load plan.
+
+Current extensions:
+
+- `META_GRAMMAR` → `RavenGoblinMetaPipelineOS`
+- `KNOWLEDGE_BROKER` → bounded KnowledgeOS context
+
+### How to integrate newly recovered tech
+
+Every new organ found in old branches, APK archaeology, external research, or new development should use this sequence:
+
+```text
+DISCOVER
+→ identify exact capability and source
+→ add Organ descriptor to RavenGoblinSystemsRegistryOS
+→ declare dependencies / cost / authority
+→ if executable late behavior, implement RavenGoblinExtensionRackOS.Extension
+→ wire through existing core/rack/surface seam; do not invent a parallel brain
+→ add deterministic test
+→ add recovery-manifest requirement
+→ add wiring-canary marker
+→ require compiled DEX root in successor APK manifest
+→ build and verify APK
+```
+
+If a feature cannot yet execute, it may be catalogued as archaeology or a candidate, but it must not be reported as a live organ.
 
 ## Office registry
 
@@ -124,6 +177,7 @@ This is a recovery index, not an exhaustive UX help screen; aliases live in `Rav
 - `scene graph`, `what do you see`
 - `clear dialogue usage`
 - `goblin status`, `brain status`
+- `goblin modules`, `brain modules`, `engine status`, `module rack`, `goblin engine`
 - `next drop`
 
 ### Office / resident body
@@ -136,6 +190,8 @@ This is a recovery index, not an exhaustive UX help screen; aliases live in `Rav
 - `office integrity`, `clear office integrity`
 - `follow me`, `follow me off`
 - `haunt <mode>`, `haunt next`, `haunt status`
+
+These command routes enter the Goblin Engine facade rather than treating Office Bar as a command authority.
 
 ### Launcher / phone controls
 
@@ -172,13 +228,13 @@ The launcher also has bounded SharedPreferences state for Office, Follow-Me, Gob
 | Goblin Brain v4 | `015f118a` | lineage/checkpoint; overlapping runtime superseded by richer Sat-X set |
 | Crown Jewels | `18fd197e` | build/recovery lineage; failed workflow retained as evidence, not blindly imported |
 | Haunted Sauce | `1c7b9de6` | presentation lineage only; never allowed to overwrite current screen-first presenter |
-| Goblin Engine integration | current integration branch | stable transaction facade + surface router + anti-loss binary/source gates |
+| Goblin Engine integration | current integration branch | stable engine facade + dependency-aware module rack + extension rack + surface router + anti-loss gates |
 
 ## Next-wave organs that must enter the successor APK
 
 The physical `1a660aea` APK does **not** prove the newer source wave. Successor APK verification must prove these compiled into DEX, including:
 
-- `RavenGoblinEngineOS`, `RavenGoblinBrainBusOS`, `RavenGoblinSurfaceRouterOS`, `RavenGoblinSystemsRegistryOS`
+- `RavenGoblinEngineOS`, `RavenGoblinBrainBusOS`, `RavenGoblinModuleRackOS`, `RavenGoblinExtensionRackOS`, `RavenGoblinSurfaceRouterOS`, `RavenGoblinSystemsRegistryOS`
 - `RavenEmployeeExpressionBridge`, `RavenEmojiKaomojiProjection`, `RavenExpressionSelectorOS`, `RavenExpressionSurfacePolicy`
 - `RavenKaomojiGrammarOS`, `RavenKaomojiExpansionBank`, `RavenEnsembleKaomojiOS`
 - `RavenMetaDialogueEngine`, `RavenMetaDialogueRenderer`, `RavenMetaGrammarOS`, `RavenMetaAntiRepeatOS`, `RavenSilenceGagOS`
@@ -195,9 +251,10 @@ The physical `1a660aea` APK does **not** prove the newer source wave. Successor 
 4. Search `feature_groups` for the missing capability.
 5. Inspect listed `required_files` and `required_contains` wiring markers.
 6. Run `python3 ravenos-launcher/verify-recovery-manifest.py`.
-7. Rebuild the APK.
-8. Run `python3 ravenos-launcher/verify-built-apk-runtime.py <apk> --require-next-wave`.
-9. If a source organ is missing, use lineage SHAs above as archaeology; do **not** replace newer current files wholesale.
-10. If the built APK loses a baseline organ, fail the build unless there is an explicit deprecation receipt.
+7. Run `python3 ravenos-launcher/tests/RAVENOS-GOBLIN-BRAIN-WIRING-CANARY.py`.
+8. Rebuild the APK.
+9. Run `python3 ravenos-launcher/verify-built-apk-runtime.py <apk> --require-next-wave`.
+10. If a source organ is missing, use lineage SHAs above as archaeology; do **not** replace newer current files wholesale.
+11. If the built APK loses a baseline organ, fail the build unless there is an explicit deprecation receipt.
 
-The source manifest tells us what should exist. The binary fossil tells us what did exist. The built-APK verifier closes the gap.
+The source manifest tells us what should exist. The module graph tells us how it is allowed to run. The binary fossil tells us what did exist. The built-APK verifier closes the gap.
