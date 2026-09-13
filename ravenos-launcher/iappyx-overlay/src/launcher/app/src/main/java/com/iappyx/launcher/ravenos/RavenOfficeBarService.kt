@@ -112,7 +112,7 @@ class RavenOfficeBarService : Service() {
         val quiet = prefs.getBoolean(KEY_QUIET, false)
         val hauntMode = RavenHauntModeStore.get(this)
 
-        val brain = RavenGoblinBrain.react(
+        val brain = RavenGoblinBrainBusOS.react(
             context = this,
             signal = signal,
             detail = detail,

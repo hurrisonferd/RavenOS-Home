@@ -67,8 +67,18 @@ object RavenEmployeePresentation {
             else -> style.kaomoji[stableIndex(postureSeed, style.kaomoji.size)]
         }
         val eventGlyph = signalGlyph(signal, detail)
-        val soup = RavenEmojiBudgetOS.compose(member.id, eventGlyph, "", style.soup)
-        return Packet(member.id, soup, posture, note, eventGlyph.ifBlank { prettySignal(signal) }, member.accent, member.lane)
+        val legacySoup = RavenEmojiBudgetOS.compose(member.id, eventGlyph, "", style.soup)
+        val expression = RavenEmployeeExpressionBridge.decorate(
+            member = member,
+            signal = signal,
+            detail = detail,
+            fallbackEmoji = legacySoup,
+            fallbackKaomoji = posture,
+        )
+        return Packet(
+            member.id, expression.emojiSoup, expression.kaomoji, note,
+            eventGlyph.ifBlank { prettySignal(signal) }, member.accent, member.lane,
+        )
     }
 
     fun signalGlyph(signal: String, detail: String = ""): String {

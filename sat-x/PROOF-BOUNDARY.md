@@ -1,0 +1,1 @@
+Current Sat-X expression/meta additions are source-bound on the isolated branch. Full RavenOS Gradle proof must come from GitHub Actions because the BasicDeploy proof container is capped at 256 MB and killed the Gradle daemon before Kotlin diagnostics.
