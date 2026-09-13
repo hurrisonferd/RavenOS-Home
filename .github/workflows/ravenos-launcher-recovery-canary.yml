@@ -96,6 +96,7 @@ jobs:
           cp "$SRC" "$OUT"
           test -s "$OUT"
           sha256sum "$OUT" | tee "$OUT.sha256"
+          python3 ravenos-launcher/verify-built-apk-runtime.py "$OUT" --require-next-wave
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
           "$AAPT" dump badging "$OUT" | tee RavenOS-Launcher-Recovered-All-Upgrades-badging.txt
           grep -F "package: name='com.ravenos.launcher'" RavenOS-Launcher-Recovered-All-Upgrades-badging.txt
@@ -109,6 +110,8 @@ jobs:
             RavenOS-Launcher-Recovered-All-Upgrades.apk
             RavenOS-Launcher-Recovered-All-Upgrades.apk.sha256
             RavenOS-Launcher-Recovered-All-Upgrades-badging.txt
+            ravenos-launcher/APK-BINARY-RECOVERY-MANIFEST-1a660aea.json
+            ravenos-launcher/verify-built-apk-runtime.py
             ravenos-launcher/UPGRADE-RECOVERY-MANIFEST.json
             ravenos-launcher/docs/RECOVERY-INDEX.md
             ravenos-launcher/device-canary.sh
