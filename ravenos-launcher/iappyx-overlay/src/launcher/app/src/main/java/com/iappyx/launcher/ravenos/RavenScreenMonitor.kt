@@ -18,9 +18,16 @@ object RavenScreenMonitor {
         val r = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent?) {
                 when (intent?.action) {
-                    Intent.ACTION_SCREEN_OFF -> RavenOfficeBarService.signal(ctx, "NIGHT", "screen:off")
+                    Intent.ACTION_SCREEN_OFF -> {
+                        RavenAppSessionOS.pause(ctx, "SCREEN_OFF")
+                        RavenOfficeBarService.signal(ctx, "NIGHT", "screen:off")
+                    }
                     Intent.ACTION_SCREEN_ON -> RavenOfficeBarService.signal(ctx, "DEVICE", "screen:on")
-                    Intent.ACTION_USER_PRESENT -> RavenOfficeBarService.signal(ctx, "HOME", "user:present")
+                    Intent.ACTION_USER_PRESENT -> {
+                        // Unlock is a phone-state transition, not evidence that Raven returned Home.
+                        // Accessibility / Usage Access will re-confirm the foreground app on the next event.
+                        RavenOfficeBarService.signal(ctx, "DEVICE", "user:present|state:unlocked")
+                    }
                 }
             }
         }
