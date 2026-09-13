@@ -14,7 +14,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.iappyx.launcher.R
 
-/** Persistent user-visible RavenOS Office Bar backed by the deterministic Goblin Vision brain. */
+/** Persistent user-visible RavenOS Office Bar hosted by the canonical modular Goblin Engine. */
 class RavenOfficeBarService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -112,7 +112,8 @@ class RavenOfficeBarService : Service() {
         val quiet = prefs.getBoolean(KEY_QUIET, false)
         val hauntMode = RavenHauntModeStore.get(this)
 
-        val brain = RavenGoblinBrainBusOS.react(
+        // One transaction: Brain -> module bus -> settled packet -> all resident surfaces.
+        val engine = RavenGoblinEngineOS.react(
             context = this,
             signal = signal,
             detail = detail,
@@ -120,40 +121,13 @@ class RavenOfficeBarService : Service() {
             quiet = quiet,
             hauntMode = hauntMode,
         )
-        val member = brain.member
-        val reaction = brain.packet
+        val member = engine.member
+        val reaction = engine.packet
         val body = reaction.dialogue.trim()
         val observation = reaction.authorNote.trim()
         // Character silence is valid. Resident observation is not fake dialogue and may remain visible.
-        val residentText = body.ifBlank { observation }
+        val residentText = engine.residentText
         val notificationBody = residentText.ifBlank { "👁 resident · waiting for readable screen context" }
-
-        RavenReactionStateStore.write(this, reaction)
-        RavenOfficeStateStore.write(
-            this,
-            member = member,
-            signal = signal,
-            detail = detail,
-            note = residentText,
-            hauntMode = hauntMode,
-            manual = manual != null,
-            quiet = quiet,
-        )
-        if (body.isNotBlank()) {
-            RavenOfficeTraceStore.record(
-                this,
-                member,
-                signal,
-                detail,
-                body,
-                hauntMode,
-            )
-        }
-
-        RavenHomeAura.render(member, hauntMode)
-        RavenHomeWhisper.render(member, residentText, signal, detail, hauntMode)
-        RavenFollowMeOverlay.hide()
-        RavenGoblinVisionOverlay.renderReaction(this, reaction, hauntMode)
 
         val openHome = PendingIntent.getActivity(
             this,
@@ -215,7 +189,7 @@ class RavenOfficeBarService : Service() {
         "SCREEN_VISUAL" -> "screen moved"
         "SCREEN_TEXT", "SCREEN_SEMANTIC" -> "screen meaning"
         "MEDIA_SESSION", "MEDIA_ACTIVE", "MEDIA_IDLE" -> "media"
-        "NOTIFICATION", "NOTIFICATION_POSTED", "NOTIFICATION_REMOVED" -> "notification"
+        "NOTIFICATION", "NOTIFICATION_POSTED", "NOTIFICATION_REMOVED", "NOTIFICATION_SENSE" -> "notification"
         "FOREGROUND_APP", "FOREGROUND_USAGE" -> "foreground"
         "FOREGROUND_WINDOW" -> "window"
         "HOME", "HOME_ENTER" -> "home"
@@ -278,7 +252,7 @@ class RavenOfficeBarService : Service() {
             val normalizedSignal = signal.trim().uppercase()
             when (normalizedSignal) {
                 "FOREGROUND_APP", "FOREGROUND_USAGE", "FOREGROUND_WINDOW" -> if (!mode.foregroundRouting) return
-                "NOTIFICATION" -> if (!mode.notificationRouting) return
+                "NOTIFICATION", "NOTIFICATION_SENSE" -> if (!mode.notificationRouting) return
             }
             val enriched = enrichDetail(context, normalizedSignal, detail)
             if (!RavenOfficeGovernor.accept(context, normalizedSignal, enriched, mode)) return
@@ -303,7 +277,10 @@ class RavenOfficeBarService : Service() {
             .setAction(ACTION_RESTORE).putExtra(EXTRA_DETAIL, reason))
 
         private fun enrichDetail(context: Context, signal: String, detail: String): String {
-            if (signal !in setOf("APP_LAUNCH", "FOREGROUND_APP", "FOREGROUND_USAGE", "FOREGROUND_WINDOW", "NOTIFICATION")) return detail
+            if (signal !in setOf(
+                    "APP_LAUNCH", "FOREGROUND_APP", "FOREGROUND_USAGE", "FOREGROUND_WINDOW",
+                    "NOTIFICATION", "NOTIFICATION_SENSE", "MEDIA_SESSION", "MEDIA_ACTIVE", "MEDIA_IDLE",
+                )) return detail
             val marker = "package:"
             val start = detail.indexOf(marker)
             if (start < 0) return detail
