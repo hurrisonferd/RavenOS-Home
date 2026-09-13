@@ -3,10 +3,10 @@ package com.iappyx.launcher.ravenos
 import android.content.Context
 
 /**
- * Canonical modular reaction engine for RavenOS Launcher.
+ * Canonical modular engine for RavenOS Launcher.
  *
- * BRAIN -> LATE MODULE BUS -> ONE SETTLED PACKET -> SURFACE ROUTER.
- * Android services are hosts/transports; this object owns the reaction transaction.
+ * INGRESS API -> Android host/transport -> BRAIN -> LATE MODULE BUS -> ONE SETTLED PACKET -> SURFACE ROUTER.
+ * Callers should depend on this facade rather than depending on Office Bar as if a UI surface were the brain.
  */
 object RavenGoblinEngineOS {
     data class Result(
@@ -24,6 +24,21 @@ object RavenGoblinEngineOS {
         }
     }
 
+    /** Stable ingress facade. Office Bar remains the foreground-service transport for now. */
+    fun signal(context: Context, signal: String, detail: String = "") =
+        RavenOfficeBarService.signal(context, signal, detail)
+
+    fun pin(context: Context, owner: String) = RavenOfficeBarService.pin(context, owner)
+    fun next(context: Context) = RavenOfficeBarService.next(context)
+    fun auto(context: Context) = RavenOfficeBarService.auto(context)
+    fun toggleQuiet(context: Context) = RavenOfficeBarService.toggleQuiet(context)
+    fun enable(context: Context) = RavenOfficeBarService.enable(context)
+    fun disable(context: Context) = RavenOfficeBarService.disable(context)
+    fun cycleHaunt(context: Context) = RavenOfficeBarService.cycleHaunt(context)
+    fun setHaunt(context: Context, mode: RavenHauntMode) = RavenOfficeBarService.setHaunt(context, mode)
+    fun restore(context: Context, reason: String) = RavenOfficeBarService.restore(context, reason)
+
+    /** One deterministic reaction transaction for every accepted RavenOS event. */
     fun react(
         context: Context,
         signal: String,
