@@ -2,7 +2,7 @@ name: RavenOS Launcher Canary
 
 on:
   push:
-    branches: [ravenos-launcher]
+    branches: [ravenos-launcher, ravenos-launcher-whole-phone]
     paths:
       - 'ravenos-launcher/**'
       - 'faeryware/house/**'
@@ -35,163 +35,72 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Apply RavenOS Launcher overlay
-        run: python3 ravenos-launcher/apply-ravenos-overlay.py
+      - name: Verify recovery authority and Goblin Brain topology
+        run: |
+          set -euo pipefail
+          python3 ravenos-launcher/verify-recovery-manifest.py
+          python3 ravenos-launcher/tests/RAVENOS-GOBLIN-BRAIN-WIRING-CANARY.py
 
-      - name: Apply RavenOS ergonomics patch
-        run: python3 ravenos-launcher/patch-ravenos-ergonomics.py faeryware/house/iappyxOS-Launcher
+      - name: Reconstruct complete RavenOS Launcher
+        run: |
+          set -euo pipefail
+          python3 ravenos-launcher/apply-ravenos-overlay.py
+          python3 ravenos-launcher/patch-ravenos-knowledge-widget.py
 
-      - name: Verify RavenOS identity and haunted runtime hooks
+      - name: Verify complete current runtime
         run: |
           set -euo pipefail
           ROOT='faeryware/house/iappyxOS-Launcher/src/launcher/app/src/main'
           APP='faeryware/house/iappyxOS-Launcher/src/launcher/app'
-          RAVEN="$ROOT/java/com/iappyx/launcher/ravenos"
-          grep -R 'RavenOS Launcher' "$ROOT/res/values/strings.xml"
-          grep -R 'applicationId "com.ravenos.launcher"' "$APP/build.gradle"
-          grep -R 'android:authorities="${applicationId}.provider"' "$ROOT/AndroidManifest.xml"
-          grep -R 'RAVENOS OFFICE BAR: persistent visible presence' "$ROOT/AndroidManifest.xml"
-          grep -R 'RAVENOS BOOT RESTORE' "$ROOT/AndroidManifest.xml"
-          grep -R 'RAVENOS AMBIENT SIGNALS' "$ROOT/AndroidManifest.xml"
-          grep -R 'RAVENOS ECOLOGY: token-gated Tasker command receiver' "$ROOT/AndroidManifest.xml"
-          grep -R 'com.ravenos.launcher.TASKER_COMMAND' "$ROOT/AndroidManifest.xml"
-          grep -R 'android:name=".ravenos.RavenHomeActivity"' "$ROOT/AndroidManifest.xml"
-          grep -R 'RAVENOS HOME AURA' "$ROOT/java/com/iappyx/launcher/LauncherActivity.kt"
-          grep -R 'RAVENOS HOME WHISPER' "$ROOT/java/com/iappyx/launcher/LauncherActivity.kt"
-          grep -R 'RAVENOS ERGONOMICS: persistent Raven edge menu' "$ROOT/java/com/iappyx/launcher/LauncherActivity.kt"
-          grep -R 'RAVENOS ERGONOMICS: explicit navigation API' "$ROOT/java/com/iappyx/launcher/LauncherActivity.kt"
-          grep -R 'RavenGesturePrefs.fire' "$ROOT/java/com/iappyx/launcher/LauncherActivity.kt"
-          grep -R 'RAVENOS OFFICE BAR: initial home signal' "$ROOT/java/com/iappyx/launcher/LauncherActivity.kt"
-          grep -R 'RAVENOS OFFICE BAR: app launch signal' "$ROOT/java/com/iappyx/launcher/applock/AppLockManager.kt"
-          grep -R 'RAVENOS WIDGET OFFICE BRIDGE' "$ROOT/java/com/iappyx/launcher/cells/GeneratedWidgetCell.kt"
-          grep -R 'RavenWidgetOfficeModule.attach' "$ROOT/java/com/iappyx/launcher/cells/GeneratedWidgetCell.kt"
-          grep -R 'RAVENOS OFFICE WALLPAPER: state receiver' "$ROOT/java/com/iappyx/launcher/wallpaper/IappyxWallpaperService.kt"
-          grep -R 'updateRavenOffice' "$ROOT/java/com/iappyx/launcher/wallpaper/IappyxWallpaperService.kt"
-          grep -R 'setRavenOfficeAckEnabled' "$ROOT/java/com/iappyx/launcher/wallpaper/IappyxWallpaperService.kt"
-          grep -R 'ravenOfficeAck' "$ROOT/java/com/iappyx/launcher/wallpaper/IappyxWallpaperService.kt"
+          R="$ROOT/java/com/iappyx/launcher/ravenos"
 
-          # Core haunted runtime
-          test -s "$RAVEN/RavenOfficeMember.kt"
-          test -s "$RAVEN/RavenEmployeePresentation.kt"
-          test -s "$RAVEN/RavenGoblinVisionOverlay.kt"
-          test -s "$RAVEN/RavenOfficeBarService.kt"
-          test -s "$RAVEN/RavenOfficeGovernor.kt"
-          test -s "$RAVEN/RavenForegroundAwarenessService.kt"
-          test -s "$RAVEN/RavenFollowMeOverlay.kt"
-          test -s "$RAVEN/RavenHomeAura.kt"
-          test -s "$RAVEN/RavenHomeWhisper.kt"
-          test -s "$RAVEN/RavenMenu.kt"
-          test -s "$RAVEN/RavenGesturePrefs.kt"
-          test -s "$RAVEN/RavenHauntMode.kt"
-          test -s "$RAVEN/RavenOfficeTraceStore.kt"
-          test -s "$RAVEN/RavenOfficeStateStore.kt"
-          test -s "$RAVEN/RavenWidgetOfficeBridge.kt"
-          test -s "$RAVEN/RavenWallpaperOfficeAckBridge.kt"
-          test -s "$RAVEN/RavenSurfaceIntegrity.kt"
-          test -s "$RAVEN/RavenAmbientReceiver.kt"
-          test -s "$RAVEN/RavenScreenMonitor.kt"
-          test -s "$RAVEN/RavenAwarenessStatus.kt"
-          test -s "$RAVEN/RavenBootReceiver.kt"
-          test -s "$RAVEN/RavenPermissionDeck.kt"
-          test -s "$RAVEN/RavenCommandRouter.kt"
-          test -s "$RAVEN/RavenSystemDeck.kt"
-          test -s "$RAVEN/RavenSystemDeckPane.kt"
-          test -s "$RAVEN/RavenSurfaceModel.kt"
-          test -s "$RAVEN/RavenIntelligenceProvider.kt"
-          test -s "$RAVEN/RavenHomeActivity.kt"
-          test -s "$RAVEN/RavenAppCatalog.kt"
+          grep -F 'applicationId "com.ravenos.launcher"' "$APP/build.gradle"
+          grep -F 'RavenOS Launcher' "$ROOT/res/values/strings.xml"
 
-          # Goblin Vision brain vertical slice
-          test -s "$RAVEN/RavenMarkerBus.kt"
-          test -s "$RAVEN/RavenComplexEventOS.kt"
-          test -s "$RAVEN/RavenEpisodeOS.kt"
-          test -s "$RAVEN/RavenHighlightOS.kt"
-          test -s "$RAVEN/RavenInterruptibilityOS.kt"
-          test -s "$RAVEN/RavenVisualAtlas.kt"
-          test -s "$RAVEN/RavenOfficeGeography.kt"
-          test -s "$RAVEN/RavenDialogueBank.kt"
-          test -s "$RAVEN/RavenReactionPacket.kt"
-          test -s "$RAVEN/RavenReactionStateStore.kt"
-          test -s "$RAVEN/RavenEvidenceBoard.kt"
-          test -s "$RAVEN/RavenReplayOS.kt"
-          test -s "$RAVEN/RavenGoblinBrain.kt"
-          grep -Fq 'RavenMarkerBus.emit' "$RAVEN/RavenGoblinBrain.kt"
-          grep -Fq 'RavenComplexEventOS.analyze' "$RAVEN/RavenGoblinBrain.kt"
-          grep -Fq 'RavenInterruptibilityOS.allow' "$RAVEN/RavenGoblinBrain.kt"
-          grep -Fq 'RavenDialogueBank.select' "$RAVEN/RavenGoblinBrain.kt"
-          grep -Fq 'RavenVisualAtlas.resolve' "$RAVEN/RavenGoblinBrain.kt"
-          grep -Fq 'RavenOfficeGeography.zone' "$RAVEN/RavenGoblinBrain.kt"
-          grep -Fq 'RavenEvidenceBoard.record' "$RAVEN/RavenGoblinBrain.kt"
-          grep -Fq 'effectAuthority = "NONE"' "$RAVEN/RavenGoblinBrain.kt"
-          grep -Fq 'RavenGoblinBrain.react' "$RAVEN/RavenOfficeBarService.kt"
-          grep -Fq 'RavenReactionStateStore.write' "$RAVEN/RavenOfficeBarService.kt"
-          grep -Fq 'RavenGoblinVisionOverlay.renderReaction' "$RAVEN/RavenOfficeBarService.kt"
-          grep -Fq 'RavenTaskerBridge.emit' "$RAVEN/RavenReactionStateStore.kt"
-          grep -Fq 'WHY ' "$RAVEN/RavenEvidenceBoard.kt"
-          grep -Fq 'saveCurrent' "$RAVEN/RavenReplayOS.kt"
+          # Current whole-phone / SitcomOS / structural-memory crown jewels.
+          for f in \
+            RavenGoblinBrain.kt RavenGoblinBrainBusOS.kt RavenGoblinSystemsRegistryOS.kt \
+            RavenSitcomDirectorOS.kt RavenMetaMaxShowrunnerOS.kt RavenGoldSitcomTopologyOS.kt \
+            RavenOfficeSeasonOS.kt RavenEpisodeOS.kt RavenEpisodeScriptOS.kt RavenBitLedgerOS.kt \
+            RavenOfficeRecallOS.kt RavenSceneGraphOS.kt RavenDialogueVaultOS.kt RavenMetaAntiRepeatOS.kt \
+            RavenMetaTrickHistoryOS.kt RavenMetaGoblinDialogueOS.kt RavenMetaGrammarOS.kt \
+            RavenContextualDialogueBank.kt RavenSitcomDialogueOS.kt RavenLongSeriesDialogueOS.kt \
+            RavenGoblinVisionOverlay.kt RavenFollowMeOverlay.kt RavenOfficeFeed.kt RavenOfficeBarService.kt \
+            RavenEmployeePresentation.kt RavenSceneExpressionOS.kt RavenEmojiReactionBank.kt \
+            RavenKaomojiGrammarOS.kt RavenSystemDeck.kt RavenCommandPalette.kt RavenHomeActivity.kt \
+            RavenNotificationSenseOS.kt RavenMediaSessionSenseOS.kt RavenViewportSemanticsOS.kt \
+            RavenEmployeeExpressionBridge.kt RavenEmojiKaomojiProjection.kt RavenExpressionSelectorOS.kt \
+            RavenKnowledgeBrokerOS.kt RavenKnowledgeWorker.kt RavenWidgetGoblinBrainModule.kt \
+            RavenWidgetKnowledgeModule.kt; do
+              test -s "$R/$f" || { echo "MISSING_CURRENT_LAUNCHER_ORGAN:$f"; exit 31; }
+          done
 
-          # Goblin Vision / EmojiOS / KaomojiOS projection law
-          grep -R 'RavenEmployeePresentation.packet' "$RAVEN/RavenGoblinBrain.kt"
-          grep -R 'RavenGoblinVisionOverlay.renderReaction' "$RAVEN/RavenOfficeBarService.kt"
-          grep -R 'RAVENOS ECOLOGY: unified employee presentation' "$RAVEN/RavenHomeActivity.kt"
-          grep -R 'GOBLIN VISION' "$RAVEN/RavenGoblinVisionOverlay.kt"
-          grep -R 'KaomojiOS' "$RAVEN/RavenEmployeePresentation.kt"
-          grep -R 'no-op compatibility seam' "$RAVEN/RavenMorphSurface.kt"
-          ! grep -q 'content.addView' "$RAVEN/RavenMorphSurface.kt"
+          # One current event throat, one settled reaction packet, one expression projection path.
+          grep -F 'RavenGoblinBrainBusOS.react' "$R/RavenOfficeBarService.kt"
+          grep -F 'RavenGoblinBrain.react' "$R/RavenGoblinBrainBusOS.kt"
+          grep -F 'RavenReactionStateStore.write' "$R/RavenOfficeBarService.kt"
+          grep -F 'RavenWidgetGoblinBrainModule.broadcast' "$R/RavenReactionStateStore.kt"
+          grep -F 'RavenEmployeeExpressionBridge.decorate' "$R/RavenEmployeePresentation.kt"
+          grep -F 'RavenWidgetGoblinBrainModule.attach' "$R/RavenWidgetOfficeBridge.kt"
+          grep -F 'RavenWidgetKnowledgeModule.attach' "$R/RavenWidgetOfficeBridge.kt"
 
-          # Haunted ecology wave
-          test -s "$RAVEN/RavenHauntRequirements.kt"
-          test -s "$RAVEN/RavenOfficeFeed.kt"
-          test -s "$RAVEN/RavenMorphSurface.kt"
-          test -s "$RAVEN/RavenPossessedPopup.kt"
-          test -s "$RAVEN/RavenSummoningWheel.kt"
-          test -s "$RAVEN/RavenGhostHotspots.kt"
-          test -s "$RAVEN/RavenCommandPalette.kt"
-          test -s "$RAVEN/RavenTaskerBridge.kt"
-          test -s "$RAVEN/RavenTaskerReceiver.kt"
-          grep -R 'RAVENOS ECOLOGY: attach morph + ghost hotspots' "$RAVEN/RavenHomeActivity.kt"
-          grep -R 'RAVENOS ECOLOGY: possessed app popup' "$RAVEN/RavenHomeActivity.kt"
-          grep -R 'RAVENOS ECOLOGY: command keyboard' "$RAVEN/RavenHomeActivity.kt"
-          grep -R 'RavenHauntRequirements.evaluateAndSignal' "$RAVEN/RavenHomeActivity.kt"
-          grep -R 'RavenSummoningWheel.show' "$RAVEN/RavenHomeActivity.kt"
-          grep -R 'RavenOfficeFeed.show' "$RAVEN/RavenHomeActivity.kt"
-          grep -R 'RavenTaskerBridge.showSetup' "$RAVEN/RavenHomeActivity.kt"
-          grep -R 'RavenTaskerBridge.validToken' "$RAVEN/RavenTaskerReceiver.kt"
-          grep -R 'RavenCommandRouter.execute' "$RAVEN/RavenTaskerReceiver.kt"
-          grep -R '#tasker' "$RAVEN/RavenCommandPalette.kt"
-          test -s 'ravenos-launcher/patch-ravenos-ecology.py'
+          # Current screen-first law must survive recovery.
+          grep -F 'RavenPresentationArbiterOS.decide' "$R/RavenGoblinBrain.kt"
+          grep -F 'RavenScreenAwareDialogueOS.select' "$R/RavenGoblinBrain.kt"
+          grep -F 'PHONE_REPEAT_SILENT' "$R/RavenPresentationArbiterOS.kt"
+          grep -F 'RavenSitcomDirectorOS' "$R/RavenGoblinBrain.kt"
+          grep -F 'RavenMetaMaxShowrunnerOS' "$R/RavenGoblinBrain.kt"
+          grep -F 'RavenGoldSitcomTopologyOS' "$R/RavenGoblinBrain.kt"
 
-          # Existing proof contracts
-          test -s 'ravenos-launcher/patch-ravenos-wallpaper.py'
-          test -s 'ravenos-launcher/patch-ravenos-ergonomics.py'
-          grep -R 'APOCALYPSE' "$RAVEN/RavenHauntMode.kt"
-          grep -R 'RavenOfficeGovernor.accept' "$RAVEN/RavenOfficeBarService.kt"
-          grep -R 'RavenHomeAura.render' "$RAVEN/RavenOfficeBarService.kt"
-          grep -R 'RavenHomeWhisper.render' "$RAVEN/RavenOfficeBarService.kt"
-          grep -R 'RavenOfficeTraceStore.record' "$RAVEN/RavenOfficeBarService.kt"
-          grep -R 'RavenOfficeStateStore.write' "$RAVEN/RavenOfficeBarService.kt"
-          grep -R 'RavenWidgetOfficeModule.broadcast' "$RAVEN/RavenOfficeStateStore.kt"
-          grep -R 'RavenSurfaceIntegrity.OFFICE_BAR' "$RAVEN/RavenOfficeBarService.kt"
-          grep -R 'RavenSurfaceIntegrity.FOLLOW_ME' "$RAVEN/RavenGoblinVisionOverlay.kt"
-          grep -R 'markCrossProcess' "$RAVEN/RavenSurfaceIntegrity.kt"
-          grep -R 'fun acknowledge' "$RAVEN/RavenWidgetOfficeBridge.kt"
-          grep -R 'ravenOffice.acknowledge' "$ROOT/assets/widgets/ravenos_office.html"
-          grep -R 'ravenOfficeAck.acknowledge' "$ROOT/assets/wallpapers/ravenos_office.html"
-          grep -R 'SURFACE INTEGRITY' "$RAVEN/RavenSystemDeckPane.kt"
-          grep -R 'CONSUMED = RavenOS-owned JavaScript' "$RAVEN/RavenSystemDeckPane.kt"
-          grep -R 'RavenSurfaceIntegrity.compact' "$RAVEN/RavenSystemDeckPane.kt"
-          grep -R 'RavenScreenMonitor.start' "$RAVEN/RavenOfficeBarService.kt"
-          test -s 'ravenos-launcher/device-canary.sh'
-
-      - name: Fast Kotlin compile gate
+      - name: Run unit tests and Kotlin compile gate
         working-directory: faeryware/house/iappyxOS-Launcher/src/launcher
         run: |
           chmod +x ./gradlew
-          ./gradlew :app:compileDebugKotlin --stacktrace
+          ./gradlew :app:testDebugUnitTest :app:compileDebugKotlin --stacktrace --console=plain
 
       - name: Build RavenOS Launcher APK
         working-directory: faeryware/house/iappyxOS-Launcher/src/launcher
-        run: ./gradlew :app:assembleDebug --stacktrace
+        run: ./gradlew :app:assembleDebug --stacktrace --console=plain
 
       - name: Stage RavenOS Launcher APK
         run: |
@@ -216,4 +125,6 @@ jobs:
             RavenOS-Launcher-debug.apk
             RavenOS-Launcher-debug.sha256
             RavenOS-Launcher-badging.txt
+            ravenos-launcher/UPGRADE-RECOVERY-MANIFEST.json
+            ravenos-launcher/docs/RECOVERY-INDEX.md
             ravenos-launcher/device-canary.sh
