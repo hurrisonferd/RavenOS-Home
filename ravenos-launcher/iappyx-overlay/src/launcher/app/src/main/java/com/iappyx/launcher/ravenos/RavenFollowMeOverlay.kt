@@ -1,7 +1,6 @@
 package com.iappyx.launcher.ravenos
 
 import android.content.Context
-import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
@@ -13,7 +12,6 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.iappyx.launcher.LauncherActivity
 import kotlin.math.abs
 
 /**
@@ -21,6 +19,9 @@ import kotlin.math.abs
  *
  * Requires the explicit SYSTEM_ALERT_WINDOW grant. It only occupies its own bounds,
  * never reads the underlying app, and never intercepts touches outside those bounds.
+ *
+ * V14 interaction law: tapping the resident surface toggles PERCH <-> EXPANDED in place.
+ * It must never navigate Raven away from the foreground app. Dragging still repositions it.
  */
 object RavenFollowMeOverlay {
     private const val PREFS = "ravenos_follow_me_v1"
@@ -28,6 +29,7 @@ object RavenFollowMeOverlay {
     private const val KEY_PENDING = "pending_permission_enable"
     private const val KEY_X = "x"
     private const val KEY_Y = "y"
+    private const val KEY_EXPANDED = "expanded"
 
     private var manager: WindowManager? = null
     private var root: LinearLayout? = null
@@ -63,11 +65,18 @@ object RavenFollowMeOverlay {
         .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         .getBoolean(KEY_PENDING, false)
 
-    fun status(context: Context): String = when {
-        isEnabled(context) && Settings.canDrawOverlays(context) -> "FOLLOW-ME=ON · OVERLAY=GRANTED"
-        isPending(context) && !Settings.canDrawOverlays(context) -> "FOLLOW-ME=PENDING · OVERLAY=NEEDS GRANT"
-        Settings.canDrawOverlays(context) -> "FOLLOW-ME=OFF · OVERLAY=GRANTED"
-        else -> "FOLLOW-ME=OFF · OVERLAY=NOT GRANTED"
+    fun isExpanded(context: Context): Boolean = context.applicationContext
+        .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        .getBoolean(KEY_EXPANDED, false)
+
+    fun status(context: Context): String {
+        val form = if (isExpanded(context)) "EXPANDED" else "PERCH"
+        return when {
+            isEnabled(context) && Settings.canDrawOverlays(context) -> "FOLLOW-ME=ON · OVERLAY=GRANTED · $form"
+            isPending(context) && !Settings.canDrawOverlays(context) -> "FOLLOW-ME=PENDING · OVERLAY=NEEDS GRANT · $form"
+            Settings.canDrawOverlays(context) -> "FOLLOW-ME=OFF · OVERLAY=GRANTED · $form"
+            else -> "FOLLOW-ME=OFF · OVERLAY=NOT GRANTED · $form"
+        }
     }
 
     fun enable(context: Context): Boolean {
@@ -184,26 +193,13 @@ object RavenFollowMeOverlay {
             setTextColor(0xFFD4D4DE.toInt())
         }
 
-        params?.let { lp ->
-            val desiredWidth = when (hauntMode) {
-                RavenHauntMode.HAUNTED -> 300
-                RavenHauntMode.FERAL -> 330
-                RavenHauntMode.APOCALYPSE -> 356
-                else -> 286
-            }
-            val pxWidth = dp(context, desiredWidth)
-            if (lp.width != pxWidth) {
-                lp.width = pxWidth
-                try { root?.let { manager?.updateViewLayout(it, lp) } } catch (_: Throwable) {}
-            }
-        }
-
+        applyExpandedState(context, hauntMode)
         RavenSurfaceIntegrity.mark(
             context,
             RavenSurfaceIntegrity.FOLLOW_ME,
             "RENDERED",
             stateAt,
-            "overlay_view_cross_app",
+            "overlay_view_cross_app:${if (isExpanded(context)) "expanded" else "perch"}",
         )
     }
 
@@ -258,17 +254,18 @@ object RavenFollowMeOverlay {
             y = prefs.getInt(KEY_Y, dp(context, 112))
         }
         params = lp
-        wireDragAndOpen(context, container, lp)
+        wireDragAndToggle(context, container, lp)
         try {
             wm.addView(container, lp)
             root = container
+            applyExpandedState(context, RavenHauntModeStore.get(context))
         } catch (_: Throwable) {
             manager = null
             params = null
         }
     }
 
-    private fun wireDragAndOpen(
+    private fun wireDragAndToggle(
         context: Context,
         view: View,
         lp: WindowManager.LayoutParams,
@@ -301,17 +298,43 @@ object RavenFollowMeOverlay {
                 MotionEvent.ACTION_UP -> {
                     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                         .edit().putInt(KEY_X, lp.x).putInt(KEY_Y, lp.y).apply()
-                    if (!moved) {
-                        try {
-                            context.startActivity(
-                                Intent(context, LauncherActivity::class.java)
-                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
-                            )
-                        } catch (_: Throwable) {}
-                    }
+                    if (!moved) toggleExpanded(context)
                     true
                 }
                 else -> false
+            }
+        }
+    }
+
+    private fun toggleExpanded(context: Context) {
+        val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val next = !prefs.getBoolean(KEY_EXPANDED, false)
+        prefs.edit().putBoolean(KEY_EXPANDED, next).apply()
+        applyExpandedState(context, RavenHauntModeStore.get(context))
+        RavenSurfaceIntegrity.mark(
+            context,
+            RavenSurfaceIntegrity.FOLLOW_ME,
+            if (next) "EXPANDED" else "PERCH",
+            RavenOfficeStateStore.read(context)?.updatedAt ?: 0L,
+            "tap_toggle_in_place:no_navigation",
+        )
+    }
+
+    private fun applyExpandedState(context: Context, hauntMode: RavenHauntMode) {
+        val expanded = isExpanded(context)
+        noteView?.visibility = if (expanded) View.VISIBLE else View.GONE
+        contextView?.visibility = if (expanded) View.VISIBLE else View.GONE
+        val widthDp = if (!expanded) 230 else when (hauntMode) {
+            RavenHauntMode.HAUNTED -> 300
+            RavenHauntMode.FERAL -> 330
+            RavenHauntMode.APOCALYPSE -> 356
+            else -> 286
+        }
+        params?.let { lp ->
+            val desired = dp(context, widthDp)
+            if (lp.width != desired) {
+                lp.width = desired
+                try { root?.let { manager?.updateViewLayout(it, lp) } } catch (_: Throwable) {}
             }
         }
     }
