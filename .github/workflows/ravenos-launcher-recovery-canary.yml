@@ -1,0 +1,114 @@
+name: RavenOS Launcher Recovery Canary
+
+on:
+  push:
+    branches: [ravenos-launcher-recovery-integration-20260912]
+  pull_request:
+    paths:
+      - 'ravenos-launcher/**'
+      - 'faeryware/house/**'
+      - '.github/workflows/ravenos-launcher-recovery-canary.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recovered-launcher:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact integration source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Verify durable recovery manifest
+        run: python3 ravenos-launcher/verify-recovery-manifest.py
+
+      - name: Verify Goblin Brain wiring before reconstruction
+        run: python3 ravenos-launcher/tests/RAVENOS-GOBLIN-BRAIN-WIRING-CANARY.py
+
+      - name: Reconstruct current launcher with all recovered organs
+        run: |
+          set -euo pipefail
+          python3 ravenos-launcher/apply-ravenos-overlay.py
+          python3 ravenos-launcher/patch-ravenos-knowledge-widget.py
+
+      - name: Crown-jewel no-skimp gate
+        run: |
+          set -euo pipefail
+          ROOT='faeryware/house/iappyxOS-Launcher/src/launcher/app/src/main'
+          APP='faeryware/house/iappyxOS-Launcher/src/launcher/app'
+          R="$ROOT/java/com/iappyx/launcher/ravenos"
+          grep -F 'applicationId "com.ravenos.launcher"' "$APP/build.gradle"
+          grep -F 'RavenOS Launcher' "$ROOT/res/values/strings.xml"
+          for f in \
+            RavenGoblinBrain.kt RavenGoblinBrainBusOS.kt RavenGoblinSystemsRegistryOS.kt \
+            RavenSitcomDirectorOS.kt RavenMetaMaxShowrunnerOS.kt RavenGoldSitcomTopologyOS.kt \
+            RavenOfficeSeasonOS.kt RavenEpisodeOS.kt RavenEpisodeScriptOS.kt RavenBitLedgerOS.kt \
+            RavenOfficeRecallOS.kt RavenSceneGraphOS.kt RavenDialogueVaultOS.kt RavenMetaAntiRepeatOS.kt \
+            RavenMetaTrickHistoryOS.kt RavenMetaGoblinDialogueOS.kt RavenMetaGrammarOS.kt \
+            RavenContextualDialogueBank.kt RavenSitcomDialogueOS.kt RavenLongSeriesDialogueOS.kt \
+            RavenGoblinVisionOverlay.kt RavenFollowMeOverlay.kt RavenOfficeFeed.kt RavenOfficeBarService.kt \
+            RavenEmployeePresentation.kt RavenSceneExpressionOS.kt RavenEmojiReactionBank.kt \
+            RavenKaomojiGrammarOS.kt RavenSystemDeck.kt RavenCommandPalette.kt RavenHomeActivity.kt \
+            RavenNotificationSenseOS.kt RavenMediaSessionSenseOS.kt RavenViewportSemanticsOS.kt \
+            RavenEmployeeExpressionBridge.kt RavenEmojiKaomojiProjection.kt RavenExpressionSelectorOS.kt \
+            RavenKnowledgeBrokerOS.kt RavenKnowledgeWorker.kt RavenWidgetGoblinBrainModule.kt \
+            RavenWidgetKnowledgeModule.kt; do
+              test -s "$R/$f" || { echo "MISSING_RECOVERED_CROWN_JEWEL:$f"; exit 31; }
+          done
+          grep -F 'RavenGoblinBrainBusOS.react' "$R/RavenOfficeBarService.kt"
+          grep -F 'RavenGoblinBrain.react' "$R/RavenGoblinBrainBusOS.kt"
+          grep -F 'RavenWidgetGoblinBrainModule.broadcast' "$R/RavenReactionStateStore.kt"
+          grep -F 'RavenEmployeeExpressionBridge.decorate' "$R/RavenEmployeePresentation.kt"
+          grep -F 'RavenWidgetGoblinBrainModule.attach' "$R/RavenWidgetOfficeBridge.kt"
+          grep -F 'RavenWidgetKnowledgeModule.attach' "$R/RavenWidgetOfficeBridge.kt"
+          grep -F 'RavenSitcomDirectorOS' "$R/RavenGoblinBrain.kt"
+          grep -F 'RavenMetaMaxShowrunnerOS' "$R/RavenGoblinBrain.kt"
+          grep -F 'RavenGoldSitcomTopologyOS' "$R/RavenGoblinBrain.kt"
+          grep -F 'PHONE_REPEAT_SILENT' "$R/RavenPresentationArbiterOS.kt"
+
+      - name: Run recovered unit tests and compile gate
+        working-directory: faeryware/house/iappyxOS-Launcher/src/launcher
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:testDebugUnitTest :app:compileDebugKotlin --stacktrace --console=plain
+
+      - name: Build recovered RavenOS Launcher APK
+        working-directory: faeryware/house/iappyxOS-Launcher/src/launcher
+        run: ./gradlew :app:assembleDebug --stacktrace --console=plain
+
+      - name: Verify and stage recovered APK
+        run: |
+          set -euo pipefail
+          SRC='faeryware/house/iappyxOS-Launcher/src/launcher/app/build/outputs/apk/debug/app-debug.apk'
+          OUT='RavenOS-Launcher-Recovered-All-Upgrades.apk'
+          cp "$SRC" "$OUT"
+          test -s "$OUT"
+          sha256sum "$OUT" | tee "$OUT.sha256"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$AAPT" dump badging "$OUT" | tee RavenOS-Launcher-Recovered-All-Upgrades-badging.txt
+          grep -F "package: name='com.ravenos.launcher'" RavenOS-Launcher-Recovered-All-Upgrades-badging.txt
+          grep -F "application-label:'RavenOS Launcher'" RavenOS-Launcher-Recovered-All-Upgrades-badging.txt
+
+      - name: Upload recovered launcher APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RavenOS-Launcher-Recovered-All-Upgrades
+          path: |
+            RavenOS-Launcher-Recovered-All-Upgrades.apk
+            RavenOS-Launcher-Recovered-All-Upgrades.apk.sha256
+            RavenOS-Launcher-Recovered-All-Upgrades-badging.txt
+            ravenos-launcher/UPGRADE-RECOVERY-MANIFEST.json
+            ravenos-launcher/docs/RECOVERY-INDEX.md
+            ravenos-launcher/device-canary.sh
