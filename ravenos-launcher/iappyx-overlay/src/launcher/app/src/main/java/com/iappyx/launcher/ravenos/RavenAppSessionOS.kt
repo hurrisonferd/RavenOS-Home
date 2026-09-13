@@ -29,13 +29,18 @@ object RavenAppSessionOS {
         val confidence: Int,
         val active: Boolean,
         val paused: Boolean,
+        val transition: String,
+        val sameAppUpdates: Int,
     ) {
         val dwellMs: Long get() = (lastSeenAt - enteredAt).coerceAtLeast(0L)
+        val stillHere: Boolean get() = active && !paused && transition in setOf("STAY", "RESUME", "RETURN", "ENTER", "SWITCH")
         fun compact(now: Long = System.currentTimeMillis()): String = buildString {
             append("APP_SESSION=").append(label.ifBlank { packageName.substringAfterLast('.') })
             append("/").append(kind.ifBlank { "APP" })
+            append(" · BEAT=").append(transition)
             append(" · AGE=").append(((now - lastSeenAt).coerceAtLeast(0L) / 1000L)).append("s")
             append(" · DWELL=").append((dwellMs / 1000L)).append("s")
+            append(" · SAME=").append(sameAppUpdates)
             if (previousLabel.isNotBlank()) append(" · PREV=").append(previousLabel)
             if (returnCount > 0) append(" · RETURNS=").append(returnCount)
             append(" · SOURCE=").append(source)
@@ -65,6 +70,13 @@ object RavenAppSessionOS {
         val semantics = RavenAppSemanticsOS.interpret(app, pkg, label, visibleText, keyboardLike)
         val recent = readRecent(prefs.getString("recent", "").orEmpty()).toMutableList()
         val returning = (changed && recent.any { it == pkg }) || (!changed && wasPaused)
+        val transition = when {
+            oldPkg.isBlank() -> "ENTER"
+            changed && returning -> "RETURN"
+            changed -> "SWITCH"
+            wasPaused -> "RESUME"
+            else -> "STAY"
+        }
         if (changed) {
             recent.remove(pkg)
             recent.add(0, oldPkg)
@@ -74,6 +86,7 @@ object RavenAppSessionOS {
         val enteredAt = if (oldPkg == pkg && !wasPaused) prefs.getLong("entered_at", at).takeIf { it > 0L } ?: at else at
         val switchCount = prefs.getInt("switch_count", 0) + if (changed) 1 else 0
         val returnCount = prefs.getInt("return_count", 0) + if (returning) 1 else 0
+        val sameAppUpdates = if (oldPkg == pkg && !wasPaused) (prefs.getInt("same_app_updates", 0) + 1).coerceAtMost(9999) else 0
         val confidence = sourceConfidence(source)
         prefs.edit()
             .putString("package", pkg)
@@ -86,6 +99,8 @@ object RavenAppSessionOS {
             .putString("previous_label", if (changed) oldLabel else prefs.getString("previous_label", "").orEmpty())
             .putInt("switch_count", switchCount)
             .putInt("return_count", returnCount)
+            .putInt("same_app_updates", sameAppUpdates)
+            .putString("transition", transition)
             .putString("source", source.take(40))
             .putInt("confidence", confidence)
             .putBoolean("paused", false)
@@ -104,6 +119,8 @@ object RavenAppSessionOS {
             .putLong("last_seen_at", at)
             .putString("source", source.take(40))
             .putInt("confidence", maxOf(current.confidence, sourceConfidence(source)))
+            .putInt("same_app_updates", (current.sameAppUpdates + 1).coerceAtMost(9999))
+            .putString("transition", "STAY")
             .putBoolean("paused", false)
             .apply()
         return current(context, at)
@@ -117,6 +134,7 @@ object RavenAppSessionOS {
             .putBoolean("paused", true)
             .putLong("paused_at", at)
             .putString("pause_reason", reason.take(48))
+            .putString("transition", "PAUSED")
             .apply()
     }
 
@@ -143,6 +161,8 @@ object RavenAppSessionOS {
             confidence = prefs.getInt("confidence", 0),
             active = active,
             paused = paused,
+            transition = prefs.getString("transition", if (paused) "PAUSED" else "STAY").orEmpty(),
+            sameAppUpdates = prefs.getInt("same_app_updates", 0),
         )
     }
 
