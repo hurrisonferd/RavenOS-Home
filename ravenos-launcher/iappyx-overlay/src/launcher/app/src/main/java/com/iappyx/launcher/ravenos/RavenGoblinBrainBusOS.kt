@@ -7,7 +7,7 @@ import android.content.Context
  *
  * RavenGoblinBrain settles phone/screen evidence, cast, scene, episode, callbacks and base dialogue.
  * This bus then applies bounded late-stage presentation systems without rewriting evidence:
- * dialogue director -> Omni RV pressure -> meta trick grammar -> anti-repeat -> web knowledge -> receipt.
+ * scene dialogue director -> meta grammar -> optional knowledge -> final conversation director -> receipt.
  */
 object RavenGoblinBrainBusOS {
     data class Result(
@@ -67,8 +67,7 @@ object RavenGoblinBrainBusOS {
         val launcherCritical = packet.signal in setOf("HOME", "HOME_ENTER", "APP_LAUNCH", "SEARCH", "APP_UNIVERSE") &&
             rv.mode in setOf("COCKPIT_OFFLINE", "PHONE_LIMP_HOME")
 
-        // V14 dialogue direction: speech permission/cast/evidence are already settled. This only
-        // replaces weak presentation prose with a more conversational, scene-grounded sitcom line.
+        // First pass: restore strong scene/app specificity before higher-order meta composition.
         if (packet.dialogue.isNotBlank() && !quiet && "DIALOGUE_DIRECTOR" in enabledOrgans) {
             val currentScreen = RavenScreenContextOS.snapshot(app, packet.updatedAt)
             val currentGraph = RavenSceneGraphOS.observe(app, currentScreen, packet.updatedAt)
@@ -145,6 +144,39 @@ object RavenGoblinBrainBusOS {
             }
         } else {
             systems += "KNOWLEDGE_SHED"
+        }
+
+        // Final visible-text pass. Nothing after this may rewrite dialogue into telemetry prose.
+        // Uses only already-settled scene/phone state plus the bounded already-visible Office trace.
+        if (packet.dialogue.isNotBlank() && !quiet && "DIALOGUE_DIRECTOR" in enabledOrgans) {
+            val finalScreen = RavenScreenContextOS.snapshot(app, packet.updatedAt)
+            val finalGraph = RavenSceneGraphOS.observe(app, finalScreen, packet.updatedAt)
+            val finalPhone = RavenPhoneSceneOS.snapshot(app, packet.updatedAt)
+            val conversational = RavenConversationDirectorOS.polish(
+                context = app,
+                member = base.member,
+                packet = packet,
+                screen = finalScreen,
+                graph = finalGraph,
+                phone = finalPhone,
+            )
+            if (conversational.dialogue.isNotBlank()) {
+                packet = packet.copy(
+                    dialogue = conversational.dialogue,
+                    dialogueFamily = listOf(
+                        packet.dialogueFamily,
+                        "CONVERSATION_${conversational.form}",
+                    ).filter(String::isNotBlank).distinct().joinToString("+"),
+                    complexTags = packet.complexTags + setOf(
+                        "CONVERSATION_DIRECTOR",
+                        "CONVERSATION_${conversational.form}",
+                    ),
+                    proof = packet.proof + ":conversation=${conversational.reason}:${conversational.form}"
+                        + if (conversational.previousSpeaker.isBlank()) "" else ":previous_speaker=${conversational.previousSpeaker}",
+                )
+                systems += "CONVERSATION_DIRECTOR"
+                if (conversational.replaced) systems += "CONVERSATION_REWRITE"
+            }
         }
 
         val systemReceipt = systems.distinct().joinToString(">")
