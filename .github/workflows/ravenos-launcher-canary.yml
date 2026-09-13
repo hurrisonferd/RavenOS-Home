@@ -57,9 +57,9 @@ jobs:
           grep -F 'applicationId "com.ravenos.launcher"' "$APP/build.gradle"
           grep -F 'RavenOS Launcher' "$ROOT/res/values/strings.xml"
 
-          # Current whole-phone / SitcomOS / structural-memory crown jewels.
+          # Current whole-phone / SitcomOS / structural-memory / modular-engine crown jewels.
           for f in \
-            RavenGoblinBrain.kt RavenGoblinBrainBusOS.kt RavenGoblinSystemsRegistryOS.kt \
+            RavenGoblinBrain.kt RavenGoblinBrainBusOS.kt RavenGoblinEngineOS.kt RavenGoblinModuleRackOS.kt RavenGoblinExtensionRackOS.kt RavenGoblinSurfaceRouterOS.kt RavenGoblinSystemsRegistryOS.kt \
             RavenSitcomDirectorOS.kt RavenMetaMaxShowrunnerOS.kt RavenGoldSitcomTopologyOS.kt \
             RavenOfficeSeasonOS.kt RavenEpisodeOS.kt RavenEpisodeScriptOS.kt RavenBitLedgerOS.kt \
             RavenOfficeRecallOS.kt RavenSceneGraphOS.kt RavenDialogueVaultOS.kt RavenMetaAntiRepeatOS.kt \
@@ -75,10 +75,17 @@ jobs:
               test -s "$R/$f" || { echo "MISSING_CURRENT_LAUNCHER_ORGAN:$f"; exit 31; }
           done
 
-          # One current event throat, one settled reaction packet, one expression projection path.
-          grep -F 'RavenGoblinBrainBusOS.react' "$R/RavenOfficeBarService.kt"
+          # One current event throat, modular Brain engine, one settled reaction packet.
+          grep -F 'RavenGoblinEngineOS.react' "$R/RavenOfficeBarService.kt"
+          grep -F 'RavenGoblinBrainBusOS.react' "$R/RavenGoblinEngineOS.kt"
+          grep -F 'RavenGoblinModuleRackOS' "$R/RavenGoblinEngineOS.kt"
+          grep -F 'RavenGoblinSurfaceRouterOS.settle' "$R/RavenGoblinEngineOS.kt"
           grep -F 'RavenGoblinBrain.react' "$R/RavenGoblinBrainBusOS.kt"
-          grep -F 'RavenReactionStateStore.write' "$R/RavenOfficeBarService.kt"
+          grep -F 'RavenGoblinModuleRackOS.plan' "$R/RavenGoblinBrainBusOS.kt"
+          grep -F 'RavenGoblinExtensionRackOS.apply' "$R/RavenGoblinBrainBusOS.kt"
+          grep -F 'MODULE_RACK' "$R/RavenGoblinSystemsRegistryOS.kt"
+          grep -F 'LATE_EXTENSION_RACK' "$R/RavenGoblinSystemsRegistryOS.kt"
+          grep -F 'RavenReactionStateStore.write' "$R/RavenGoblinSurfaceRouterOS.kt"
           grep -F 'RavenWidgetGoblinBrainModule.broadcast' "$R/RavenReactionStateStore.kt"
           grep -F 'RavenEmployeeExpressionBridge.decorate' "$R/RavenEmployeePresentation.kt"
           grep -F 'RavenWidgetGoblinBrainModule.attach' "$R/RavenWidgetOfficeBridge.kt"
@@ -108,9 +115,10 @@ jobs:
           test -s RavenOS-Launcher-debug.apk
           sha256sum RavenOS-Launcher-debug.apk | tee RavenOS-Launcher-debug.sha256
 
-      - name: Verify APK package identity
+      - name: Verify APK runtime and package identity
         run: |
           set -euo pipefail
+          python3 ravenos-launcher/verify-built-apk-runtime.py RavenOS-Launcher-debug.apk --require-next-wave
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
           test -x "$AAPT"
           "$AAPT" dump badging RavenOS-Launcher-debug.apk | tee RavenOS-Launcher-badging.txt
@@ -125,6 +133,8 @@ jobs:
             RavenOS-Launcher-debug.apk
             RavenOS-Launcher-debug.sha256
             RavenOS-Launcher-badging.txt
+            ravenos-launcher/APK-BINARY-RECOVERY-MANIFEST-1a660aea.json
+            ravenos-launcher/verify-built-apk-runtime.py
             ravenos-launcher/UPGRADE-RECOVERY-MANIFEST.json
             ravenos-launcher/docs/RECOVERY-INDEX.md
             ravenos-launcher/device-canary.sh
