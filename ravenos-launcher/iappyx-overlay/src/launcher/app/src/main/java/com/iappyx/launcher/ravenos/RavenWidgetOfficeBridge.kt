@@ -10,6 +10,10 @@ import org.json.JSONObject
 /**
  * Read-only RavenOS Office capability for generated widgets.
  * Default deny; presentation state + exact-timestamp proof acknowledgement only.
+ *
+ * This is also the canonical generated-widget attachment throat. Goblin Brain and KnowledgeOS
+ * delegate from here so every launcher build path gets the same recovered bridges even when a
+ * legacy workflow only runs apply-ravenos-overlay.py.
  */
 object RavenWidgetOfficeModule {
     private const val PREFS = "ravenos_widget_capabilities_v1"
@@ -21,6 +25,10 @@ object RavenWidgetOfficeModule {
             OfficeBridge(context.applicationContext, widgetId.trim()),
             "ravenOffice",
         )
+        // RAVENOS WIDGET GOBLIN BRAIN BRIDGE: canonical settled reaction.
+        RavenWidgetGoblinBrainModule.attach(context, webView, widgetId)
+        // RAVENOS WIDGET KNOWLEDGE BRIDGE: bounded read-only brokered knowledge.
+        RavenWidgetKnowledgeModule.attach(context, webView, widgetId)
     }
 
     fun grantOffice(context: Context, widgetId: String) {
@@ -110,6 +118,6 @@ object RavenWidgetOfficeModule {
         }
 
         @JavascriptInterface
-        fun version(): Int = 2
+        fun version(): Int = 3
     }
 }
