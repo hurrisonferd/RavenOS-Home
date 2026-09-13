@@ -1,7 +1,6 @@
 package com.iappyx.launcher.ravenos
 
 import android.content.Context
-import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
@@ -21,6 +20,9 @@ import kotlin.math.abs
 /**
  * GOBLIN VISION cross-app presentation contract.
  * Resident TYPE_APPLICATION_OVERLAY body: CHIP idle, OBSERVING screen-aware, COMMENT earned speech, FEED on tap.
+ *
+ * V14 continuity law: this surface has zero navigation authority. Tap/hold/drag may only mutate the
+ * overlay itself; Goblin Vision must never steal foreground from Suno, ChatGPT, Chrome, or any app.
  */
 object RavenGoblinVisionOverlay {
     private const val PREFS = "ravenos_goblin_vision_v1"
@@ -314,7 +316,7 @@ object RavenGoblinVisionOverlay {
 
         RavenSurfaceIntegrity.mark(
             context, RavenSurfaceIntegrity.FOLLOW_ME, "RENDERED", stateAt,
-            "goblin_vision_meta_overlay_v10:${mode.name.lowercase()}",
+            "goblin_vision_meta_overlay_v14:${mode.name.lowercase()}:no_navigation",
         )
     }
 
@@ -398,12 +400,12 @@ object RavenGoblinVisionOverlay {
     }
 
     private fun wireDrag(context: Context, view: View, params: WindowManager.LayoutParams) {
-        var downX = 0f; var downY = 0f; var startX = 0; var startY = 0; var moved = false; var downAt = 0L
+        var downX = 0f; var downY = 0f; var startX = 0; var startY = 0; var moved = false
         view.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downX = event.rawX; downY = event.rawY; startX = params.x; startY = params.y
-                    downAt = System.currentTimeMillis(); moved = false; true
+                    moved = false; true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = event.rawX - downX; val dy = event.rawY - downY
@@ -419,24 +421,21 @@ object RavenGoblinVisionOverlay {
                     if (moved) edit.putLong(KEY_MANUAL_UNTIL, System.currentTimeMillis() + MANUAL_HOLD_MS)
                     edit.apply()
                     if (!moved) {
-                        val held = System.currentTimeMillis() - downAt
-                        if (held >= 650L) {
-                            try {
-                                context.startActivity(
-                                    Intent(context, RavenHomeActivity::class.java)
-                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
-                                )
-                            } catch (_: Throwable) {}
-                        } else {
-                            collapseRunnable?.let(handler::removeCallbacks)
-                            mode = when (mode) {
-                                Mode.CHIP -> if (lastObservation.isBlank()) Mode.FEED else Mode.OBSERVING
-                                Mode.OBSERVING -> if (lastNote.isBlank()) Mode.FEED else Mode.COMMENT
-                                Mode.COMMENT -> Mode.FEED
-                                Mode.FEED -> Mode.CHIP
-                            }
-                            appContext?.let(::renderCurrent)
+                        collapseRunnable?.let(handler::removeCallbacks)
+                        mode = when (mode) {
+                            Mode.CHIP -> if (lastObservation.isBlank()) Mode.FEED else Mode.OBSERVING
+                            Mode.OBSERVING -> if (lastNote.isBlank()) Mode.FEED else Mode.COMMENT
+                            Mode.COMMENT -> Mode.FEED
+                            Mode.FEED -> Mode.CHIP
                         }
+                        appContext?.let(::renderCurrent)
+                        RavenSurfaceIntegrity.mark(
+                            context,
+                            RavenSurfaceIntegrity.FOLLOW_ME,
+                            "TOGGLED_IN_PLACE",
+                            RavenOfficeStateStore.read(context)?.updatedAt ?: 0L,
+                            "goblin_vision_toggle:no_navigation:${mode.name.lowercase()}",
+                        )
                     }
                     true
                 }
