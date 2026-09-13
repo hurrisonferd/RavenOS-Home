@@ -1,6 +1,6 @@
 package com.iappyx.launcher.ravenos
 
-/** Declarative map of Goblin Brain organs, authority and shedding class. */
+/** Declarative map of Goblin Brain organs, authority, dependencies and shedding class. */
 object RavenGoblinSystemsRegistryOS {
     enum class Stage { INGEST, SCENE, MEMORY, CAST, WRITERS, GOVERN, KNOWLEDGE, PRESENT, SURFACE }
     enum class Cost { CORE, LIGHT, MEDIUM, HEAVY }
@@ -14,6 +14,16 @@ object RavenGoblinSystemsRegistryOS {
     )
 
     val organs = listOf(
+        // Device / launcher ingress modules. These feed the one Office/Goblin event throat.
+        Organ("SCREEN_MONITOR", Stage.INGEST, Cost.LIGHT, "SOURCE"),
+        Organ("PHONE_PULSE", Stage.INGEST, Cost.LIGHT, "SOURCE"),
+        Organ("USAGE_SENSE", Stage.INGEST, Cost.LIGHT, "SOURCE"),
+        Organ("NOTIFICATION_SENSE", Stage.INGEST, Cost.LIGHT, "SOURCE"),
+        Organ("MEDIA_SESSION", Stage.INGEST, Cost.LIGHT, "SOURCE"),
+        Organ("ACCESSIBILITY_READ", Stage.INGEST, Cost.MEDIUM, "OWNER_ARMED_SOURCE"),
+        Organ("COMMAND_ROUTER", Stage.INGEST, Cost.LIGHT, "OWNER_COMMAND"),
+        Organ("SYSTEM_DECK", Stage.INGEST, Cost.LIGHT, "OWNER_COMMAND"),
+
         Organ("MARKER_BUS", Stage.INGEST, Cost.CORE, "OBSERVE"),
         Organ("LOCAL_SENSE", Stage.INGEST, Cost.LIGHT, "OBSERVE", listOf("MARKER_BUS")),
         Organ("SHADE_SENSE", Stage.INGEST, Cost.LIGHT, "OBSERVE", listOf("MARKER_BUS")),
@@ -56,6 +66,7 @@ object RavenGoblinSystemsRegistryOS {
         Organ("INTERRUPTIBILITY", Stage.GOVERN, Cost.LIGHT, "CADENCE", listOf("SCREEN_CONTEXT")),
         Organ("PRESENTATION_ARBITER", Stage.GOVERN, Cost.LIGHT, "CADENCE", listOf("INTERRUPTIBILITY")),
         Organ("OFFICE_GOVERNOR", Stage.GOVERN, Cost.CORE, "LOAD_SHED"),
+        Organ("GOBLIN_ENGINE", Stage.GOVERN, Cost.CORE, "TRANSACTION", listOf("PRESENTATION_ARBITER")),
 
         Organ("KNOWLEDGE_BROKER", Stage.KNOWLEDGE, Cost.HEAVY, "EXTERNAL_CONTEXT", listOf("PRESENTATION_ARBITER")),
         Organ("KNOWLEDGE_CACHE", Stage.KNOWLEDGE, Cost.LIGHT, "EXTERNAL_CONTEXT", listOf("KNOWLEDGE_BROKER")),
@@ -66,17 +77,25 @@ object RavenGoblinSystemsRegistryOS {
         Organ("KAOMOJI_GRAMMAR", Stage.PRESENT, Cost.LIGHT, "PRESENTATION", listOf("SCENE_EXPRESSION")),
         Organ("EXPRESSION_RESERVOIR", Stage.PRESENT, Cost.MEDIUM, "PRESENTATION", listOf("SCENE_EXPRESSION")),
 
-        Organ("OFFICE_BAR", Stage.SURFACE, Cost.CORE, "DISPLAY"),
-        Organ("FOLLOW_ME", Stage.SURFACE, Cost.LIGHT, "DISPLAY"),
-        Organ("GOBLIN_OVERLAY", Stage.SURFACE, Cost.LIGHT, "DISPLAY"),
-        Organ("RAVEN_WIDGET", Stage.SURFACE, Cost.LIGHT, "DISPLAY"),
-        Organ("WATCHLET", Stage.SURFACE, Cost.LIGHT, "DISPLAY"),
+        // One settled packet fans out here. Surfaces do not make an independent dialogue decision.
+        Organ("SURFACE_ROUTER", Stage.SURFACE, Cost.CORE, "SETTLEMENT", listOf("GOBLIN_ENGINE")),
+        Organ("REACTION_STATE", Stage.SURFACE, Cost.CORE, "STATE", listOf("SURFACE_ROUTER")),
+        Organ("OFFICE_STATE", Stage.SURFACE, Cost.CORE, "STATE", listOf("SURFACE_ROUTER")),
+        Organ("OFFICE_TRACE", Stage.SURFACE, Cost.LIGHT, "HISTORY", listOf("OFFICE_STATE")),
+        Organ("OFFICE_BAR", Stage.SURFACE, Cost.CORE, "DISPLAY", listOf("SURFACE_ROUTER")),
+        Organ("HOME_AURA", Stage.SURFACE, Cost.LIGHT, "DISPLAY", listOf("SURFACE_ROUTER")),
+        Organ("HOME_WHISPER", Stage.SURFACE, Cost.LIGHT, "DISPLAY", listOf("SURFACE_ROUTER")),
+        Organ("FOLLOW_ME", Stage.SURFACE, Cost.LIGHT, "DISPLAY", listOf("SURFACE_ROUTER")),
+        Organ("GOBLIN_OVERLAY", Stage.SURFACE, Cost.LIGHT, "DISPLAY", listOf("FOLLOW_ME")),
+        Organ("RAVEN_WIDGET", Stage.SURFACE, Cost.LIGHT, "DISPLAY", listOf("REACTION_STATE")),
+        Organ("WATCHLET", Stage.SURFACE, Cost.LIGHT, "DISPLAY", listOf("REACTION_STATE")),
+        Organ("TASKER_BRIDGE", Stage.SURFACE, Cost.LIGHT, "AUTOMATION_ENVELOPE", listOf("REACTION_STATE")),
+        Organ("WALLPAPER_CHANNEL", Stage.SURFACE, Cost.LIGHT, "DISPLAY", listOf("OFFICE_STATE")),
     )
 
     /**
-     * These organs already execute inside RavenGoblinBrain before the late-stage bus can inspect
-     * Omni RV pressure. They therefore cannot truthfully be reported as shed by the registry.
-     * Keeping this list explicit prevents telemetry from claiming an organ was disabled after it ran.
+     * These organs already execute inside the core reaction transaction before the late-stage bus
+     * can inspect Omni RV pressure. They cannot truthfully be reported as shed after they ran.
      */
     val baseBrainMandatory = setOf(
         "MARKER_BUS", "LOCAL_SENSE", "SHADE_SENSE", "COMPLEX_EVENT",
@@ -87,6 +106,7 @@ object RavenGoblinSystemsRegistryOS {
         "META_COMMENTARY", "META_GOBLIN", "OMNISCIENCE_DIALOGUE", "META_SCENE",
         "RV_RESILIENCE", "INTERRUPTIBILITY", "PRESENTATION_ARBITER",
         "EMPLOYEE_PRESENTATION", "SCENE_EXPRESSION",
+        "GOBLIN_ENGINE", "SURFACE_ROUTER", "REACTION_STATE", "OFFICE_STATE", "OFFICE_BAR",
     )
 
     fun compact(): String {
@@ -102,5 +122,32 @@ object RavenGoblinSystemsRegistryOS {
             RavenOmniRvExpressionBudget.Pressure.HOT -> organ.cost in setOf(Cost.CORE, Cost.LIGHT)
             RavenOmniRvExpressionBudget.Pressure.CRITICAL -> organ.cost == Cost.CORE
         }
+    }
+
+    /** Fail-readable dependency audit used by the engine and recovery canary. */
+    fun validateGraph(): List<String> {
+        val issues = mutableListOf<String>()
+        val ids = organs.map { it.id }
+        ids.groupingBy { it }.eachCount().filterValues { it > 1 }.keys.forEach { issues += "duplicate:$it" }
+        val known = ids.toSet()
+        organs.forEach { organ ->
+            organ.dependsOn.filterNot { it in known }.forEach { issues += "missing:${organ.id}->$it" }
+        }
+
+        val dependencies = organs.associate { it.id to it.dependsOn }
+        val visiting = mutableSetOf<String>()
+        val visited = mutableSetOf<String>()
+        fun visit(id: String) {
+            if (id in visited) return
+            if (!visiting.add(id)) {
+                issues += "cycle:$id"
+                return
+            }
+            dependencies[id].orEmpty().forEach(::visit)
+            visiting.remove(id)
+            visited += id
+        }
+        ids.forEach(::visit)
+        return issues.distinct()
     }
 }
