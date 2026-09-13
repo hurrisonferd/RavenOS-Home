@@ -28,6 +28,7 @@ object RavenAppSessionOS {
         val source: String,
         val confidence: Int,
         val active: Boolean,
+        val paused: Boolean,
     ) {
         val dwellMs: Long get() = (lastSeenAt - enteredAt).coerceAtLeast(0L)
         fun compact(now: Long = System.currentTimeMillis()): String = buildString {
@@ -39,7 +40,7 @@ object RavenAppSessionOS {
             if (returnCount > 0) append(" · RETURNS=").append(returnCount)
             append(" · SOURCE=").append(source)
             append(" · CONF=").append(confidence)
-            append(" · ").append(if (active) "ACTIVE" else "STALE")
+            append(" · ").append(if (paused) "PAUSED" else if (active) "ACTIVE" else "STALE")
         }
     }
 
@@ -58,18 +59,19 @@ object RavenAppSessionOS {
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val oldPkg = prefs.getString("package", "").orEmpty()
         val oldLabel = prefs.getString("label", "").orEmpty()
+        val wasPaused = prefs.getBoolean("paused", false)
         val changed = oldPkg.isNotBlank() && oldPkg != pkg
         val label = packageLabel(app, pkg)
         val semantics = RavenAppSemanticsOS.interpret(app, pkg, label, visibleText, keyboardLike)
         val recent = readRecent(prefs.getString("recent", "").orEmpty()).toMutableList()
-        val returning = changed && recent.any { it == pkg }
+        val returning = (changed && recent.any { it == pkg }) || (!changed && wasPaused)
         if (changed) {
             recent.remove(pkg)
             recent.add(0, oldPkg)
             while (recent.size > RECENT_MAX) recent.removeAt(recent.lastIndex)
         }
 
-        val enteredAt = if (oldPkg == pkg) prefs.getLong("entered_at", at).takeIf { it > 0L } ?: at else at
+        val enteredAt = if (oldPkg == pkg && !wasPaused) prefs.getLong("entered_at", at).takeIf { it > 0L } ?: at else at
         val switchCount = prefs.getInt("switch_count", 0) + if (changed) 1 else 0
         val returnCount = prefs.getInt("return_count", 0) + if (returning) 1 else 0
         val confidence = sourceConfidence(source)
@@ -86,6 +88,7 @@ object RavenAppSessionOS {
             .putInt("return_count", returnCount)
             .putString("source", source.take(40))
             .putInt("confidence", confidence)
+            .putBoolean("paused", false)
             .putString("recent", recent.filter(String::isNotBlank).distinct().take(RECENT_MAX).joinToString(","))
             .apply()
         return current(app, at)
@@ -94,15 +97,27 @@ object RavenAppSessionOS {
     /** Touches the current app without changing ownership; useful for repeated same-app windows. */
     fun touch(context: Context, packageName: String, source: String, at: Long = System.currentTimeMillis()): Session? {
         val current = current(context, at, allowStale = true)
-        if (current == null || current.packageName != packageName || isTransientPackage(packageName)) {
+        if (current == null || current.packageName != packageName || isTransientPackage(packageName) || current.paused) {
             return observe(context, packageName, source, at = at)
         }
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putLong("last_seen_at", at)
             .putString("source", source.take(40))
             .putInt("confidence", maxOf(current.confidence, sourceConfidence(source)))
+            .putBoolean("paused", false)
             .apply()
         return current(context, at)
+    }
+
+    /** Screen-off / launcher transitions suspend the claim without deleting the return path. */
+    fun pause(context: Context, reason: String, at: Long = System.currentTimeMillis()) {
+        val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (prefs.getString("package", "").orEmpty().isBlank()) return
+        prefs.edit()
+            .putBoolean("paused", true)
+            .putLong("paused_at", at)
+            .putString("pause_reason", reason.take(48))
+            .apply()
     }
 
     fun current(context: Context, now: Long = System.currentTimeMillis(), allowStale: Boolean = false): Session? {
@@ -110,7 +125,8 @@ object RavenAppSessionOS {
         val pkg = prefs.getString("package", "").orEmpty()
         if (pkg.isBlank()) return null
         val lastSeen = prefs.getLong("last_seen_at", 0L)
-        val active = lastSeen > 0L && now - lastSeen <= ACTIVE_LEASE_MS
+        val paused = prefs.getBoolean("paused", false)
+        val active = !paused && lastSeen > 0L && now - lastSeen <= ACTIVE_LEASE_MS
         if (!active && !allowStale) return null
         return Session(
             packageName = pkg,
@@ -126,6 +142,7 @@ object RavenAppSessionOS {
             source = prefs.getString("source", "UNKNOWN").orEmpty(),
             confidence = prefs.getInt("confidence", 0),
             active = active,
+            paused = paused,
         )
     }
 
