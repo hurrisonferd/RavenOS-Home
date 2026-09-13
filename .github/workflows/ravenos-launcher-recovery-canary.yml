@@ -52,7 +52,7 @@ jobs:
           grep -F 'applicationId "com.ravenos.launcher"' "$APP/build.gradle"
           grep -F 'RavenOS Launcher' "$ROOT/res/values/strings.xml"
           for f in \
-            RavenGoblinBrain.kt RavenGoblinBrainBusOS.kt RavenGoblinEngineOS.kt RavenGoblinSurfaceRouterOS.kt RavenGoblinSystemsRegistryOS.kt \
+            RavenGoblinBrain.kt RavenGoblinBrainBusOS.kt RavenGoblinEngineOS.kt RavenGoblinModuleRackOS.kt RavenGoblinExtensionRackOS.kt RavenGoblinSurfaceRouterOS.kt RavenGoblinSystemsRegistryOS.kt \
             RavenSitcomDirectorOS.kt RavenMetaMaxShowrunnerOS.kt RavenGoldSitcomTopologyOS.kt \
             RavenOfficeSeasonOS.kt RavenEpisodeOS.kt RavenEpisodeScriptOS.kt RavenBitLedgerOS.kt \
             RavenOfficeRecallOS.kt RavenSceneGraphOS.kt RavenDialogueVaultOS.kt RavenMetaAntiRepeatOS.kt \
@@ -67,12 +67,19 @@ jobs:
             RavenWidgetKnowledgeModule.kt; do
               test -s "$R/$f" || { echo "MISSING_RECOVERED_CROWN_JEWEL:$f"; exit 31; }
           done
-          # Current authority chain: Office is a host/transport, Engine owns the transaction.
+          # Current authority chain: Office is a host/transport; the modular Goblin Brain owns the transaction.
           grep -F 'RavenGoblinEngineOS.react' "$R/RavenOfficeBarService.kt"
           grep -F 'RavenGoblinBrainBusOS.react' "$R/RavenGoblinEngineOS.kt"
+          grep -F 'RavenGoblinModuleRackOS' "$R/RavenGoblinEngineOS.kt"
           grep -F 'RavenGoblinSurfaceRouterOS.settle' "$R/RavenGoblinEngineOS.kt"
           grep -F 'RavenGoblinSystemsRegistryOS.validateGraph' "$R/RavenGoblinEngineOS.kt"
           grep -F 'RavenGoblinBrain.react' "$R/RavenGoblinBrainBusOS.kt"
+          grep -F 'RavenGoblinModuleRackOS.plan' "$R/RavenGoblinBrainBusOS.kt"
+          grep -F 'RavenGoblinExtensionRackOS.apply' "$R/RavenGoblinBrainBusOS.kt"
+          grep -F 'MODULE_RACK' "$R/RavenGoblinSystemsRegistryOS.kt"
+          grep -F 'LATE_EXTENSION_RACK' "$R/RavenGoblinSystemsRegistryOS.kt"
+          grep -F 'dependency:' "$R/RavenGoblinModuleRackOS.kt"
+          grep -F 'interface Extension' "$R/RavenGoblinExtensionRackOS.kt"
           grep -F 'RavenWidgetGoblinBrainModule.broadcast' "$R/RavenReactionStateStore.kt"
           grep -F 'RavenEmployeeExpressionBridge.decorate' "$R/RavenEmployeePresentation.kt"
           grep -F 'RavenWidgetGoblinBrainModule.attach' "$R/RavenWidgetOfficeBridge.kt"
