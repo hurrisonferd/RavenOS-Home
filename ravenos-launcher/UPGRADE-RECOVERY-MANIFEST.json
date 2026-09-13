@@ -1,40 +1,56 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "authority": "RAVEN",
   "product": "RavenOS Launcher",
   "package": "com.ravenos.launcher",
-  "current_baseline": {
+  "physical_apk_baseline": {
     "repository": "hurrisonferd/RavenOS-Home",
     "branch": "ravenos-launcher-whole-phone",
     "sha": "1a660aea0450d3946b3a6e8c61e86854807f1a95",
-    "uploaded_apk_name": "RavenOS-Launcher-ScreenFirst-KaomojiOS-1a660aea(1).apk"
+    "uploaded_apk_name": "RavenOS-Launcher-ScreenFirst-KaomojiOS-1a660aea(1).apk",
+    "law": "This identifies the uploaded/scoured APK, not the moving source head."
   },
-  "integration_branch": "ravenos-launcher-recovery-integration-20260912",
+  "current_baseline": {
+    "repository": "hurrisonferd/RavenOS-Home",
+    "branch": "ravenos-launcher-whole-phone",
+    "sha": "1a660aea0450d3946b3a6e8c61e86854807f1a95"
+  },
+  "working_source": {
+    "branch": "ravenos-launcher-recovery-integration-20260912",
+    "head_policy": "TRACK_BRANCH_HEAD",
+    "role": "screen-first + Kaomoji + recovered organs + modular Goblin Engine"
+  },
   "recovered_lineages": [
-    {"name":"whole-phone current","sha":"1a660aea0450d3946b3a6e8c61e86854807f1a95","role":"overlap authority"},
+    {"name":"whole-phone current","sha":"1a660aea0450d3946b3a6e8c61e86854807f1a95","role":"physical APK and overlap authority"},
     {"name":"Sat-X expression/meta","sha":"f6ae31240cd318fb96b0eea9c13916ff12583b7f","role":"additive expression/meta/knowledge organs"},
     {"name":"Goblin Brain v4","sha":"015f118a66cb9d5fa7c026baeca24ae462784ee5","role":"lineage checkpoint; Sat-X supersedes overlapping additive organs"},
     {"name":"Crown Jewels","sha":"18fd197e13c657a2b1424563addca2d951d43c01","role":"build/recovery lineage; failed workflow is evidence, not authority"},
     {"name":"Haunted Sauce","sha":"1c7b9de6faa296dbcb25fb9670c3caf19090d456","role":"presentation lineage only; never overwrite newer screen-first presenter"}
   ],
   "laws": [
-    "CURRENT_WHOLE_PHONE_WINS_ON_OVERLAP",
+    "CURRENT_SCREEN_FIRST_WINS_ON_OVERLAP",
     "RECOVERED_ADDITIVE_ORGANS_MUST_REMAIN_PRESENT",
+    "GOBLIN_ENGINE_IS_CANONICAL_REACTION_TRANSACTION",
+    "ONE_SETTLED_REACTION_PACKET_FEEDS_ALL_SURFACES",
+    "SURFACES_MAY_PROJECT_BUT_MAY_NOT_INVENT_SECOND_DIALOGUE_AUTHORITY",
     "SCREEN_FIRST_PRESENTATION_MUST_NOT_REGRESS",
     "RECURRENCE_COUNTS_DO_NOT_EARN_SPEECH",
     "SCRATCH_RECEIPTS_ARE_NOT_RUNTIME_ORGANS",
     "MANIFEST_IS_RECOVERY_AUTHORITY_NOT_DEVICE_PROOF"
   ],
   "feature_groups": {
+    "engine": ["RavenGoblinEngineOS","RavenGoblinBrainBusOS","RavenGoblinSystemsRegistryOS","RavenGoblinSurfaceRouterOS"],
     "expression": ["RavenEmployeeExpressionBridge","RavenEmojiKaomojiProjection","RavenExpressionSelectorOS","RavenKaomojiGrammarOS","RavenKaomojiExpansionBank","RavenExpressionOwnerBias","RavenExpressionSurfacePolicy"],
     "meta_dialogue": ["RavenGoblinMetaPipelineOS","RavenMetaDialogueEngine","RavenMetaDialogueRenderer","RavenMetaGrammarOS","RavenMetaAntiRepeatOS","RavenDialogueTrickDeck","RavenSilenceGagOS"],
-    "brain_bus": ["RavenGoblinBrainBusOS","RavenGoblinSystemsRegistryOS"],
     "knowledge": ["RavenKnowledgeBrokerOS","RavenKnowledgePolicyOS","RavenKnowledgeProviderOS","RavenKnowledgeStateStore","RavenKnowledgeWorker"],
-    "surfaces": ["RavenWidgetGoblinBrainModule","RavenWidgetKnowledgeModule"],
+    "surfaces": ["RavenReactionStateStore","RavenOfficeStateStore","RavenOfficeTraceStore","RavenGoblinVisionOverlay","RavenFollowMeOverlay","RavenWidgetGoblinBrainModule","RavenWidgetKnowledgeModule","RavenWatchletOS","RavenTaskerBridge"],
+    "sources": ["RavenScreenMonitor","RavenPhonePulseMonitor","RavenUsageSenseOS","RavenNotificationSenseOS","RavenMediaSessionSenseOS","RavenAccessibilityReadOS","RavenCommandRouter","RavenSystemDeck"],
     "resource_budget": ["RavenOmniRvExpressionBudget"]
   },
   "required_files": [
     "ravenos-launcher/iappyx-overlay/src/launcher/SAT-X-EXPRESSION-META-NOTES.md",
+    "ravenos-launcher/iappyx-overlay/src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenGoblinEngineOS.kt",
+    "ravenos-launcher/iappyx-overlay/src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenGoblinSurfaceRouterOS.kt",
     "ravenos-launcher/iappyx-overlay/src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenDialogueTrickDeck.kt",
     "ravenos-launcher/iappyx-overlay/src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenEmojiKaomojiProjection.kt",
     "ravenos-launcher/iappyx-overlay/src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenEmojiReactionBank.kt",
@@ -83,9 +99,12 @@
     "ravenos-launcher/verify-recovery-manifest.py"
   ],
   "required_contains": {
-    "ravenos-launcher/iappyx-overlay/src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt": ["RavenGoblinBrainBusOS.react"],
-    "ravenos-launcher/iappyx-overlay/src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenReactionStateStore.kt": ["RavenWidgetGoblinBrainModule.broadcast"],
+    "ravenos-launcher/iappyx-overlay/src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenOfficeBarService.kt": ["RavenGoblinEngineOS.react"],
+    "ravenos-launcher/iappyx-overlay/src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenGoblinEngineOS.kt": ["RavenGoblinBrainBusOS.react", "RavenGoblinSurfaceRouterOS.settle", "RavenGoblinSystemsRegistryOS.validateGraph"],
+    "ravenos-launcher/iappyx-overlay/src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenGoblinSurfaceRouterOS.kt": ["RavenReactionStateStore.write", "RavenOfficeStateStore.write", "RavenGoblinVisionOverlay.renderReaction"],
+    "ravenos-launcher/iappyx-overlay/src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenReactionStateStore.kt": ["RavenWidgetGoblinBrainModule.broadcast", "RavenWatchletOS.render", "RavenTaskerBridge.emit"],
     "ravenos-launcher/iappyx-overlay/src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenEmployeePresentation.kt": ["RavenEmployeeExpressionBridge.decorate"],
+    "ravenos-launcher/iappyx-overlay/src/launcher/app/src/main/java/com/iappyx/launcher/ravenos/RavenGoblinSystemsRegistryOS.kt": ["GOBLIN_ENGINE", "SURFACE_ROUTER", "NOTIFICATION_SENSE", "MEDIA_SESSION", "ACCESSIBILITY_READ", "fun validateGraph()"],
     "ravenos-launcher/build.sh": ["patch-ravenos-knowledge-widget.py", "verify-recovery-manifest.py"],
     "ravenos-launcher/iappyx-overlay/src/launcher/app/build.gradle": ["androidx.work:work-runtime-ktx"]
   }
