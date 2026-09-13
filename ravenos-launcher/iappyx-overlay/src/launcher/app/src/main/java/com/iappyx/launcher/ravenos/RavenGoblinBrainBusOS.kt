@@ -69,7 +69,7 @@ object RavenGoblinBrainBusOS {
 
         // V14 dialogue direction: speech permission/cast/evidence are already settled. This only
         // replaces weak presentation prose with a more conversational, scene-grounded sitcom line.
-        if (packet.dialogue.isNotBlank() && !quiet) {
+        if (packet.dialogue.isNotBlank() && !quiet && "DIALOGUE_DIRECTOR" in enabledOrgans) {
             val currentScreen = RavenScreenContextOS.snapshot(app, packet.updatedAt)
             val currentGraph = RavenSceneGraphOS.observe(app, currentScreen, packet.updatedAt)
             val currentPhone = RavenPhoneSceneOS.snapshot(app, packet.updatedAt)
@@ -92,6 +92,8 @@ object RavenGoblinBrainBusOS {
                 systems += "DIALOGUE_DIRECTOR"
                 if (directed.replaced) systems += "DIALOGUE_REWRITE"
             }
+        } else if (packet.dialogue.isNotBlank() && "DIALOGUE_DIRECTOR" !in enabledOrgans) {
+            systems += "DIALOGUE_DIRECTOR_SHED"
         }
 
         if (packet.dialogue.isNotBlank() && "META_GRAMMAR" in enabledOrgans) {
