@@ -41,6 +41,15 @@ class RavenForegroundAwarenessService : AccessibilityService() {
 
         val packageChanged = packageName != lastPackage
         val surfaceChanged = packageChanged || className != lastClass || windowId != lastWindowId
+
+        // Accessibility package identity is the strongest structural foreground witness. Keep it in
+        // a dedicated session so notifications/media/SystemUI do not steal foreground ownership.
+        if (packageChanged) {
+            RavenAppSessionOS.observe(this, packageName, "accessibility-window", at = now)
+        } else {
+            RavenAppSessionOS.touch(this, packageName, "accessibility-window", at = now)
+        }
+
         if (surfaceChanged || now - lastAt >= 900L) {
             val signal = if (packageChanged) "FOREGROUND_APP" else "FOREGROUND_WINDOW"
             val detail = buildString {
@@ -123,10 +132,19 @@ class RavenForegroundAwarenessService : AccessibilityService() {
             ?: return
 
         lastSemanticAt = now
+        RavenAppSessionOS.touch(this, selected.pkg, "accessibility-semantics", at = now)
         RavenAccessibilityReadOS.observe(this, selected.pkg, selected.root)
     }
 
     override fun onInterrupt() {
-        RavenOfficeBarService.signal(this, "HOME", "foreground-awareness:interrupted")
+        // Accessibility interruption is not evidence that Raven returned Home. Retain the last
+        // foreground session until a real ordinary-app, launcher, screen-off, or usage event settles it.
+        RavenSurfaceIntegrity.mark(
+            this,
+            RavenSurfaceIntegrity.FOLLOW_ME,
+            "CONTEXT_HOLD",
+            RavenOfficeStateStore.read(this)?.updatedAt ?: 0L,
+            "accessibility_interrupted_scene_retained",
+        )
     }
 }
