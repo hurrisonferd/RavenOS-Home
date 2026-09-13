@@ -28,11 +28,11 @@ object RavenCommandRouter {
             val requested = normalized.removePrefix("haunt ").trim()
             if (requested == "next" || requested == "cycle") {
                 val next = RavenHauntModeStore.cycle(context)
-                RavenOfficeBarService.setHaunt(context, next)
+                RavenGoblinEngineOS.setHaunt(context, next)
                 return Result(true, "haunt ${next.label}")
             }
             RavenHauntModeStore.parse(requested)?.let { mode ->
-                RavenOfficeBarService.setHaunt(context, mode)
+                RavenGoblinEngineOS.setHaunt(context, mode)
                 return Result(true, "haunt ${mode.label}")
             }
         }
@@ -57,13 +57,15 @@ object RavenCommandRouter {
                 Result(true, "dialogue fingerprints, expression usage, and structural scene history cleared")
             }
             "next drop", "goblin next drop" -> {
-                RavenOfficeBarService.signal(context, "NEXT_DROP", "owner:command")
+                RavenGoblinEngineOS.signal(context, "NEXT_DROP", "owner:command")
                 Result(true, "next drop")
             }
             "goblin status", "goblin brain", "brain status" -> {
                 val why = RavenEvidenceBoard.why(context).replace('\n', ' ')
                 Result(true, "GOBLIN BRAIN ACTIVE · $why · ${RavenDialogueVaultOS.compact(context)} · ${RavenOfficeRecallOS.compact(context)}")
             }
+            "goblin modules", "brain modules", "engine status", "module rack", "goblin engine" ->
+                Result(true, RavenGoblinEngineOS.status(context))
             "quick deck", "quick controls", "controls", "sound controls" -> {
                 val activity = context as? LauncherActivity ?: return Result(false)
                 RavenQuickControls.show(activity)
@@ -86,22 +88,22 @@ object RavenCommandRouter {
             }
             "haunt", "haunt next", "next haunt" -> {
                 val next = RavenHauntModeStore.cycle(context)
-                RavenOfficeBarService.setHaunt(context, next)
+                RavenGoblinEngineOS.setHaunt(context, next)
                 Result(true, "haunt ${next.label}")
             }
             "haunt status", "haunting status" -> Result(true, "haunt ${RavenHauntModeStore.get(context).label}")
             "normal", "ringer normal" -> Result(RavenSystemDeck.setRingerMode(context, AudioManager.RINGER_MODE_NORMAL), "ringer normal")
             "vibrate", "ringer vibrate" -> Result(RavenSystemDeck.setRingerMode(context, AudioManager.RINGER_MODE_VIBRATE), "ringer vibrate")
             "silent", "ringer silent" -> Result(RavenSystemDeck.setRingerMode(context, AudioManager.RINGER_MODE_SILENT), "ringer silent")
-            "office next", "next office", "next member" -> { RavenOfficeBarService.next(context); Result(true, "office next") }
-            "office auto", "auto office" -> { RavenOfficeBarService.auto(context); Result(true, "office auto") }
-            "office quiet", "quiet office", "quiet" -> { RavenOfficeBarService.toggleQuiet(context); Result(true, "office quiet") }
+            "office next", "next office", "next member" -> { RavenGoblinEngineOS.next(context); Result(true, "office next") }
+            "office auto", "auto office" -> { RavenGoblinEngineOS.auto(context); Result(true, "office auto") }
+            "office quiet", "quiet office", "quiet" -> { RavenGoblinEngineOS.toggleQuiet(context); Result(true, "office quiet") }
             "office wake", "wake office", "wake bar" -> {
-                RavenOfficeBarService.enable(context)
-                RavenOfficeBarService.signal(context, "SEARCH", "command:office-wake")
+                RavenGoblinEngineOS.enable(context)
+                RavenGoblinEngineOS.signal(context, "SEARCH", "command:office-wake")
                 Result(true, "office wake")
             }
-            "office sleep", "sleep office", "sleep bar" -> { RavenOfficeBarService.disable(context); Result(true, "office sleep") }
+            "office sleep", "sleep office", "sleep bar" -> { RavenGoblinEngineOS.disable(context); Result(true, "office sleep") }
             "office trace", "trace office", "routing trace" -> Result(true, RavenOfficeTraceStore.compact(context, 8))
             "clear office trace", "office trace clear" -> { RavenOfficeTraceStore.clear(context); Result(true, "office trace cleared") }
             "office cadence", "cadence office", "office governor" -> Result(true, RavenOfficeGovernor.compact(context))
@@ -115,8 +117,8 @@ object RavenCommandRouter {
             "follow me", "follow me on", "overlay on", "office overlay" -> {
                 val enabled = RavenFollowMeOverlay.enable(context)
                 if (enabled) {
-                    RavenOfficeBarService.enable(context)
-                    RavenOfficeBarService.signal(context, "SEARCH", "command:follow-me-on")
+                    RavenGoblinEngineOS.enable(context)
+                    RavenGoblinEngineOS.signal(context, "SEARCH", "command:follow-me-on")
                     Result(true, "follow-me on")
                 } else {
                     val activity = context as? Activity
@@ -128,7 +130,7 @@ object RavenCommandRouter {
             }
             "follow me off", "overlay off", "hide office" -> {
                 RavenFollowMeOverlay.disable(context)
-                RavenOfficeBarService.signal(context, "SEARCH", "command:follow-me-off")
+                RavenGoblinEngineOS.signal(context, "SEARCH", "command:follow-me-off")
                 Result(true, "follow-me off")
             }
             "raven status", "launcher status", "awareness status" -> {
@@ -151,7 +153,7 @@ object RavenCommandRouter {
                     val owner = normalized.removePrefix("office ").trim().uppercase()
                     val member = RavenOfficeRegistry.member(owner)
                     if (member?.routable == true) {
-                        RavenOfficeBarService.pin(context, member.id)
+                        RavenGoblinEngineOS.pin(context, member.id)
                         Result(true, "office ${member.id}")
                     } else Result(false)
                 } else Result(false)
