@@ -15,7 +15,7 @@
   "source_alignment": {
     "physical_baseline": "1a660aea0450d3946b3a6e8c61e86854807f1a95",
     "generation": "SCREEN_FIRST_KAOMOJIOS_V2",
-    "newer_source_upgrade_pool": "8aa878f69f0eaf1e0350964f83634c6b72ceb29e",
+    "newer_source_upgrade_pool": "ravenos-launcher-recovery-integration-20260912@TRACK_BRANCH_HEAD",
     "rule": "APK presence is proven only by compiled DEX; source-only organs are not APK-proven.",
     "upgrade_pool_branch": "ravenos-launcher-recovery-integration-20260912"
   },
@@ -198,7 +198,9 @@
     "RavenExpressionSurfacePolicy",
     "RavenGoblinBrainBusOS",
     "RavenGoblinEngineOS",
+    "RavenGoblinExtensionRackOS",
     "RavenGoblinMetaPipelineOS",
+    "RavenGoblinModuleRackOS",
     "RavenGoblinSurfaceRouterOS",
     "RavenGoblinSystemsRegistryOS",
     "RavenKaomojiExpansionBank",
