@@ -6,8 +6,8 @@ import android.content.Context
  * Canonical RavenOS meta bus.
  *
  * RavenGoblinBrain settles phone/screen evidence, cast, scene, episode, callbacks and base dialogue.
- * This bus then applies bounded late-stage systems that may decorate but never rewrite evidence:
- * Omni RV pressure -> meta trick grammar -> anti-repeat -> web knowledge -> final packet receipt.
+ * This bus then applies bounded late-stage presentation systems without rewriting evidence:
+ * dialogue director -> Omni RV pressure -> meta trick grammar -> anti-repeat -> web knowledge -> receipt.
  */
 object RavenGoblinBrainBusOS {
     data class Result(
@@ -66,6 +66,33 @@ object RavenGoblinBrainBusOS {
         }
         val launcherCritical = packet.signal in setOf("HOME", "HOME_ENTER", "APP_LAUNCH", "SEARCH", "APP_UNIVERSE") &&
             rv.mode in setOf("COCKPIT_OFFLINE", "PHONE_LIMP_HOME")
+
+        // V14 dialogue direction: speech permission/cast/evidence are already settled. This only
+        // replaces weak presentation prose with a more conversational, scene-grounded sitcom line.
+        if (packet.dialogue.isNotBlank() && !quiet) {
+            val currentScreen = RavenScreenContextOS.snapshot(app, packet.updatedAt)
+            val currentGraph = RavenSceneGraphOS.observe(app, currentScreen, packet.updatedAt)
+            val currentPhone = RavenPhoneSceneOS.snapshot(app, packet.updatedAt)
+            val directed = RavenDialogueDirectorOS.rewrite(
+                context = app,
+                member = base.member,
+                packet = packet,
+                screen = currentScreen,
+                graph = currentGraph,
+                phone = currentPhone,
+            )
+            if (directed.dialogue.isNotBlank()) {
+                packet = packet.copy(
+                    dialogue = directed.dialogue,
+                    dialogueFamily = listOf(packet.dialogueFamily, directed.family)
+                        .filter(String::isNotBlank).distinct().joinToString("+"),
+                    complexTags = packet.complexTags + setOf("DIALOGUE_DIRECTOR", "DIALOGUE_${directed.form}"),
+                    proof = packet.proof + ":dialogue_director=${directed.reason}:${directed.form}",
+                )
+                systems += "DIALOGUE_DIRECTOR"
+                if (directed.replaced) systems += "DIALOGUE_REWRITE"
+            }
+        }
 
         if (packet.dialogue.isNotBlank() && "META_GRAMMAR" in enabledOrgans) {
             val meta = RavenGoblinMetaPipelineOS.enrich(
