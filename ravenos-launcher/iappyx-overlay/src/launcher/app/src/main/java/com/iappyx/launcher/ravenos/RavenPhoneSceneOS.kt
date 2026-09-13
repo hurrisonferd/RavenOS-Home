@@ -18,9 +18,24 @@ object RavenPhoneSceneOS {
         val goblinEyeActive: Boolean,
         val lastVisualMotion: Int?,
         val recentKeys: List<String>,
+        val appPackage: String? = null,
+        val appKind: String? = null,
+        val appSummary: String? = null,
+        val appContinuity: String = "UNKNOWN",
+        val appDwellSeconds: Long = 0L,
+        val appReturnCount: Int = 0,
+        val appPrevious: String? = null,
+        val appConfidence: Int = 0,
+        val appSource: String? = null,
+        val sameAppUpdates: Int = 0,
     ) {
+        val sameApp: Boolean get() = appContinuity in setOf("STAY", "RESUME", "RETURN")
         fun compact(): String = buildString {
             append("FOCUS=").append(activeApp ?: "?")
+            if (appContinuity != "UNKNOWN") append(" · APP_BEAT=").append(appContinuity)
+            if (appDwellSeconds > 0) append(" · DWELL=").append(appDwellSeconds).append("s")
+            if (sameAppUpdates > 0) append(" · SAME=").append(sameAppUpdates)
+            if (!appPrevious.isNullOrBlank()) append(" · PREV=").append(appPrevious)
             append(" · SCREEN=").append(screen)
             append(" · MUSIC=").append(if (mediaHot) "HOT" else "QUIET")
             mediaTitle?.let { append(" · TRACK=").append(it.take(34)) }
@@ -36,11 +51,15 @@ object RavenPhoneSceneOS {
 
     fun snapshot(context: Context, now: Long = System.currentTimeMillis()): Scene {
         val recent = RavenMarkerBus.recent(context, 64)
+        val appSession = RavenAppSessionOS.current(context, now)
         val focusMarker = recent.asReversed().firstOrNull {
             it.key == "APP_ENTER" || it.key == "HOME_ENTER" || it.key == "SYSTEM_DECK_OPENED" ||
                 it.key == "SEARCH_OPENED" || it.key == "APP_UNIVERSE_OPENED"
         }
-        val focus = when (focusMarker?.key) {
+        // A live ordinary-app session is the foreground authority. Marker-based Home/Search/System
+        // Deck labels are fallback only, so notifications/unlock/overlay callbacks cannot steal the
+        // scene from Suno, ChatGPT, Chrome, or any other app the owner is still using.
+        val focus = appSession?.label?.ifBlank { appSession.packageName.substringAfterLast('.') } ?: when (focusMarker?.key) {
             "APP_ENTER" -> appLabel(focusMarker)
             "HOME_ENTER" -> "RavenOS Home"
             "SYSTEM_DECK_OPENED" -> "System Deck"
@@ -87,6 +106,16 @@ object RavenPhoneSceneOS {
             goblinEyeActive = RavenScreenWatchService.isActive(context),
             lastVisualMotion = visual?.let { field(it.detail, "motion")?.toIntOrNull() },
             recentKeys = recent.takeLast(7).map { it.key },
+            appPackage = appSession?.packageName,
+            appKind = appSession?.kind,
+            appSummary = appSession?.summary,
+            appContinuity = appSession?.transition ?: "UNKNOWN",
+            appDwellSeconds = appSession?.dwellMs?.div(1000L) ?: 0L,
+            appReturnCount = appSession?.returnCount ?: 0,
+            appPrevious = appSession?.previousLabel,
+            appConfidence = appSession?.confidence ?: 0,
+            appSource = appSession?.source,
+            sameAppUpdates = appSession?.sameAppUpdates ?: 0,
         )
     }
 
