@@ -11,6 +11,9 @@ git -C "$ROOT" submodule update --init --recursive faeryware/house/iappyxOS-Laun
 printf 'RavenOS Launcher: apply Faeryware HOUSE + RavenOS overlays\n'
 python3 "$HERE/apply-ravenos-overlay.py"
 
+printf 'RavenOS Launcher: apply KnowledgeOS widget bridge\n'
+python3 "$HERE/patch-ravenos-knowledge-widget.py"
+
 printf 'RavenOS Launcher: apply ergonomics + haunted ecology\n'
 python3 "$HERE/patch-ravenos-ergonomics.py" "$UPSTREAM"
 
