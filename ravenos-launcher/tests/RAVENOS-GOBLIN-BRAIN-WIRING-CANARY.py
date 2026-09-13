@@ -24,6 +24,8 @@ def main() -> int:
     router = text("RavenGoblinSurfaceRouterOS.kt")
     bus = text("RavenGoblinBrainBusOS.kt")
     brain = text("RavenGoblinBrain.kt")
+    module_rack = text("RavenGoblinModuleRackOS.kt")
+    extension_rack = text("RavenGoblinExtensionRackOS.kt")
     store = text("RavenReactionStateStore.kt")
     overlay = text("RavenGoblinVisionOverlay.kt")
     follow = text("RavenFollowMeOverlay.kt")
@@ -61,13 +63,17 @@ def main() -> int:
     for call in required_brain_calls:
         require(call in brain, f"brain_pipe_missing:{call}")
 
-    # Late modular bus organs.
-    for call in (
-        "RavenGoblinSystemsRegistryOS.enabledUnder",
-        "RavenGoblinMetaPipelineOS.enrich",
-        "RavenKnowledgeBrokerOS.observe",
-    ):
-        require(call in bus, f"bus_pipe_missing:{call}")
+    # Modular load planning and executable late organs.
+    require("RavenGoblinModuleRackOS.plan" in bus, "bus_does_not_use_module_rack")
+    require("RavenGoblinExtensionRackOS.apply" in bus, "bus_does_not_use_extension_rack")
+    require("RavenGoblinSystemsRegistryOS.enabledUnder" in module_rack, "module_rack_not_bound_to_registry")
+    require("dependency:" in module_rack, "module_rack_dependency_shedding_missing")
+    require("mandatory_dependency_shed" in module_rack, "module_rack_mandatory_dependency_alarm_missing")
+    require("interface Extension" in extension_rack, "extension_contract_missing")
+    require('override val id: String = "META_GRAMMAR"' in extension_rack, "meta_grammar_extension_missing")
+    require('override val id: String = "KNOWLEDGE_BROKER"' in extension_rack, "knowledge_extension_missing")
+    require("RavenGoblinMetaPipelineOS.enrich" in extension_rack, "meta_pipeline_not_executed_by_extension")
+    require("RavenKnowledgeBrokerOS.observe" in extension_rack, "knowledge_broker_not_executed_by_extension")
 
     # Cross-surface settlement: every surface consumes the same settled ReactionPacket.
     require("RavenReactionStateStore.write" in router, "reaction_state_settlement_missing")
@@ -89,9 +95,9 @@ def main() -> int:
     required_organs = (
         "SCREEN_MONITOR", "PHONE_PULSE", "USAGE_SENSE", "NOTIFICATION_SENSE", "MEDIA_SESSION",
         "ACCESSIBILITY_READ", "SITCOM_DIRECTOR", "METAMAX_SHOWRUNNER", "GOLD_TOPOLOGY",
-        "PRESENTATION_ARBITER", "GOBLIN_ENGINE", "META_GRAMMAR", "KNOWLEDGE_BROKER",
-        "SURFACE_ROUTER", "OFFICE_BAR", "FOLLOW_ME", "GOBLIN_OVERLAY", "RAVEN_WIDGET",
-        "WATCHLET", "TASKER_BRIDGE", "WALLPAPER_CHANNEL",
+        "PRESENTATION_ARBITER", "MODULE_RACK", "LATE_EXTENSION_RACK", "GOBLIN_ENGINE",
+        "META_GRAMMAR", "KNOWLEDGE_BROKER", "SURFACE_ROUTER", "OFFICE_BAR", "FOLLOW_ME",
+        "GOBLIN_OVERLAY", "RAVEN_WIDGET", "WATCHLET", "TASKER_BRIDGE", "WALLPAPER_CHANNEL",
     )
     for organ in required_organs:
         require(f'Organ("{organ}"' in registry, f"registry_missing:{organ}")
@@ -103,7 +109,10 @@ def main() -> int:
             "showrunner_recovery_modes_missing")
 
     print("RAVENOS_GOBLIN_BRAIN_WIRING_CANARY_PASS")
-    print(f"brain_calls={len(required_brain_calls)} modular_bus=3 surface_router=9 registry_organs={len(required_organs)}")
+    print(
+        f"brain_calls={len(required_brain_calls)} module_rack=dependency-aware "
+        f"extensions=2 surface_router=9 registry_organs={len(required_organs)}"
+    )
     return 0
 
 
