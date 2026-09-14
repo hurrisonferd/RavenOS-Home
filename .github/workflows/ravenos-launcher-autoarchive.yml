@@ -1,0 +1,54 @@
+name: RavenOS Launcher Autoarchive
+
+on:
+  push:
+    branches: ['ravenos-launcher*']
+    paths:
+      - 'ravenos-launcher/**'
+      - 'faeryware/house/**'
+      - '.github/workflows/ravenos-launcher-autoarchive.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  archive-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build verified archive payload
+        run: bash ravenos-launcher/archive-build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARCHIVE_FOLDER }}
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            ${{ env.APK_NAME }}
+            ${{ env.APK_NAME }}.sha256
+            RavenOS-Launcher-badging.txt
+            RavenOS-Launcher-archive-manifest.json
+            ravenos-launcher/device-canary.sh
+      - name: Publish durable prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: RavenOS Launcher ${{ env.ARCHIVE_FOLDER }}
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          make_latest: false
+          generate_release_notes: false
+          files: |
+            ${{ env.APK_NAME }}
+            ${{ env.APK_NAME }}.sha256
+            RavenOS-Launcher-badging.txt
+            RavenOS-Launcher-archive-manifest.json
+            ravenos-launcher/device-canary.sh
