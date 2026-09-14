@@ -24,6 +24,8 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
       - name: Build verified archive payload
         run: bash ravenos-launcher/archive-build.sh
       - uses: actions/upload-artifact@v4

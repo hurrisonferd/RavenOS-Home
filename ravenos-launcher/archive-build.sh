@@ -5,9 +5,8 @@ python3 ravenos-launcher/apply-ravenos-overlay.py
 python3 ravenos-launcher/patch-ravenos-ergonomics.py faeryware/house/iappyxOS-Launcher
 
 pushd faeryware/house/iappyxOS-Launcher/src/launcher >/dev/null
-chmod +x ./gradlew
-./gradlew :app:compileDebugKotlin --stacktrace
-./gradlew :app:assembleDebug --stacktrace
+gradle --no-daemon :app:compileDebugKotlin --stacktrace
+gradle --no-daemon :app:assembleDebug --stacktrace
 popd >/dev/null
 
 SHORT_SHA="${GITHUB_SHA::8}"
