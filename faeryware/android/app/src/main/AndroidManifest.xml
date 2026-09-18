@@ -9,7 +9,7 @@
     <uses-feature android:name="android.software.live_wallpaper" android:required="false" />
 
     <application android:allowBackup="true" android:label="Faeryware" android:theme="@style/AppTheme" android:icon="@drawable/ic_faeryware">
-        <!-- V5 deliberately does NOT claim android.intent.category.HOME. Samsung One UI stays Home. -->
+        <!-- COLONY remains independently installable and deliberately does NOT claim HOME. HOUSE mode lives in the pinned iappyx chassis. -->
         <activity android:name=".FaerywareLauncherActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -17,6 +17,14 @@
             </intent-filter>
         </activity>
         <activity android:name=".FaerywareHauntConsoleActivity" android:exported="false" android:label="Ghost House" />
+
+        <!-- Read-only HOUSE bridge. Runtime code also restricts callers to the pinned launcher package(s). -->
+        <provider
+            android:name=".FaerywareResidentProvider"
+            android:authorities="com.faeryware.launcher.resident"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+
         <service android:name=".FaerywareGoblinOverlayService" android:exported="false" android:foregroundServiceType="specialUse" android:stopWithTask="false">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-started visible draggable Digi Fae overlay sprites; no fullscreen interception or other-app input capture." />
         </service>

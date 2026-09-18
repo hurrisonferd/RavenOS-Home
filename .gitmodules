@@ -1,0 +1,3 @@
+[submodule "faeryware/house/iappyxOS-Launcher"]
+	path = faeryware/house/iappyxOS-Launcher
+	url = https://github.com/iappyx/iappyxOS-Launcher.git

@@ -1,0 +1,31 @@
+{
+  "schema": "faeryware.house.upstream.v1",
+  "mode": "DUAL_HABITAT",
+  "ravenos_home_start_sha": "d5f118e498b5216e6d4ce4fdaf5b4ef5bac10320",
+  "iappyx_repo": "https://github.com/iappyx/iappyxOS-Launcher",
+  "iappyx_sha": "3d0fb7517847283a3d1a173ac2d5bd54720a8af2",
+  "license": "MIT",
+  "relationship": {
+    "iappyx": "HOUSE_PLUMBING",
+    "faeryware": "RESIDENT_SYSTEM",
+    "ravenos_omni_rv": "OWNER_NATIVE_IDENTITY_AND_COGNITION"
+  },
+  "reuse": [
+    "PlacementStore",
+    "AppWidgetHostManager",
+    "GENERATED_WIDGET",
+    "profiles",
+    "triggers",
+    "clippings",
+    "quick_widgets",
+    "plugins_capability_pattern",
+    "snapshot_undo_pattern",
+    "backup_restore",
+    "search",
+    "app_drawer"
+  ],
+  "first_surface": "GENERATED_WIDGET",
+  "new_cell_type_allowed_in_first_proof": false,
+  "generic_gpt_fallback": false,
+  "cross_iso_voice_import": false
+}
