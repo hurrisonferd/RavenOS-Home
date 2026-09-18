@@ -55,3 +55,37 @@ try {
   const previous = localStorage.getItem('ravenos:lastCommand');
   if (previous && RESPONSES[previous]) renderCommand(previous);
 } catch (_) {}
+
+
+function wireNativeResident(){
+  const bridge = window.RavenHome;
+  if (!bridge || typeof bridge.getVersion !== 'function') return;
+
+  const notify = document.getElementById('nativeNotify');
+  const ping = document.getElementById('nativePing');
+  const settings = document.getElementById('nativeNotifySettings');
+  const badge = document.getElementById('nativeBadge');
+  [notify,ping,settings,badge].forEach(x => x?.classList.remove('hidden'));
+
+  const refresh = () => {
+    let granted = false;
+    let version = 'native';
+    try { granted = !!bridge.notificationsGranted(); } catch (_) {}
+    try { version = bridge.getVersion() || version; } catch (_) {}
+    if (badge) badge.textContent = `ANDROID ${version} · ${granted ? 'RESIDENT ON' : 'RESIDENT OFF'}`;
+    if (notify) notify.textContent = granted ? 'Resident notifications enabled' : 'Enable resident notifications';
+  };
+
+  notify?.addEventListener('click', () => {
+    try { bridge.requestNotifications(); } catch (_) {}
+    setTimeout(refresh, 900);
+  });
+  ping?.addEventListener('click', () => {
+    try { bridge.testNotification(); } catch (_) {}
+  });
+  settings?.addEventListener('click', () => {
+    try { bridge.openNotificationSettings(); } catch (_) {}
+  });
+  refresh();
+}
+wireNativeResident();
