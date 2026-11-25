@@ -76,9 +76,11 @@ object RavenGoblinVisionOverlay {
     fun renderReaction(context: Context, reaction: RavenReactionPacket, hauntMode: RavenHauntMode) {
         if (reaction.markerId == lastMarkerId) return
         val spoken = cleanVisible(reaction.dialogue)
-        if (spoken.isNotBlank() && mode == Mode.COMMENT) {
+        if (mode == Mode.COMMENT) {
             val elapsed = System.currentTimeMillis() - lastCommentAt
             if (elapsed < MIN_COMMENT_HOLD_MS) {
+                // Empty/no-op packets must not erase a line that is still inside its hold window.
+                if (spoken.isBlank()) return
                 val incoming = PendingReaction(reaction, hauntMode)
                 val queued = pendingReaction
                 if (queued == null || reaction.highlightScore >= queued.reaction.highlightScore) {
