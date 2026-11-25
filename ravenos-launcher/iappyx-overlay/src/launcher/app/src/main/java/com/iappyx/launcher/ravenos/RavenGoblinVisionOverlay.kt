@@ -33,6 +33,8 @@ object RavenGoblinVisionOverlay {
 
     private enum class Mode { CHIP, COMMENT, FEED }
 
+    private const val MIN_COMMENT_HOLD_MS = 3_000L
+
     private var wm: WindowManager? = null
     private var root: LinearLayout? = null
     private var lp: WindowManager.LayoutParams? = null
@@ -42,6 +44,11 @@ object RavenGoblinVisionOverlay {
     private var contextView: TextView? = null
     private val handler = Handler(Looper.getMainLooper())
     private var collapseRunnable: Runnable? = null
+    private var pendingRunnable: Runnable? = null
+    private data class PendingReaction(val reaction: RavenReactionPacket, val hauntMode: RavenHauntMode)
+    private var pendingReaction: PendingReaction? = null
+    private var lastCommentAt: Long = 0L
+    private var lastMarkerId: String = ""
 
     private var mode = Mode.CHIP
     private var appContext: Context? = null
@@ -67,12 +74,44 @@ object RavenGoblinVisionOverlay {
     }
 
     fun renderReaction(context: Context, reaction: RavenReactionPacket, hauntMode: RavenHauntMode) {
+        if (reaction.markerId == lastMarkerId) return
+        val spoken = cleanVisible(reaction.dialogue)
+        if (spoken.isNotBlank() && mode == Mode.COMMENT) {
+            val elapsed = System.currentTimeMillis() - lastCommentAt
+            if (elapsed < MIN_COMMENT_HOLD_MS) {
+                val incoming = PendingReaction(reaction, hauntMode)
+                val queued = pendingReaction
+                if (queued == null || reaction.highlightScore >= queued.reaction.highlightScore) {
+                    pendingReaction = incoming
+                }
+                schedulePendingFlush(context, MIN_COMMENT_HOLD_MS - elapsed)
+                return
+            }
+        }
+        presentReaction(context, reaction, hauntMode)
+    }
+
+    private fun presentReaction(context: Context, reaction: RavenReactionPacket, hauntMode: RavenHauntMode) {
         val member = RavenOfficeRegistry.member(reaction.owner) ?: return
         val spoken = cleanVisible(reaction.dialogue)
         remember(context, member, reaction.ownerLine, spoken, reaction.signal, reaction.detail, hauntMode)
+        lastMarkerId = reaction.markerId
         mode = if (spoken.isBlank()) Mode.CHIP else Mode.COMMENT
+        if (spoken.isNotBlank()) lastCommentAt = System.currentTimeMillis()
         renderCurrent(context)
         if (spoken.isNotBlank()) scheduleCollapse(context, reaction, hauntMode)
+    }
+
+    private fun schedulePendingFlush(context: Context, delayMs: Long) {
+        pendingRunnable?.let(handler::removeCallbacks)
+        val runnable = Runnable {
+            pendingRunnable = null
+            val next = pendingReaction ?: return@Runnable
+            pendingReaction = null
+            presentReaction(context.applicationContext, next.reaction, next.hauntMode)
+        }
+        pendingRunnable = runnable
+        handler.postDelayed(runnable, delayMs.coerceAtLeast(1L))
     }
 
     private fun remember(
@@ -253,6 +292,9 @@ object RavenGoblinVisionOverlay {
     fun hide() {
         collapseRunnable?.let(handler::removeCallbacks)
         collapseRunnable = null
+        pendingRunnable?.let(handler::removeCallbacks)
+        pendingRunnable = null
+        pendingReaction = null
         val view = root ?: return
         try { wm?.removeView(view) } catch (_: Throwable) {}
         root = null
