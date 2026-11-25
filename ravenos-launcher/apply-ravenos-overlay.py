@@ -121,6 +121,20 @@ def main() -> None:
         'applicationId "com.ravenos.launcher"',
     )
 
+    # Keep the preserved Meta Goblin package identity while issuing a real upgrade version.
+    replace_once(
+        build_gradle,
+        'versionName "0.9.0"',
+        'versionName "0.8.0"',
+        'versionName "0.9.0"',
+    )
+    replace_once(
+        build_gradle,
+        'versionCode 9',
+        'versionCode 8',
+        'versionCode 9',
+    )
+
     manifest = UPSTREAM / "src/launcher/app/src/main/AndroidManifest.xml"
     replace_once(
         manifest,
