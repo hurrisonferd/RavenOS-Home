@@ -84,12 +84,14 @@ def replace_once(path: Path, marker: str, old: str, new: str) -> None:
 def rebrand_strings() -> None:
     res = UPSTREAM / "src/launcher/app/src/main/res"
     touched = 0
+    app_name_entries = 0
     for path in sorted(res.glob("values*/strings.xml")):
         text = path.read_text(encoding="utf-8")
-        new = re.sub(
+        new, app_count = re.subn(
             r'(<string\s+name="app_name"[^>]*>).*?(</string>)',
             r'\1RavenOS Launcher\2', text, count=1, flags=re.S,
         )
+        app_name_entries += app_count
         new = re.sub(
             r'(<string\s+name="wallpaper_label"[^>]*>).*?(</string>)',
             r'\1RavenOS Live\2', new, count=1, flags=re.S,
@@ -97,9 +99,9 @@ def rebrand_strings() -> None:
         if new != text:
             path.write_text(new, encoding="utf-8")
             touched += 1
-    if touched == 0:
-        raise SystemExit("RavenOS rebrand failed: no app_name strings changed")
-    print(f"RavenOS rebrand: {touched} locale string files")
+    if app_name_entries == 0:
+        raise SystemExit("RavenOS rebrand failed: no app_name resource entries found")
+    print(f"RavenOS rebrand: {touched} locale files changed; {app_name_entries} app_name entries validated")
 
 
 def main() -> None:
